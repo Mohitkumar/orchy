@@ -1,0 +1,46 @@
+{
+	"name" :"wf",
+	"data":{
+		"key":"val",
+		"keyInt" :234
+	},
+	"rootAction":1,
+	"actions":[
+		{
+			"id":1,
+			"type":"system",
+			"name":"http",
+			"inputParams":{
+
+			},
+			"next":2
+		},
+		{
+			"id":2,
+			"type":"system",
+			"name":"decision",
+			"expression":"$1.output.status",
+			"cases":{
+				"200":3,
+				"500":5
+			}
+		},
+		{
+			"id":3,
+			"type":"system",
+			"name":"fork",
+			"forks":[
+				6,7
+			],
+			"join":8
+		},
+		{
+			"id":4,
+			"type":"system",
+			"name":"delay",
+			"delaySeconds":20
+		}
+	]
+}
+
+{"a":22, "body":{"test":1},"1":{"output":{"z":89,"status":200}}}
