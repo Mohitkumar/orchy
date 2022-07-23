@@ -1,0 +1,37 @@
+syntax = "proto3";
+import "google/protobuf/struct.proto";
+option go_package="github.com/mohitkumar/api_v1";
+
+
+message Task{
+    string workflowName = 1;
+    string flowId = 2;
+    map<string,google.protobuf.Value> data = 3;
+    int32 actionId  = 4;
+}
+
+message TaskResult{
+    string workflowName = 1;
+    string flowId = 2;
+    int32 actionId = 3;
+    map<string,google.protobuf.Value> data = 4;
+    enum Status{
+        SUCCESS = 0;
+        FAIL  = 1;
+    }
+    Status status = 5;
+}
+
+message TaskPollRequest{
+    string taskType = 1;
+}
+
+message TaskResultPushResponse{
+    bool status = 1;
+}
+
+service TaskService{
+    rpc Poll(TaskPollRequest) returns (Task){}
+    rpc PollStream(TaskPollRequest) returns (stream Task){}
+    rpc Push(TaskResult) returns (TaskResultPushResponse) {}
+}
