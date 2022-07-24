@@ -4,8 +4,10 @@ import (
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/executor"
+	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/util"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -55,7 +57,11 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 		}
 		s.actionExecutor.Execute(req)
 	case api.TaskResult_FAIL:
-		//retry logic
+		taskDef, err := s.container.GetTaskDao().GetTask(taskResult.TaskName)
+		if err != nil {
+			logger.Error("task definition not found ", zap.String("taskName", taskResult.TaskName), zap.Error(err))
+			return err
+		}
 	}
 	return nil
 }

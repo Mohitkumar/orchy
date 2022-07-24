@@ -11,27 +11,27 @@ type workerWithStopChannel struct {
 	worker Worker
 	stop   chan struct{}
 }
-type TaskPoller struct {
+type taskPoller struct {
 	workers []*workerWithStopChannel
-	Config  WorkerConfiguration
+	config  WorkerConfiguration
 	wg      *sync.WaitGroup
 }
 
-func NewTaskPoller(conf WorkerConfiguration, wg *sync.WaitGroup) *TaskPoller {
-	return &TaskPoller{
-		Config: conf,
+func NewTaskPoller(conf WorkerConfiguration, wg *sync.WaitGroup) *taskPoller {
+	return &taskPoller{
+		config: conf,
 		wg:     wg,
 	}
 }
 
-func (tp *TaskPoller) RegisterWorker(worker Worker) {
+func (tp *taskPoller) registerWorker(worker Worker) {
 	stopc := make(chan struct{})
 	tp.workers = append(tp.workers, &workerWithStopChannel{worker: worker, stop: stopc})
 }
 
-func (tp *TaskPoller) Start() {
+func (tp *taskPoller) start() {
 	for _, w := range tp.workers {
-		client, err := newClient(tp.Config.ServerUrl)
+		client, err := newClient(tp.config.ServerUrl)
 		if err != nil {
 			panic(err)
 		}
@@ -40,8 +40,8 @@ func (tp *TaskPoller) Start() {
 			stop:                     w.stop,
 			client:                   client,
 			wg:                       tp.wg,
-			maxRetryBeforeResultPush: tp.Config.MaxRetryBeforeResultPush,
-			retryIntervalSecond:      tp.Config.RetryIntervalSecond,
+			maxRetryBeforeResultPush: tp.config.MaxRetryBeforeResultPush,
+			retryIntervalSecond:      tp.config.RetryIntervalSecond,
 		}
 		err = pw.Start()
 		if err != nil {
@@ -50,7 +50,7 @@ func (tp *TaskPoller) Start() {
 	}
 }
 
-func (tp *TaskPoller) Stop() {
+func (tp *taskPoller) stop() {
 	for _, w := range tp.workers {
 		w.stop <- struct{}{}
 	}

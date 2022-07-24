@@ -32,6 +32,7 @@ func (pw *pollerWorker) execute(task *api_v1.Task) *api_v1.TaskResult {
 			WorkflowName: task.WorkflowName,
 			FlowId:       task.FlowId,
 			ActionId:     task.ActionId,
+			TaskName:     task.TaskName,
 			Status:       api_v1.TaskResult_FAIL,
 		}
 	} else {

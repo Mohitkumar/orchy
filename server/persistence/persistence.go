@@ -41,6 +41,11 @@ type FlowDao interface {
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
 }
 
+type TaskDao interface {
+	SaveTask(task model.TaskDef) error
+	DeleteTask(task string) error
+	GetTask(task string) (*model.TaskDef, error)
+}
 type Queue interface {
 	Push(queueName string, mesage []byte) error
 	Pop(queuName string) ([]byte, error)

@@ -28,6 +28,7 @@ func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext) err
 		FlowId:       flowContext.Id,
 		Data:         util.ConvertToProto(ua.ResolveInputParams(flowContext)),
 		ActionId:     int32(flowContext.CurrentAction),
+		TaskName:     ua.name,
 	}
 	d, err := proto.Marshal(task)
 	if err != nil {

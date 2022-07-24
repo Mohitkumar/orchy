@@ -6,11 +6,29 @@ import (
 
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/persistence"
 	"go.uber.org/zap"
 )
 
 var _ api.TaskServiceServer = (*grpcServer)(nil)
+
+func (srv *grpcServer) SaveTaskDef(ctx context.Context, req *api.TaskDef) (*api.TaskDefSaveResponse, error) {
+	task := &model.TaskDef{
+		Name:              req.Name,
+		RetryCount:        int(req.RetryCount),
+		RetryAfterSeconds: int(req.RetryAfterSeconds),
+		RetryPolicy:       model.RetryPolicy(req.RetryPolicy),
+		TimeoutSeconds:    int(req.TimeoutSeconds),
+	}
+	err := srv.TaskDefService.SaveTask(*task)
+	if err != nil {
+		return &api.TaskDefSaveResponse{
+			Status: false,
+		}, err
+	}
+	return &api.TaskDefSaveResponse{Status: true}, nil
+}
 
 func (srv *grpcServer) Poll(ctx context.Context, req *api.TaskPollRequest) (*api.Task, error) {
 	task, err := srv.TaskService.Poll(req.TaskType)
