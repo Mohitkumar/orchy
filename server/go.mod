@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
-	github.com/mohitkumar/orchy/api v0.0.0
+	github.com/mohitkumar/orchy/api v0.0.0-beta.1
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
@@ -48,4 +48,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
 
-replace github.com/mohitkumar/orchy/api v0.0.0 => ../api
+replace github.com/mohitkumar/orchy/api v0.0.0-beta.1 => ../api
