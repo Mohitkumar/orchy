@@ -9,6 +9,7 @@ message Task{
     map<string,google.protobuf.Value> data = 3;
     int32 actionId  = 4;
     string taskName = 5;
+    int32 retryCount = 6;
 }
 
 message TaskResult{
@@ -22,6 +23,7 @@ message TaskResult{
         FAIL  = 1;
     }
     Status status = 6;
+    int32 retryCount = 7;
 }
 
 message TaskDef{

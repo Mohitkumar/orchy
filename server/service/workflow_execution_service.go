@@ -47,6 +47,7 @@ func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) 
 		WorkflowName: name,
 		ActionId:     wf.RootAction,
 		FlowId:       flow.Id,
+		RetryCount:   1,
 	}
 	return s.actionExecutor.Execute(req)
 }

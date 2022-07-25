@@ -22,13 +22,14 @@ func NewUserAction(id int, Type ActionType, name string, inputParams map[string]
 	}
 }
 
-func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext) error {
+func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) error {
 	task := &api.Task{
 		WorkflowName: wfName,
 		FlowId:       flowContext.Id,
 		Data:         util.ConvertToProto(ua.ResolveInputParams(flowContext)),
 		ActionId:     int32(flowContext.CurrentAction),
 		TaskName:     ua.name,
+		RetryCount:   int32(retryCount),
 	}
 	d, err := proto.Marshal(task)
 	if err != nil {

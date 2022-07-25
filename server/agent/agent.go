@@ -23,6 +23,7 @@ type Agent struct {
 	grpcServer               *grpc.Server
 	delayExecutor            *executor.DelayExecutor
 	actionExecutor           *executor.ActionExecutor
+	retryExecutor            *executor.RetryExecutor
 	actionExecutionService   *service.ActionExecutionService
 	workflowExecutionService *service.WorkflowExecutionService
 	shutdown                 bool
@@ -40,6 +41,7 @@ func New(config config.Config) (*Agent, error) {
 		a.setupDiContainer,
 		a.setupActionExecutor,
 		a.setupDelayExecutor,
+		a.setupRetryExecutor,
 		a.setupWorkflowExecutionService,
 		a.setupActionExecutorService,
 		a.setupHttpServer,
@@ -67,6 +69,11 @@ func (a *Agent) setupActionExecutor() error {
 func (a *Agent) setupDelayExecutor() error {
 	a.delayExecutor = executor.NewDelayExecutor(a.diContainer, a.actionExecutor, &a.wg)
 	return a.delayExecutor.Start()
+}
+
+func (a *Agent) setupRetryExecutor() error {
+	a.retryExecutor = executor.NewRetryExecutor(a.diContainer, a.actionExecutor, &a.wg)
+	return a.retryExecutor.Start()
 }
 
 func (a *Agent) setupWorkflowExecutionService() error {

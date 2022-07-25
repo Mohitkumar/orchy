@@ -1,6 +1,8 @@
 package service
 
 import (
+	"time"
+
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/executor"
@@ -54,6 +56,7 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 			WorkflowName: wfName,
 			ActionId:     int(flowCtx.NextAction),
 			FlowId:       wfId,
+			RetryCount:   1,
 		}
 		s.actionExecutor.Execute(req)
 	case api.TaskResult_FAIL:
@@ -61,6 +64,26 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 		if err != nil {
 			logger.Error("task definition not found ", zap.String("taskName", taskResult.TaskName), zap.Error(err))
 			return err
+		}
+		if taskResult.RetryCount <= int32(taskDef.RetryCount) {
+			var retryAfter time.Duration
+			switch taskDef.RetryPolicy {
+			case model.RETRY_POLICY_FIXED:
+				retryAfter = time.Duration(taskDef.RetryAfterSeconds) * time.Second
+			case model.RETRY_POLICY_BACKOFF:
+				retryAfter = time.Duration(taskDef.RetryAfterSeconds*int(taskResult.RetryCount)) * time.Second
+			}
+			req := model.ActionExecutionRequest{
+				WorkflowName: wfName,
+				ActionId:     int(taskResult.ActionId),
+				FlowId:       wfId,
+				RetryCount:   int(taskResult.RetryCount) + 1,
+			}
+			data, err := s.container.ActionExecutionRequestEncDec.Encode(req)
+			if err != nil {
+				return err
+			}
+			s.container.GetTaskRetryQueue().PushWithDelay("retry-queue", retryAfter, data)
 		}
 	}
 	return nil

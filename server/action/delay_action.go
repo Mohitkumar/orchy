@@ -24,7 +24,7 @@ func NewDelayAction(id int, Type ActionType, name string, delaySeconds int, next
 		nextAction: nextAction,
 	}
 }
-func (d *delayAction) Execute(wfName string, flowContext *model.FlowContext) error {
+func (d *delayAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) error {
 	msg := model.ActionExecutionRequest{
 		WorkflowName: wfName,
 		FlowId:       flowContext.Id,

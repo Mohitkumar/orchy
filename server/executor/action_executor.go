@@ -55,7 +55,7 @@ func (ex *ActionExecutor) Start() error {
 			return ex.container.GetFlowDao().SaveFlowContext(wfName, flowId, flowCtx)
 		}
 		currentAction := flow.Actions[actionId]
-		err = currentAction.Execute(wfName, flowCtx)
+		err = currentAction.Execute(wfName, flowCtx, req.RetryCount)
 		if err != nil {
 			return err
 		}

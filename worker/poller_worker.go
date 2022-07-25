@@ -34,6 +34,7 @@ func (pw *pollerWorker) execute(task *api_v1.Task) *api_v1.TaskResult {
 			ActionId:     task.ActionId,
 			TaskName:     task.TaskName,
 			Status:       api_v1.TaskResult_FAIL,
+			RetryCount:   task.RetryCount,
 		}
 	} else {
 		taskResult = &api_v1.TaskResult{
@@ -42,6 +43,7 @@ func (pw *pollerWorker) execute(task *api_v1.Task) *api_v1.TaskResult {
 			ActionId:     task.ActionId,
 			Data:         util.ConvertToProto(result),
 			Status:       api_v1.TaskResult_SUCCESS,
+			RetryCount:   task.RetryCount,
 		}
 	}
 	return taskResult

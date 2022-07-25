@@ -25,7 +25,7 @@ func NewSwitchAction(id int, Type ActionType, name string, expression string, ca
 	}
 }
 
-func (d *switchAction) Execute(wfName string, flowContext *model.FlowContext) error {
+func (d *switchAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) error {
 	dataMap := flowContext.Data
 	expressionValue, err := jsonpath.JsonPathLookup(dataMap, d.expression)
 	if err != nil {
