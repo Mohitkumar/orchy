@@ -147,6 +147,7 @@ func (a *Agent) Shutdown() error {
 	shutdown := []func() error{
 		a.actionExecutor.Stop,
 		a.delayExecutor.Stop,
+		a.retryExecutor.Stop,
 		a.httpServer.Stop,
 		func() error {
 			logger.Info("stopping grpc server")

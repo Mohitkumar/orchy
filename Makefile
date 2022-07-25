@@ -4,6 +4,7 @@ GOPATH ?= $(shell go env GOPATH)
 
 GO                  := GO111MODULE=on go
 build:
+	go build -o bin/${BINARY_NAME} server/main.go
 	GOARCH=amd64 GOOS=linux go build -o bin/${BINARY_NAME}-linux server/main.go
 
 run:
