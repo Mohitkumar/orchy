@@ -1,10 +1,14 @@
 package action
 
 import (
+	"time"
+
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/container"
+	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/util"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -23,6 +27,11 @@ func NewUserAction(id int, Type ActionType, name string, inputParams map[string]
 }
 
 func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) error {
+	taskDef, err := ua.container.GetTaskDao().GetTask(ua.name)
+	if err != nil {
+		logger.Error("task definition not found", zap.String("taskName", ua.name))
+		return err
+	}
 	task := &api.Task{
 		WorkflowName: wfName,
 		FlowId:       flowContext.Id,
@@ -44,5 +53,17 @@ func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, ret
 	if err != nil {
 		return err
 	}
+	req := model.ActionExecutionRequest{
+		WorkflowName: wfName,
+		ActionId:     flowContext.CurrentAction,
+		FlowId:       flowContext.Id,
+		RetryCount:   retryCount,
+		TaskName:     ua.name,
+	}
+	data, err := ua.container.ActionExecutionRequestEncDec.Encode(req)
+	if err != nil {
+		return err
+	}
+	ua.container.GetTaskTimeoutQueue().PushWithDelay("timeout-queue", time.Duration(taskDef.TimeoutSeconds)*time.Second, data)
 	return nil
 }

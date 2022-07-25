@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/cenkalti/backoff/v4 v4.1.3
-	github.com/mohitkumar/orchy/api v0.0.0-00010101000000-000000000000
+	github.com/mohitkumar/orchy/api v0.0.0
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
@@ -20,4 +20,4 @@ require (
 	google.golang.org/genproto v0.0.0-20220722212130-b98a9ff5e252 // indirect
 )
 
-replace github.com/mohitkumar/orchy/api => ../api
+replace github.com/mohitkumar/orchy/api v0.0.0 => ../api
