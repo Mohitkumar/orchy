@@ -47,5 +47,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
-
-replace github.com/mohitkumar/orchy/api v0.0.0-beta.1 => ../api
