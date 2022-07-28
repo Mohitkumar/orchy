@@ -2,14 +2,12 @@ package worker
 
 import (
 	"sync"
-
-	"github.com/mohitkumar/orchy/worker/logger"
-	"go.uber.org/zap"
 )
 
 type workerWithStopChannel struct {
-	worker Worker
-	stop   chan struct{}
+	worker     Worker
+	stop       chan struct{}
+	numWorkers int
 }
 type taskPoller struct {
 	workers []*workerWithStopChannel
@@ -24,9 +22,9 @@ func NewTaskPoller(conf WorkerConfiguration, wg *sync.WaitGroup) *taskPoller {
 	}
 }
 
-func (tp *taskPoller) registerWorker(worker Worker) {
+func (tp *taskPoller) registerWorker(worker Worker, numWorkers int) {
 	stopc := make(chan struct{})
-	tp.workers = append(tp.workers, &workerWithStopChannel{worker: worker, stop: stopc})
+	tp.workers = append(tp.workers, &workerWithStopChannel{worker: worker, stop: stopc, numWorkers: numWorkers})
 }
 
 func (tp *taskPoller) start() {
@@ -42,11 +40,10 @@ func (tp *taskPoller) start() {
 			wg:                       tp.wg,
 			maxRetryBeforeResultPush: tp.config.MaxRetryBeforeResultPush,
 			retryIntervalSecond:      tp.config.RetryIntervalSecond,
+			numWorker:                w.numWorkers,
 		}
-		err = pw.Start()
-		if err != nil {
-			logger.Error("error starting worker ", zap.String("name", w.worker.GetName()), zap.Error(err))
-		}
+		tp.wg.Add(1)
+		go pw.Start()
 	}
 }
 

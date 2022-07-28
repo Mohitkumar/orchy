@@ -22,6 +22,7 @@ type pollerWorker struct {
 	maxRetryBeforeResultPush int
 	retryIntervalSecond      int
 	wg                       *sync.WaitGroup
+	numWorker                int
 }
 
 func (pw *pollerWorker) execute(task *api_v1.Task) *api_v1.TaskResult {
@@ -73,41 +74,69 @@ func (pw *pollerWorker) sendResponse(ctx context.Context, taskResult *api_v1.Tas
 	}
 	return nil
 }
-func (pw *pollerWorker) Start() error {
+
+func (pw *pollerWorker) workerLoop(errorChan chan<- error, ctx context.Context, taskStream api_v1.TaskService_PollStreamClient) {
+	defer pw.wg.Done()
+	for {
+		select {
+		case <-pw.stop:
+			return
+		default:
+			task, err := taskStream.Recv()
+			if err != nil {
+				if e, ok := status.FromError(err); ok {
+					switch e.Code() {
+					case codes.Unavailable:
+						errorChan <- err
+						return
+					default:
+						logger.Error("error", zap.Error(err))
+					}
+				}
+			} else {
+				result := pw.execute(task)
+				err = pw.sendResponse(ctx, result)
+				if err != nil {
+					logger.Error("error sending task execution response to server", zap.String("taskType", pw.worker.GetName()))
+				}
+			}
+		}
+	}
+}
+func (pw *pollerWorker) Start() {
+	logger.Info("starting workers", zap.String("worker", pw.worker.GetName()), zap.Int("workers", pw.numWorker))
 	ctx := context.Background()
 	req := &api_v1.TaskPollRequest{
 		TaskType: pw.worker.GetName(),
 	}
 	taskStream, err := pw.client.GetApiClient().PollStream(ctx, req)
 	if err != nil {
-		return err
+		logger.Error("error opening stream to server")
+		return
 	}
-	pw.wg.Add(1)
-	go func() {
-		defer pw.wg.Done()
-		for {
-			select {
-			case <-pw.stop:
-				return
-			default:
-				task, err := taskStream.Recv()
-				if err != nil {
-					if e, ok := status.FromError(err); ok {
-						switch e.Code() {
-						case codes.Unavailable:
-							logger.Error("server not running reconnecting...")
-							pw.client.Refresh()
-						}
-					}
-				} else {
-					result := pw.execute(task)
-					err = pw.sendResponse(ctx, result)
-					if err != nil {
-						logger.Error("error sending task execution response to server", zap.String("taskType", pw.worker.GetName()))
-					}
+	errorCh := make(chan error, pw.numWorker)
+	for i := 0; i < pw.numWorker; i++ {
+		pw.wg.Add(1)
+		go pw.workerLoop(errorCh, ctx, taskStream)
+		logger.Info("started worker", zap.String("name", pw.worker.GetName()))
+	}
+	for {
+		select {
+		case <-pw.stop:
+			return
+		case err := <-errorCh:
+			for err != nil {
+				logger.Error("server is unavialble reconnecting worker", zap.String("name", pw.worker.GetName()), zap.Error(err))
+				time.Sleep(1 * time.Second)
+				err = pw.client.Refresh()
+				taskStream, err := pw.client.GetApiClient().PollStream(ctx, req)
+				if err == nil {
+					logger.Info("server reconnect successfull", zap.String("worker", pw.worker.GetName()))
+					pw.wg.Add(1)
+					errorCh = make(chan error, pw.numWorker)
+					go pw.workerLoop(errorCh, ctx, taskStream)
 				}
 			}
 		}
-	}()
-	return nil
+	}
 }

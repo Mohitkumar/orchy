@@ -151,7 +151,7 @@ func (a *Agent) Shutdown() error {
 		a.httpServer.Stop,
 		func() error {
 			logger.Info("stopping grpc server")
-			a.grpcServer.GracefulStop()
+			a.grpcServer.Stop()
 			return nil
 		},
 	}
@@ -160,6 +160,7 @@ func (a *Agent) Shutdown() error {
 			return err
 		}
 	}
+	logger.Info("waiting for all services to shutdown...")
 	a.wg.Wait()
 	return nil
 }

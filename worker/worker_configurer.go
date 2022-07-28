@@ -28,7 +28,7 @@ func NewWorkerConfigurer(conf WorkerConfiguration, wg *sync.WaitGroup) *WorkerCo
 	return wc
 }
 
-func (wc *WorkerConfigurer) RegisterWorker(w WorkerWrapper) error {
+func (wc *WorkerConfigurer) RegisterWorker(w WorkerWrapper, numWorkers int) error {
 	taskDef := &api.TaskDef{
 		Name:              w.GetName(),
 		RetryCount:        int32(w.retryCount),
@@ -41,7 +41,7 @@ func (wc *WorkerConfigurer) RegisterWorker(w WorkerWrapper) error {
 	if err != nil {
 		return err
 	}
-	wc.taskPoller.registerWorker(w.Worker)
+	wc.taskPoller.registerWorker(w.Worker, numWorkers)
 	return nil
 }
 
