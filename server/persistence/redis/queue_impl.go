@@ -37,7 +37,6 @@ func (rq *redisQueue) Pop(queueName string) ([]byte, error) {
 	queueName = rq.getNamespaceKey(queueName)
 	ctx := context.Background()
 	res, err := rq.redisClient.LPop(ctx, queueName).Result()
-
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil, persistence.EmptyQueueError{QueueName: queueName}

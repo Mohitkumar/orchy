@@ -49,6 +49,5 @@ message TaskResultPushResponse{
 service TaskService{
     rpc SaveTaskDef(TaskDef) returns (TaskDefSaveResponse){}
     rpc Poll(TaskPollRequest) returns (Task){}
-    rpc PollStream(TaskPollRequest) returns (stream Task){}
     rpc Push(TaskResult) returns (TaskResultPushResponse) {}
 }

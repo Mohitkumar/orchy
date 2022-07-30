@@ -84,6 +84,14 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 				return err
 			}
 			s.container.GetTaskRetryQueue().PushWithDelay("retry-queue", retryAfter, data)
+		} else {
+			logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", taskDef.RetryCount))
+			flowCtx, err := s.container.GetFlowDao().GetFlowContext(wfName, wfId)
+			if err != nil {
+				return err
+			}
+			flowCtx.State = model.COMPLETED
+			return s.container.GetFlowDao().SaveFlowContext(wfName, wfId, flowCtx)
 		}
 	}
 	return nil

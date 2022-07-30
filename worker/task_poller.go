@@ -42,8 +42,7 @@ func (tp *taskPoller) start() {
 			retryIntervalSecond:      tp.config.RetryIntervalSecond,
 			numWorker:                w.numWorkers,
 		}
-		tp.wg.Add(1)
-		go pw.Start()
+		pw.Start()
 	}
 }
 

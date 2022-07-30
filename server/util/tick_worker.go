@@ -37,6 +37,7 @@ func (tw *TickWorker) Start() {
 				tw.fn()
 			case <-tw.stop:
 				logger.Info("stopping tick worker", zap.String("worker", tw.name))
+				ticker.Stop()
 				return
 			}
 		}

@@ -50,11 +50,11 @@ func (ex *ActionExecutor) Start() error {
 		if err != nil {
 			return err
 		}
-		if _, ok := flow.Actions[int(actionId)]; !ok {
+		currentAction, ok := flow.Actions[actionId]
+		if !ok {
 			flowCtx.State = model.COMPLETED
 			return ex.container.GetFlowDao().SaveFlowContext(wfName, flowId, flowCtx)
 		}
-		currentAction := flow.Actions[actionId]
 		err = currentAction.Execute(wfName, flowCtx, req.RetryCount)
 		if err != nil {
 			return err

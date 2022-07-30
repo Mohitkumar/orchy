@@ -73,7 +73,7 @@ func (ex *TimeoutExecutor) Start() error {
 			}
 		}
 	}
-	tw := util.NewTickWorker("retry-worker", 1, ex.stop, fn, ex.wg)
+	tw := util.NewTickWorker("timeout-worker", 1, ex.stop, fn, ex.wg)
 	tw.Start()
 	logger.Info("timeout executor started")
 	return nil

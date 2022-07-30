@@ -24,7 +24,6 @@ const _ = grpc.SupportPackageIsVersion7
 type TaskServiceClient interface {
 	SaveTaskDef(ctx context.Context, in *TaskDef, opts ...grpc.CallOption) (*TaskDefSaveResponse, error)
 	Poll(ctx context.Context, in *TaskPollRequest, opts ...grpc.CallOption) (*Task, error)
-	PollStream(ctx context.Context, in *TaskPollRequest, opts ...grpc.CallOption) (TaskService_PollStreamClient, error)
 	Push(ctx context.Context, in *TaskResult, opts ...grpc.CallOption) (*TaskResultPushResponse, error)
 }
 
@@ -54,38 +53,6 @@ func (c *taskServiceClient) Poll(ctx context.Context, in *TaskPollRequest, opts 
 	return out, nil
 }
 
-func (c *taskServiceClient) PollStream(ctx context.Context, in *TaskPollRequest, opts ...grpc.CallOption) (TaskService_PollStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &TaskService_ServiceDesc.Streams[0], "/TaskService/PollStream", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &taskServicePollStreamClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type TaskService_PollStreamClient interface {
-	Recv() (*Task, error)
-	grpc.ClientStream
-}
-
-type taskServicePollStreamClient struct {
-	grpc.ClientStream
-}
-
-func (x *taskServicePollStreamClient) Recv() (*Task, error) {
-	m := new(Task)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *taskServiceClient) Push(ctx context.Context, in *TaskResult, opts ...grpc.CallOption) (*TaskResultPushResponse, error) {
 	out := new(TaskResultPushResponse)
 	err := c.cc.Invoke(ctx, "/TaskService/Push", in, out, opts...)
@@ -101,7 +68,6 @@ func (c *taskServiceClient) Push(ctx context.Context, in *TaskResult, opts ...gr
 type TaskServiceServer interface {
 	SaveTaskDef(context.Context, *TaskDef) (*TaskDefSaveResponse, error)
 	Poll(context.Context, *TaskPollRequest) (*Task, error)
-	PollStream(*TaskPollRequest, TaskService_PollStreamServer) error
 	Push(context.Context, *TaskResult) (*TaskResultPushResponse, error)
 	mustEmbedUnimplementedTaskServiceServer()
 }
@@ -115,9 +81,6 @@ func (UnimplementedTaskServiceServer) SaveTaskDef(context.Context, *TaskDef) (*T
 }
 func (UnimplementedTaskServiceServer) Poll(context.Context, *TaskPollRequest) (*Task, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Poll not implemented")
-}
-func (UnimplementedTaskServiceServer) PollStream(*TaskPollRequest, TaskService_PollStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method PollStream not implemented")
 }
 func (UnimplementedTaskServiceServer) Push(context.Context, *TaskResult) (*TaskResultPushResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Push not implemented")
@@ -171,27 +134,6 @@ func _TaskService_Poll_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TaskService_PollStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(TaskPollRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(TaskServiceServer).PollStream(m, &taskServicePollStreamServer{stream})
-}
-
-type TaskService_PollStreamServer interface {
-	Send(*Task) error
-	grpc.ServerStream
-}
-
-type taskServicePollStreamServer struct {
-	grpc.ServerStream
-}
-
-func (x *taskServicePollStreamServer) Send(m *Task) error {
-	return x.ServerStream.SendMsg(m)
-}
-
 func _TaskService_Push_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TaskResult)
 	if err := dec(in); err != nil {
@@ -230,12 +172,6 @@ var TaskService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _TaskService_Push_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "PollStream",
-			Handler:       _TaskService_PollStream_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "api/v1/flow.proto",
 }

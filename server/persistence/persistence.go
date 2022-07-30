@@ -51,11 +51,6 @@ type Queue interface {
 	Pop(queuName string) ([]byte, error)
 }
 
-type PriorityQueue interface {
-	Queue
-	PushPriority(queueName string, priority int, mesage []byte) error
-}
-
 type DelayQueue interface {
 	Push(queueName string, mesage []byte) error
 	Pop(queueName string) ([]string, error)

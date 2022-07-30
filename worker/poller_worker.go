@@ -75,22 +75,30 @@ func (pw *pollerWorker) sendResponse(ctx context.Context, taskResult *api_v1.Tas
 	return nil
 }
 
-func (pw *pollerWorker) workerLoop(errorChan chan<- error, ctx context.Context, taskStream api_v1.TaskService_PollStreamClient) {
+func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
+	ctx := context.Background()
+	req := &api_v1.TaskPollRequest{
+		TaskType: pw.worker.GetName(),
+	}
 	defer pw.wg.Done()
 	for {
 		select {
 		case <-pw.stop:
+			ticker.Stop()
 			return
-		default:
-			task, err := taskStream.Recv()
+		case <-ticker.C:
+			task, err := pw.client.GetApiClient().Poll(ctx, req)
 			if err != nil {
 				if e, ok := status.FromError(err); ok {
 					switch e.Code() {
 					case codes.Unavailable:
-						errorChan <- err
-						return
+						logger.Error("server unavialable trying reconnect...")
+						pw.client.Refresh()
+						logger.Info("server reconnect successfull, continueing..")
+					case codes.NotFound:
+						logger.Debug("not task available", zap.Error(err))
 					default:
-						logger.Error("error", zap.Error(err))
+						logger.Error("unexpected error", zap.Error(err))
 					}
 				}
 			} else {
@@ -104,39 +112,11 @@ func (pw *pollerWorker) workerLoop(errorChan chan<- error, ctx context.Context, 
 	}
 }
 func (pw *pollerWorker) Start() {
-	logger.Info("starting workers", zap.String("worker", pw.worker.GetName()), zap.Int("workers", pw.numWorker))
-	ctx := context.Background()
-	req := &api_v1.TaskPollRequest{
-		TaskType: pw.worker.GetName(),
-	}
-	taskStream, err := pw.client.GetApiClient().PollStream(ctx, req)
-	if err != nil {
-		logger.Error("error opening stream to server")
-		return
-	}
-	errorCh := make(chan error, pw.numWorker)
+	logger.Info("starting workers", zap.String("worker", pw.worker.GetName()), zap.Int("workerCount", pw.numWorker))
 	for i := 0; i < pw.numWorker; i++ {
 		pw.wg.Add(1)
-		go pw.workerLoop(errorCh, ctx, taskStream)
+		ticker := time.NewTicker(time.Duration(pw.worker.GetPollInterval()) * time.Second)
+		go pw.workerLoop(ticker)
 		logger.Info("started worker", zap.String("name", pw.worker.GetName()))
-	}
-	for {
-		select {
-		case <-pw.stop:
-			return
-		case err := <-errorCh:
-			for err != nil {
-				logger.Error("server is unavialble reconnecting worker", zap.String("name", pw.worker.GetName()), zap.Error(err))
-				time.Sleep(1 * time.Second)
-				err = pw.client.Refresh()
-				taskStream, err := pw.client.GetApiClient().PollStream(ctx, req)
-				if err == nil {
-					logger.Info("server reconnect successfull", zap.String("worker", pw.worker.GetName()))
-					pw.wg.Add(1)
-					errorCh = make(chan error, pw.numWorker)
-					go pw.workerLoop(errorCh, ctx, taskStream)
-				}
-			}
-		}
 	}
 }
