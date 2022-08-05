@@ -28,7 +28,7 @@ func (w *Worker) Start() {
 			case task := <-w.taskChan:
 				err := w.handler(task)
 				if err != nil {
-					logger.Error("error in executing task in worker", zap.String("worker", w.name), zap.Any("task", task))
+					logger.Error("error in executing task in worker", zap.String("worker", w.name), zap.Any("task", task), zap.Error(err))
 				}
 			case <-w.stop:
 				logger.Info("stopping worker", zap.String("worker", w.name))

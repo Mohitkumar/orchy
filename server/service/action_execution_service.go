@@ -90,7 +90,7 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 			if err != nil {
 				return err
 			}
-			flowCtx.State = model.COMPLETED
+			flowCtx.State = model.FAILED
 			return s.container.GetFlowDao().SaveFlowContext(wfName, wfId, flowCtx)
 		}
 	}
