@@ -26,7 +26,8 @@ type Action interface {
 	GetName() string
 	GetType() ActionType
 	GetInputParams() map[string]any
-	Execute(wfName string, flowContext *model.FlowContext, retryCount int) error
+	GetNext() map[string]int
+	Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error)
 }
 
 var _ Action = new(baseAction)
@@ -62,8 +63,12 @@ func (ba *baseAction) GetInputParams() map[string]any {
 	return ba.inputParams
 }
 
-func (ba *baseAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) error {
-	return fmt.Errorf("can not execute")
+func (ba *baseAction) GetNext() map[string]int {
+	return make(map[string]int)
+
+}
+func (ba *baseAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
+	return "default", nil, fmt.Errorf("can not execute")
 }
 
 func (ba *baseAction) ResolveInputParams(flowContext *model.FlowContext) map[string]any {

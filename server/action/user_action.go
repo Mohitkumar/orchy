@@ -26,11 +26,17 @@ func NewUserAction(id int, Type ActionType, name string, inputParams map[string]
 	}
 }
 
-func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) error {
+func (ua *UserAction) GetNext() map[string]int {
+	nextMap := make(map[string]int)
+	nextMap["default"] = ua.nextAction
+	return nextMap
+}
+
+func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
 	taskDef, err := ua.container.GetTaskDao().GetTask(ua.name)
 	if err != nil {
 		logger.Error("task definition not found", zap.String("taskName", ua.name))
-		return err
+		return "", nil, err
 	}
 	task := &api.Task{
 		WorkflowName: wfName,
@@ -42,16 +48,11 @@ func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, ret
 	}
 	d, err := proto.Marshal(task)
 	if err != nil {
-		return err
-	}
-	flowContext.NextAction = ua.nextAction
-	err = ua.container.GetFlowDao().SaveFlowContext(wfName, flowContext.Id, flowContext)
-	if err != nil {
-		return err
+		return "", nil, err
 	}
 	err = ua.container.GetQueue().Push(ua.GetName(), d)
 	if err != nil {
-		return err
+		return "", nil, err
 	}
 	req := model.ActionExecutionRequest{
 		WorkflowName: wfName,
@@ -60,10 +61,7 @@ func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, ret
 		RetryCount:   retryCount,
 		TaskName:     ua.name,
 	}
-	data, err := ua.container.ActionExecutionRequestEncDec.Encode(req)
-	if err != nil {
-		return err
-	}
+	data, _ := ua.container.ActionExecutionRequestEncDec.Encode(req)
 	ua.container.GetTaskTimeoutQueue().PushWithDelay("timeout-queue", time.Duration(taskDef.TimeoutSeconds)*time.Second, data)
-	return nil
+	return "default", nil, nil
 }

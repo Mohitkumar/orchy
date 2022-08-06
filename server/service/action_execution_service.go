@@ -6,6 +6,7 @@ import (
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/executor"
+	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/util"
@@ -47,14 +48,12 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 	data := util.ConvertFromProto(taskResult.Data)
 	switch taskResult.Status {
 	case api.TaskResult_SUCCESS:
+		flowMachine := flow.GetFlowStateMachine(wfName, wfId, s.container)
+		flowMachine.MoveForward("default", data)
 
-		flowCtx, err := s.container.GetFlowDao().AddActionOutputToFlowContext(wfName, wfId, int(taskResult.ActionId), data)
-		if err != nil {
-			return err
-		}
 		req := model.ActionExecutionRequest{
 			WorkflowName: wfName,
-			ActionId:     int(flowCtx.NextAction),
+			ActionId:     flowMachine.CurrentAction.GetId(),
 			FlowId:       wfId,
 			RetryCount:   1,
 		}

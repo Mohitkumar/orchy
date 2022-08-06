@@ -25,27 +25,25 @@ func NewSwitchAction(id int, Type ActionType, name string, expression string, ca
 	}
 }
 
-func (d *switchAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) error {
+func (d *switchAction) GetNext() map[string]int {
+	return d.cases
+}
+func (d *switchAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
 	dataMap := flowContext.Data
 	expressionValue, err := jsonpath.JsonPathLookup(dataMap, d.expression)
+	event := ""
 	if err != nil {
-		return err
+		return event, nil, err
 	}
-	var nextAction int
 	switch expValue := expressionValue.(type) {
 	case int, int16, int32, int64:
-		nextAction = d.cases[strconv.Itoa(expressionValue.(int))]
+		event = strconv.Itoa(expressionValue.(int))
 	case float32, float64:
-		nextAction = d.cases[strconv.Itoa(int(expressionValue.(float64)))]
+		event = strconv.Itoa(int(expressionValue.(float64)))
 	case bool:
-		nextAction = d.cases[strconv.FormatBool(expressionValue.(bool))]
+		event = strconv.FormatBool(expressionValue.(bool))
 	case string:
-		nextAction = d.cases[expValue]
+		event = expValue
 	}
-	flowContext.NextAction = nextAction
-	err = d.container.GetFlowDao().SaveFlowContext(wfName, flowContext.Id, flowContext)
-	if err != nil {
-		return err
-	}
-	return nil
+	return event, nil, nil
 }

@@ -11,7 +11,6 @@ const WAITING_EVENT FlowState = 5
 type FlowContext struct {
 	Id            string         `json:"id"`
 	CurrentAction int            `json:"currentAction"`
-	NextAction    int            `json:"nextAction"`
 	Data          map[string]any `json:"data"`
 	State         FlowState      `json:"flowState"`
 	TTL           uint64         `json:"ttl"`

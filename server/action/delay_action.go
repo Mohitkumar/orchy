@@ -24,7 +24,14 @@ func NewDelayAction(id int, Type ActionType, name string, delaySeconds int, next
 		nextAction: nextAction,
 	}
 }
-func (d *delayAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) error {
+
+func (d *delayAction) GetNext() map[string]int {
+	nextMap := make(map[string]int)
+	nextMap["default"] = d.nextAction
+	return nextMap
+}
+
+func (d *delayAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
 	msg := model.ActionExecutionRequest{
 		WorkflowName: wfName,
 		FlowId:       flowContext.Id,
@@ -34,8 +41,8 @@ func (d *delayAction) Execute(wfName string, flowContext *model.FlowContext, ret
 	data, _ := json.Marshal(msg)
 	err := d.container.GetDelayQueue().PushWithDelay("delay_action", d.delay, data)
 	if err != nil {
-		return err
+		return "", nil, err
 	}
 	flowContext.State = model.WAITING_DELAY
-	return d.container.GetFlowDao().SaveFlowContext(wfName, flowContext.Id, flowContext)
+	return "default", nil, d.container.GetFlowDao().SaveFlowContext(wfName, flowContext.Id, flowContext)
 }

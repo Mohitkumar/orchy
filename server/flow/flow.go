@@ -14,7 +14,7 @@ type Flow struct {
 	Actions    map[int]action.Action
 }
 
-func Convert(wf *model.Workflow, id string, container *container.DIContiner) Flow {
+func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Flow {
 	actionMap := make(map[int]action.Action)
 	for _, actionDef := range wf.Actions {
 		actionType := action.ToActionType(actionDef.Type)
@@ -34,7 +34,7 @@ func Convert(wf *model.Workflow, id string, container *container.DIContiner) Flo
 		}
 		actionMap[actionDef.Id] = flAct
 	}
-	flow := Flow{
+	flow := &Flow{
 		Id:         id,
 		RootAction: wf.RootAction,
 		Actions:    actionMap,
