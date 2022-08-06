@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/mohitkumar/orchy/server/container"
+	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/mohitkumar/orchy/server/util"
@@ -48,6 +49,16 @@ func (ex *DelayExecutor) Start() error {
 			if err != nil {
 				logger.Error("can not decode action execution request")
 				continue
+			}
+			flowMachine := flow.GetFlowStateMachine(msg.WorkflowName, msg.FlowId, ex.container)
+			completed, err := flowMachine.MoveForward("default", nil)
+			if err != nil {
+				logger.Error("error moving forward in workflow", zap.Error(err))
+				return
+			}
+			if completed {
+				logger.Info("workflow completed, no more action to execute", zap.String("workflow", msg.WorkflowName), zap.String("flow", msg.FlowId))
+				return
 			}
 			err = ex.actionExector.Execute(*msg)
 			if err != nil {

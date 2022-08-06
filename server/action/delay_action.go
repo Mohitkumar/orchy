@@ -43,6 +43,5 @@ func (d *delayAction) Execute(wfName string, flowContext *model.FlowContext, ret
 	if err != nil {
 		return "", nil, err
 	}
-	flowContext.State = model.WAITING_DELAY
-	return "default", nil, d.container.GetFlowDao().SaveFlowContext(wfName, flowContext.Id, flowContext)
+	return "default", nil, nil
 }

@@ -6,8 +6,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/mohitkumar/orchy/server/action"
 	"github.com/mohitkumar/orchy/server/container"
+	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/util"
+	"go.uber.org/zap"
 )
 
 type FlowMachine struct {
@@ -39,12 +41,15 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 }
 
 func (f *FlowMachine) Init(wfName string, input map[string]any) error {
-	wf, _ := f.container.GetWorkflowDao().Get(wfName)
+	wf, err := f.container.GetWorkflowDao().Get(wfName)
+	if err != nil {
+		return fmt.Errorf("workflow %s not found", wfName)
+	}
 	flowId := uuid.New().String()
 
 	f.flow = Convert(wf, flowId, f.container)
 	f.CurrentAction = f.flow.Actions[wf.RootAction]
-
+	f.FlowId = flowId
 	dataMap := make(map[string]any)
 	dataMap["input"] = input
 	f.flowContext = &model.FlowContext{
@@ -56,13 +61,13 @@ func (f *FlowMachine) Init(wfName string, input map[string]any) error {
 	return f.container.GetFlowDao().SaveFlowContext(wfName, flowId, f.flowContext)
 }
 
-func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) error {
+func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, error) {
 	currentActionId := f.CurrentAction.GetId()
 	nextActionMap := f.CurrentAction.GetNext()
 	if nextActionMap == nil || len(nextActionMap) == 0 {
 		f.flowContext.State = model.COMPLETED
 		f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
-		return fmt.Errorf("no more action to execute")
+		return true, nil
 	}
 	nextActionId := nextActionMap[event]
 	f.CurrentAction = f.flow.Actions[nextActionId]
@@ -73,7 +78,7 @@ func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) error {
 		output["output"] = dataMap
 		data[fmt.Sprintf("%d", currentActionId)] = util.ConvertMapToStructPb(output)
 	}
-	return f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	return false, f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 }
 
 func (f *FlowMachine) Execute(retryCount int) error {
@@ -85,10 +90,19 @@ func (f *FlowMachine) Execute(retryCount int) error {
 	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
 		switch currentAction.GetName() {
 		case "switch":
-			f.MoveForward(event, dataMap)
+			completed, err := f.MoveForward(event, dataMap)
+			if err != nil {
+				logger.Error("error moving forward in workflow", zap.Error(err))
+				return err
+			}
+			if completed {
+				logger.Info("workflow completed, no more action to execute", zap.String("workflow", f.WorkflowName), zap.String("flow", f.FlowId))
+				return nil
+			}
 			return f.Execute(1)
 		case "delay":
-
+			f.flowContext.State = model.WAITING_DELAY
+			f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 		}
 	}
 	return nil
