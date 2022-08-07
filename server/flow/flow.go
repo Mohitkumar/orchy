@@ -1,6 +1,7 @@
 package flow
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/mohitkumar/orchy/server/action"
@@ -40,4 +41,30 @@ func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Fl
 		Actions:    actionMap,
 	}
 	return flow
+}
+
+func Validate(wf *model.Workflow, container *container.DIContiner) error {
+	validActionId := make(map[int]any)
+	for _, actionDef := range wf.Actions {
+		if _, ok := validActionId[actionDef.Id]; ok {
+			return fmt.Errorf("action id %d is duplicate", actionDef.Id)
+		}
+		validActionId[actionDef.Id] = ""
+		err := action.ValidateActionType(actionDef.Type)
+		if err != nil {
+			return err
+		}
+	}
+	if _, ok := validActionId[wf.RootAction]; !ok {
+		return fmt.Errorf("no action with root action id %d in workflow", wf.RootAction)
+	}
+	fl := Convert(wf, "validate", container)
+	for _, act := range fl.Actions {
+		err := act.Validate()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

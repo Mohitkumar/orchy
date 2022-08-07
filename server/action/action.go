@@ -14,11 +14,20 @@ type ActionType string
 const ACTION_TYPE_SYSTEM ActionType = "SYSTEM"
 const ACTION_TYPE_USER ActionType = "USER"
 
+var VALID_SYSTEM_ACTIONS = []string{"switch", "delay"}
+
 func ToActionType(at string) ActionType {
 	if strings.EqualFold(at, "system") {
 		return ACTION_TYPE_SYSTEM
 	}
 	return ACTION_TYPE_USER
+}
+
+func ValidateActionType(at string) error {
+	if strings.EqualFold(at, "system") || strings.EqualFold(at, "user") {
+		return nil
+	}
+	return fmt.Errorf("invalid action type %s", at)
 }
 
 type Action interface {
@@ -27,6 +36,7 @@ type Action interface {
 	GetType() ActionType
 	GetInputParams() map[string]any
 	GetNext() map[string]int
+	Validate() error
 	Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error)
 }
 
@@ -73,6 +83,9 @@ func (ba *baseAction) Execute(wfName string, flowContext *model.FlowContext, ret
 	return "default", nil, fmt.Errorf("can not execute")
 }
 
+func (ba *baseAction) Validate() error {
+	return fmt.Errorf("action %s implementation not found", ba.name)
+}
 func (ba *baseAction) ResolveInputParams(flowContext *model.FlowContext) map[string]any {
 	flowData := flowContext.Data
 	data := make(map[string]any)

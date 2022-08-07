@@ -55,7 +55,7 @@ func (td *redisTaskDao) GetTask(task string) (*model.TaskDef, error) {
 	ctx := context.Background()
 	taskStr, err := td.baseDao.redisClient.HGet(ctx, key, task).Result()
 	if err != nil {
-		logger.Error("error in deleting task definition", zap.String("taskName", task), zap.Error(err))
+		logger.Error("error in getting task definition", zap.String("taskName", task), zap.Error(err))
 		return nil, persistence.StorageLayerError{}
 	}
 	return td.encoderDecoder.Decode([]byte(taskStr))

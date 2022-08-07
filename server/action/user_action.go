@@ -1,6 +1,7 @@
 package action
 
 import (
+	"fmt"
 	"time"
 
 	api "github.com/mohitkumar/orchy/api/v1"
@@ -23,6 +24,14 @@ func NewUserAction(bAction baseAction) *UserAction {
 	}
 }
 
+func (ua *UserAction) Validate() error {
+	_, err := ua.container.GetTaskDao().GetTask(ua.name)
+	if err != nil {
+		return fmt.Errorf("actionId=%d, task %s not registered", ua.id, ua.name)
+	}
+
+	return nil
+}
 func (ua *UserAction) GetNext() map[string]int {
 	return ua.baseAction.nextMap
 }
