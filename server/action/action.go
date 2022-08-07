@@ -37,15 +37,17 @@ type baseAction struct {
 	actType     ActionType
 	name        string
 	inputParams map[string]any
+	nextMap     map[string]int
 	container   *container.DIContiner
 }
 
-func NewBaseAction(id int, Type ActionType, name string, inputParams map[string]any, container *container.DIContiner) *baseAction {
+func NewBaseAction(id int, Type ActionType, name string, inputParams map[string]any, nextMap map[string]int, container *container.DIContiner) *baseAction {
 	return &baseAction{
 		id:          id,
 		name:        name,
 		inputParams: inputParams,
 		actType:     Type,
+		nextMap:     nextMap,
 		container:   container,
 	}
 
@@ -64,7 +66,7 @@ func (ba *baseAction) GetInputParams() map[string]any {
 }
 
 func (ba *baseAction) GetNext() map[string]int {
-	return make(map[string]int)
+	return ba.nextMap
 
 }
 func (ba *baseAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {

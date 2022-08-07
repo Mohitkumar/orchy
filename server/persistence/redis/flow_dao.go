@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const WORKFLOW_KEY string = "WF"
+const WORKFLOW_KEY string = "FLOW"
 
 var _ persistence.FlowDao = new(redisFlowDao)
 

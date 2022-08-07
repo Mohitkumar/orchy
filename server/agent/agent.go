@@ -24,6 +24,7 @@ type Agent struct {
 	delayExecutor            *executor.DelayExecutor
 	actionExecutor           *executor.ActionExecutor
 	retryExecutor            *executor.RetryExecutor
+	timeoutExecutor          *executor.TimeoutExecutor
 	actionExecutionService   *service.ActionExecutionService
 	workflowExecutionService *service.WorkflowExecutionService
 	shutdown                 bool
@@ -42,6 +43,7 @@ func New(config config.Config) (*Agent, error) {
 		a.setupActionExecutor,
 		a.setupDelayExecutor,
 		a.setupRetryExecutor,
+		a.setupTimeoutExecutor,
 		a.setupWorkflowExecutionService,
 		a.setupActionExecutorService,
 		a.setupHttpServer,
@@ -74,6 +76,11 @@ func (a *Agent) setupDelayExecutor() error {
 func (a *Agent) setupRetryExecutor() error {
 	a.retryExecutor = executor.NewRetryExecutor(a.diContainer, a.actionExecutor, &a.wg)
 	return a.retryExecutor.Start()
+}
+
+func (a *Agent) setupTimeoutExecutor() error {
+	a.timeoutExecutor = executor.NewTimeoutExecutor(a.diContainer, a.actionExecutor, &a.wg)
+	return a.timeoutExecutor.Start()
 }
 
 func (a *Agent) setupWorkflowExecutionService() error {

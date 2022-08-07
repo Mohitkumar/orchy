@@ -3,7 +3,6 @@ package action
 import (
 	"strconv"
 
-	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/oliveagle/jsonpath"
 )
@@ -16,17 +15,15 @@ type switchAction struct {
 	cases      map[string]int
 }
 
-func NewSwitchAction(id int, Type ActionType, name string, expression string, cases map[string]int, container *container.DIContiner) *switchAction {
-	inputParams := map[string]any{}
+func NewSwitchAction(expression string, bAction baseAction) *switchAction {
 	return &switchAction{
-		baseAction: *NewBaseAction(id, Type, name, inputParams, container),
+		baseAction: bAction,
 		expression: expression,
-		cases:      cases,
 	}
 }
 
 func (d *switchAction) GetNext() map[string]int {
-	return d.cases
+	return d.baseAction.nextMap
 }
 func (d *switchAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
 	dataMap := flowContext.Data

@@ -13,14 +13,14 @@
 			"inputParams":{
 
 			},
-			"next":2
+			"next":{"default":2}
 		},
 		{
 			"id":2,
 			"type":"system",
 			"name":"decision",
 			"expression":"$1.output.status",
-			"cases":{
+			"next":{
 				"200":3,
 				"500":5
 			}
@@ -29,9 +29,7 @@
 			"id":3,
 			"type":"system",
 			"name":"fork",
-			"forks":[
-				6,7
-			],
+			"next": {"fork1":5,"fork2":6},
 			"join":8
 		},
 		{

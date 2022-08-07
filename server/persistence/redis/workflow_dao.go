@@ -10,7 +10,7 @@ import (
 
 var _ persistence.WorkflowDao = new(redisWorkflowDao)
 
-const WORKFLOW_DEF string = "WF_DEF"
+const WORKFLOW_DEF string = "WORKFLOW"
 
 type redisWorkflowDao struct {
 	baseDao

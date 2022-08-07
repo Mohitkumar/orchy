@@ -4,7 +4,6 @@ import (
 	"time"
 
 	api "github.com/mohitkumar/orchy/api/v1"
-	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/util"
@@ -16,20 +15,16 @@ var _ Action = new(UserAction)
 
 type UserAction struct {
 	baseAction
-	nextAction int
 }
 
-func NewUserAction(id int, Type ActionType, name string, inputParams map[string]any, nextAction int, container *container.DIContiner) *UserAction {
+func NewUserAction(bAction baseAction) *UserAction {
 	return &UserAction{
-		baseAction: *NewBaseAction(id, Type, name, inputParams, container),
-		nextAction: nextAction,
+		baseAction: bAction,
 	}
 }
 
 func (ua *UserAction) GetNext() map[string]int {
-	nextMap := make(map[string]int)
-	nextMap["default"] = ua.nextAction
-	return nextMap
+	return ua.baseAction.nextMap
 }
 
 func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
