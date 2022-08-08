@@ -74,11 +74,11 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.Write(response)
 }
 
-func respondOK(w http.ResponseWriter, message string) {
+func respondOK(w http.ResponseWriter, message map[string]any) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-	res, _ := json.Marshal(map[string]string{"message": message})
+	res, _ := json.Marshal(message)
 	w.Write(res)
 }
 

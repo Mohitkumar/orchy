@@ -20,11 +20,11 @@ func NewWorkflowExecutionService(container *container.DIContiner, actionExecutor
 		actionExecutor: actionExecutor,
 	}
 }
-func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) error {
+func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) (string, error) {
 	flowMachine := flow.NewFlowStateMachine(s.container)
 	err := flowMachine.Init(name, input)
 	if err != nil {
-		return err
+		return "", err
 	}
 	logger.Info("starting workflow", zap.String("workflow", name))
 	req := model.ActionExecutionRequest{
@@ -33,5 +33,5 @@ func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) 
 		FlowId:       flowMachine.FlowId,
 		RetryCount:   1,
 	}
-	return s.actionExecutor.Execute(req)
+	return flowMachine.FlowId, s.actionExecutor.Execute(req)
 }

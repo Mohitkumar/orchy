@@ -30,7 +30,7 @@ func (s *Server) HandleCreateFlow(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "error creating workflow")
 		return
 	}
-	respondOK(w, "created")
+	respondOK(w, map[string]any{"created": true})
 }
 
 func (s *Server) HandleGetFlow(w http.ResponseWriter, r *http.Request) {
