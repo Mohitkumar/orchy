@@ -13,6 +13,7 @@ type DIContiner struct {
 	wfDao                        persistence.WorkflowDao
 	flowDao                      persistence.FlowDao
 	taskDao                      persistence.TaskDao
+	stateHandler                 *persistence.StateHandlerContainer
 	queue                        persistence.Queue
 	delayQueue                   persistence.DelayQueue
 	taskTimeoutQueue             persistence.DelayQueue
@@ -68,7 +69,8 @@ func (d *DIContiner) Init(conf config.Config) {
 		d.taskTimeoutQueue = rd.NewRedisDelayQueue(*rdConf)
 		d.taskRetryQueue = rd.NewRedisDelayQueue(*rdConf)
 	}
-
+	d.stateHandler = persistence.NewStateHandlerContainer(d.flowDao)
+	d.stateHandler.Init()
 }
 
 func (d *DIContiner) GetWorkflowDao() persistence.WorkflowDao {
@@ -83,6 +85,13 @@ func (d *DIContiner) GetFlowDao() persistence.FlowDao {
 		panic("persistence not initalized")
 	}
 	return d.flowDao
+}
+
+func (d *DIContiner) GetStateHandler() *persistence.StateHandlerContainer {
+	if !d.initialized {
+		panic("persistence not initalized")
+	}
+	return d.stateHandler
 }
 
 func (d *DIContiner) GetTaskDao() persistence.TaskDao {

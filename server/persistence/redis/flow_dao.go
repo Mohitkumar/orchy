@@ -86,3 +86,14 @@ func (rf *redisFlowDao) GetFlowContext(wfName string, flowId string) (*model.Flo
 	}
 	return flowCtx, nil
 }
+
+func (rf *redisFlowDao) DeleteFlowContext(wfName string, flowId string) error {
+	key := rf.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName)
+	ctx := context.Background()
+	err := rf.baseDao.redisClient.HDel(ctx, key, flowId).Err()
+	if err != nil {
+		logger.Error("error in deleting flow context", zap.String("flowName", wfName), zap.String("flowId", flowId), zap.Error(err))
+		return persistence.StorageLayerError{}
+	}
+	return nil
+}

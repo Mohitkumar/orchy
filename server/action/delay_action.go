@@ -1,7 +1,6 @@
 package action
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -42,9 +41,8 @@ func (d *delayAction) Execute(wfName string, flowContext *model.FlowContext, ret
 		FlowId:       flowContext.Id,
 		ActionId:     d.nextMap["default"],
 	}
-	d.container.ActionExecutionRequestEncDec.Encode(msg)
-	data, _ := json.Marshal(msg)
-	err := d.container.GetDelayQueue().PushWithDelay("delay_action", d.delay, data)
+	data, err := d.container.ActionExecutionRequestEncDec.Encode(msg)
+	err = d.container.GetDelayQueue().PushWithDelay("delay_action", d.delay, data)
 	if err != nil {
 		return "", nil, err
 	}

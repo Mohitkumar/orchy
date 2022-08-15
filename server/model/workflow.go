@@ -4,6 +4,8 @@ type Workflow struct {
 	Name       string      `json:"name"`
 	RootAction int         `json:"rootAction"`
 	Actions    []ActionDef `json:"actions"`
+	OnFailure  string      `json:"onFailure"`
+	OnSuccess  string      `json:"onSuccess"`
 }
 
 type ActionDef struct {

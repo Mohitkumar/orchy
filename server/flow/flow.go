@@ -7,12 +7,15 @@ import (
 	"github.com/mohitkumar/orchy/server/action"
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/model"
+	"github.com/mohitkumar/orchy/server/persistence"
 )
 
 type Flow struct {
-	Id         string
-	RootAction int
-	Actions    map[int]action.Action
+	Id             string
+	RootAction     int
+	Actions        map[int]action.Action
+	FailureHandler persistence.Statehandler
+	SuccessHandler persistence.Statehandler
 }
 
 func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Flow {
@@ -35,15 +38,38 @@ func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Fl
 		}
 		actionMap[actionDef.Id] = flAct
 	}
+	var stateHandlerFailure persistence.Statehandler
+	var stateHandlerSuccess persistence.Statehandler
+	if len(wf.OnFailure) > 0 {
+		stateHandlerFailure = persistence.Statehandler(wf.OnFailure)
+	} else {
+		stateHandlerFailure = persistence.NOOP
+	}
+	if len(wf.OnSuccess) > 0 {
+		stateHandlerSuccess = persistence.Statehandler(wf.OnSuccess)
+	} else {
+		stateHandlerSuccess = persistence.NOOP
+	}
+
 	flow := &Flow{
-		Id:         id,
-		RootAction: wf.RootAction,
-		Actions:    actionMap,
+		Id:             id,
+		RootAction:     wf.RootAction,
+		Actions:        actionMap,
+		FailureHandler: stateHandlerFailure,
+		SuccessHandler: stateHandlerSuccess,
 	}
 	return flow
 }
 
 func Validate(wf *model.Workflow, container *container.DIContiner) error {
+	err := persistence.ValidateStateHandler(wf.OnFailure)
+	if err != nil {
+		return err
+	}
+	err = persistence.ValidateStateHandler(wf.OnSuccess)
+	if err != nil {
+		return err
+	}
 	validActionId := make(map[int]any)
 	for _, actionDef := range wf.Actions {
 		if _, ok := validActionId[actionDef.Id]; ok {

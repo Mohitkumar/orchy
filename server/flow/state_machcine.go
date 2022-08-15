@@ -65,8 +65,7 @@ func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, e
 	currentActionId := f.CurrentAction.GetId()
 	nextActionMap := f.CurrentAction.GetNext()
 	if nextActionMap == nil || len(nextActionMap) == 0 {
-		f.flowContext.State = model.COMPLETED
-		f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+		f.MarkComplete()
 		return true, nil
 	}
 	nextActionId := nextActionMap[event]
@@ -79,6 +78,46 @@ func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, e
 		data[fmt.Sprintf("%d", currentActionId)] = util.ConvertMapToStructPb(output)
 	}
 	return false, f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+}
+
+func (f *FlowMachine) MarkComplete() {
+	f.flowContext.State = model.COMPLETED
+	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	successHandler := f.container.GetStateHandler().GetHandler(f.flow.SuccessHandler)
+	err := successHandler(f.WorkflowName, f.FlowId)
+	if err != nil {
+		logger.Error("error in running post success function", zap.Error(err))
+	}
+}
+
+func (f *FlowMachine) MarkFailed() {
+	f.flowContext.State = model.COMPLETED
+	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	failureHandler := f.container.GetStateHandler().GetHandler(f.flow.FailureHandler)
+	err := failureHandler(f.WorkflowName, f.FlowId)
+	if err != nil {
+		logger.Error("error in running post success function", zap.Error(err))
+	}
+}
+
+func (f *FlowMachine) MarkWaitingDelay() {
+	f.flowContext.State = model.WAITING_DELAY
+	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+}
+
+func (f *FlowMachine) MarkWaitingEvent() {
+	f.flowContext.State = model.WAITING_EVENT
+	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+}
+
+func (f *FlowMachine) MarkPaused() {
+	f.flowContext.State = model.PAUSED
+	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+}
+
+func (f *FlowMachine) MarkRunning() {
+	f.flowContext.State = model.RUNNING
+	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 }
 
 func (f *FlowMachine) Execute(retryCount int) error {
@@ -101,8 +140,7 @@ func (f *FlowMachine) Execute(retryCount int) error {
 			}
 			return f.Execute(1)
 		case "delay":
-			f.flowContext.State = model.WAITING_DELAY
-			f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+			f.MarkWaitingDelay()
 		}
 	}
 	return nil

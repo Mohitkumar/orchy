@@ -1,12 +1,13 @@
 package model
 
-type FlowState int
+type FlowState string
 
-const RUNNING FlowState = 1
-const FAILED FlowState = 2
-const COMPLETED FlowState = 3
-const WAITING_DELAY FlowState = 4
-const WAITING_EVENT FlowState = 5
+const RUNNING FlowState = "R"
+const FAILED FlowState = "F"
+const COMPLETED FlowState = "C"
+const WAITING_DELAY FlowState = "WD"
+const WAITING_EVENT FlowState = "WE"
+const PAUSED FlowState = "P"
 
 type FlowContext struct {
 	Id            string         `json:"id"`

@@ -46,9 +46,9 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 	wfName := taskResult.WorkflowName
 	wfId := taskResult.FlowId
 	data := util.ConvertFromProto(taskResult.Data)
+	flowMachine := flow.GetFlowStateMachine(wfName, wfId, s.container)
 	switch taskResult.Status {
 	case api.TaskResult_SUCCESS:
-		flowMachine := flow.GetFlowStateMachine(wfName, wfId, s.container)
 		completed, err := flowMachine.MoveForward("default", data)
 		if err != nil {
 			logger.Error("error moving forward in workflow", zap.Error(err))
@@ -92,12 +92,7 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 			s.container.GetTaskRetryQueue().PushWithDelay("retry-queue", retryAfter, data)
 		} else {
 			logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", taskDef.RetryCount))
-			flowCtx, err := s.container.GetFlowDao().GetFlowContext(wfName, wfId)
-			if err != nil {
-				return err
-			}
-			flowCtx.State = model.FAILED
-			return s.container.GetFlowDao().SaveFlowContext(wfName, wfId, flowCtx)
+			flowMachine.MarkFailed()
 		}
 	}
 	return nil
