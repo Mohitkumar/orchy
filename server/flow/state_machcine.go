@@ -86,8 +86,9 @@ func (f *FlowMachine) MarkComplete() {
 	successHandler := f.container.GetStateHandler().GetHandler(f.flow.SuccessHandler)
 	err := successHandler(f.WorkflowName, f.FlowId)
 	if err != nil {
-		logger.Error("error in running post success function", zap.Error(err))
+		logger.Error("error in running success handler", zap.Error(err))
 	}
+	logger.Info("workflow completed", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
 func (f *FlowMachine) MarkFailed() {
@@ -96,33 +97,38 @@ func (f *FlowMachine) MarkFailed() {
 	failureHandler := f.container.GetStateHandler().GetHandler(f.flow.FailureHandler)
 	err := failureHandler(f.WorkflowName, f.FlowId)
 	if err != nil {
-		logger.Error("error in running post success function", zap.Error(err))
+		logger.Error("error in running failure handler", zap.Error(err))
 	}
+	logger.Info("workflow failed", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
 func (f *FlowMachine) MarkWaitingDelay() {
 	f.flowContext.State = model.WAITING_DELAY
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	logger.Info("workflow wairing delay", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
 func (f *FlowMachine) MarkWaitingEvent() {
 	f.flowContext.State = model.WAITING_EVENT
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	logger.Info("workflow wairing for event", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
 func (f *FlowMachine) MarkPaused() {
 	f.flowContext.State = model.PAUSED
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	logger.Info("workflow paused", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
 func (f *FlowMachine) MarkRunning() {
 	f.flowContext.State = model.RUNNING
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	logger.Info("workflow running", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
-func (f *FlowMachine) Execute(retryCount int) error {
+func (f *FlowMachine) Execute(tryCount int) error {
 	currentAction := f.CurrentAction
-	event, dataMap, err := currentAction.Execute(f.WorkflowName, f.flowContext, retryCount)
+	event, dataMap, err := currentAction.Execute(f.WorkflowName, f.flowContext, tryCount)
 	if err != nil {
 		return err
 	}

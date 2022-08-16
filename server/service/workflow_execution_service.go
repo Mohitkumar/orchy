@@ -26,12 +26,12 @@ func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) 
 	if err != nil {
 		return "", err
 	}
-	logger.Info("starting workflow", zap.String("workflow", name))
+	logger.Info("starting workflow", zap.String("workflow", name), zap.Any("input", input))
 	req := model.ActionExecutionRequest{
 		WorkflowName: name,
 		ActionId:     flowMachine.CurrentAction.GetId(),
 		FlowId:       flowMachine.FlowId,
-		RetryCount:   1,
+		TryNumber:    1,
 	}
 	return flowMachine.FlowId, s.actionExecutor.Execute(req)
 }

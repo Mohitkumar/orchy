@@ -62,7 +62,7 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 			WorkflowName: wfName,
 			ActionId:     flowMachine.CurrentAction.GetId(),
 			FlowId:       wfId,
-			RetryCount:   1,
+			TryNumber:    1,
 		}
 		s.actionExecutor.Execute(req)
 	case api.TaskResult_FAIL:
@@ -83,7 +83,7 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 				WorkflowName: wfName,
 				ActionId:     int(taskResult.ActionId),
 				FlowId:       wfId,
-				RetryCount:   int(taskResult.RetryCount) + 1,
+				TryNumber:    int(taskResult.RetryCount) + 1,
 			}
 			data, err := s.container.ActionExecutionRequestEncDec.Encode(req)
 			if err != nil {

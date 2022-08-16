@@ -9,6 +9,7 @@ import (
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/util"
+	"go.uber.org/zap"
 )
 
 var _ Executor = new(ActionExecutor)
@@ -36,12 +37,13 @@ func (ex *ActionExecutor) handler(task util.Task) error {
 	actionId := req.ActionId
 	wfName := req.WorkflowName
 	flowId := req.FlowId
-	retryCount := req.RetryCount
+	tryNumber := req.TryNumber
 	flowMachine := flow.GetFlowStateMachine(wfName, flowId, ex.container)
 	if actionId != flowMachine.CurrentAction.GetId() {
-		return fmt.Errorf("error in workflow state machine")
+		logger.Error("action already executed", zap.Int("actionIdRequested", actionId), zap.Int("flowCurrentActionId", flowMachine.CurrentAction.GetId()))
+		return fmt.Errorf("action %d already executed", actionId)
 	}
-	err := flowMachine.Execute(retryCount)
+	err := flowMachine.Execute(tryNumber)
 	if err != nil {
 		return err
 	}

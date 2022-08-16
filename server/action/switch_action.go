@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/oliveagle/jsonpath"
+	"go.uber.org/zap"
 )
 
 var _ Action = new(switchAction)
@@ -41,6 +43,7 @@ func (d *switchAction) GetNext() map[string]int {
 	return d.baseAction.nextMap
 }
 func (d *switchAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
+	logger.Info("running action", zap.String("name", d.name), zap.String("workflow", wfName), zap.String("id", flowContext.Id))
 	dataMap := flowContext.Data
 	expressionValue, err := jsonpath.JsonPathLookup(dataMap, d.expression)
 	event := ""

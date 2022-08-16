@@ -53,19 +53,19 @@ func (ex *TimeoutExecutor) Start() error {
 				logger.Error("task definition not found ", zap.String("taskName", msg.TaskName), zap.Error(err))
 				continue
 			}
-			if msg.RetryCount <= taskDef.RetryCount {
+			if msg.TryNumber <= taskDef.RetryCount {
 				var retryAfter time.Duration
 				switch taskDef.RetryPolicy {
 				case model.RETRY_POLICY_FIXED:
 					retryAfter = time.Duration(taskDef.RetryAfterSeconds) * time.Second
 				case model.RETRY_POLICY_BACKOFF:
-					retryAfter = time.Duration(taskDef.RetryAfterSeconds*int(msg.RetryCount)) * time.Second
+					retryAfter = time.Duration(taskDef.RetryAfterSeconds*int(msg.TryNumber)) * time.Second
 				}
 				req := model.ActionExecutionRequest{
 					WorkflowName: msg.WorkflowName,
 					ActionId:     msg.ActionId,
 					FlowId:       msg.FlowId,
-					RetryCount:   msg.RetryCount + 1,
+					TryNumber:    msg.TryNumber + 1,
 				}
 				data, _ := ex.container.ActionExecutionRequestEncDec.Encode(req)
 

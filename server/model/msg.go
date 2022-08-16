@@ -5,5 +5,5 @@ type ActionExecutionRequest struct {
 	TaskName     string `json:"taskName"`
 	FlowId       string `json:"flowId"`
 	ActionId     int    `json:"actionId"`
-	RetryCount   int    `json:"retryCount"`
+	TryNumber    int    `json:"tryNumber"`
 }

@@ -37,6 +37,7 @@ func (ua *UserAction) GetNext() map[string]int {
 }
 
 func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
+	logger.Info("running action", zap.String("name", ua.name), zap.String("workflow", wfName), zap.String("id", flowContext.Id))
 	taskDef, err := ua.container.GetTaskDao().GetTask(ua.name)
 	if err != nil {
 		logger.Error("task definition not found", zap.String("taskName", ua.name))
@@ -62,7 +63,7 @@ func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, ret
 		WorkflowName: wfName,
 		ActionId:     flowContext.CurrentAction,
 		FlowId:       flowContext.Id,
-		RetryCount:   retryCount,
+		TryNumber:    retryCount,
 		TaskName:     ua.name,
 	}
 	data, _ := ua.container.ActionExecutionRequestEncDec.Encode(req)
