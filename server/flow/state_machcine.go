@@ -19,6 +19,7 @@ type FlowMachine struct {
 	flowContext   *model.FlowContext
 	container     *container.DIContiner
 	CurrentAction action.Action
+	completed     bool
 }
 
 func NewFlowStateMachine(container *container.DIContiner) *FlowMachine {
@@ -82,6 +83,7 @@ func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, e
 
 func (f *FlowMachine) MarkComplete() {
 	f.flowContext.State = model.COMPLETED
+	f.completed = true
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	successHandler := f.container.GetStateHandler().GetHandler(f.flow.SuccessHandler)
 	err := successHandler(f.WorkflowName, f.FlowId)
@@ -150,4 +152,25 @@ func (f *FlowMachine) Execute(tryCount int) error {
 		}
 	}
 	return nil
+}
+
+func (f *FlowMachine) DelayTask() {
+	completed, err := f.MoveForward("default", nil)
+	if err != nil {
+		logger.Error("error moving forward in workflow", zap.Error(err))
+		return
+	}
+	if completed {
+		logger.Info("workflow completed, no more action to execute", zap.String("workflow", f.WorkflowName), zap.String("flow", f.FlowId))
+		return
+	}
+	f.Execute(1)
+}
+
+func (f *FlowMachine) RetryTask(tryNumber int) {
+	if f.completed {
+		logger.Info("workflow completed, can not retry", zap.String("workflow", f.WorkflowName), zap.String("flow", f.FlowId))
+		return
+	}
+	f.Execute(tryNumber)
 }

@@ -27,6 +27,7 @@ type Config struct {
 	QueueType              QueueType
 	EncoderDecoderType     EncoderDecoderType
 	ActionExecutorCapacity int
+	MaxDelayTimeInSeconds  int64
 }
 
 type RedisStorageConfig struct {
