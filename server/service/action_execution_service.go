@@ -46,7 +46,10 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 	wfName := taskResult.WorkflowName
 	wfId := taskResult.FlowId
 	data := util.ConvertFromProto(taskResult.Data)
-	flowMachine := flow.GetFlowStateMachine(wfName, wfId, s.container)
+	flowMachine, err := flow.GetFlowStateMachine(wfName, wfId, s.container)
+	if err != nil {
+		return err
+	}
 	switch taskResult.Status {
 	case api.TaskResult_SUCCESS:
 		completed, err := flowMachine.MoveForward("default", data)

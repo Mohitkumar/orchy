@@ -28,7 +28,7 @@ func NewFlowStateMachine(container *container.DIContiner) *FlowMachine {
 	}
 }
 
-func GetFlowStateMachine(wfName string, flowId string, container *container.DIContiner) *FlowMachine {
+func GetFlowStateMachine(wfName string, flowId string, container *container.DIContiner) (*FlowMachine, error) {
 	flowMachine := &FlowMachine{
 		WorkflowName: wfName,
 		FlowId:       flowId,
@@ -36,9 +36,14 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 	}
 	wf, _ := container.GetWorkflowDao().Get(wfName)
 	flowMachine.flow = Convert(wf, flowId, container)
-	flowMachine.flowContext, _ = container.GetFlowDao().GetFlowContext(wfName, flowId)
+	flowCtx, err := container.GetFlowDao().GetFlowContext(wfName, flowId)
+	if err != nil {
+		logger.Error("flow already completed, can not create flow machine", zap.Error(err))
+		return nil, err
+	}
+	flowMachine.flowContext = flowCtx
 	flowMachine.CurrentAction = flowMachine.flow.Actions[flowMachine.flowContext.CurrentAction]
-	return flowMachine
+	return flowMachine, nil
 }
 
 func (f *FlowMachine) Init(wfName string, input map[string]any) error {

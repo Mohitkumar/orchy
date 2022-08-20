@@ -38,12 +38,15 @@ func (ex *ActionExecutor) handler(task util.Task) error {
 	wfName := req.WorkflowName
 	flowId := req.FlowId
 	tryNumber := req.TryNumber
-	flowMachine := flow.GetFlowStateMachine(wfName, flowId, ex.container)
+	flowMachine, err := flow.GetFlowStateMachine(wfName, flowId, ex.container)
+	if err != nil {
+		return err
+	}
 	if actionId != flowMachine.CurrentAction.GetId() {
 		logger.Error("action already executed", zap.Int("actionIdRequested", actionId), zap.Int("flowCurrentActionId", flowMachine.CurrentAction.GetId()))
 		return fmt.Errorf("action %d already executed", actionId)
 	}
-	err := flowMachine.Execute(tryNumber)
+	err = flowMachine.Execute(tryNumber)
 	if err != nil {
 		return err
 	}

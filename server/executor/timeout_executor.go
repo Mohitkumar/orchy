@@ -32,6 +32,45 @@ func (ex *TimeoutExecutor) Name() string {
 	return "timeout-executor"
 }
 
+func (ex *TimeoutExecutor) handle(msg *model.ActionExecutionRequest) error {
+	taskDef, err := ex.container.GetTaskDao().GetTask(msg.TaskName)
+	if err != nil {
+		logger.Error("task definition not found ", zap.String("taskName", msg.TaskName), zap.Error(err))
+		return err
+	}
+	if msg.TryNumber <= taskDef.RetryCount {
+		var retryAfter time.Duration
+		switch taskDef.RetryPolicy {
+		case model.RETRY_POLICY_FIXED:
+			retryAfter = time.Duration(taskDef.RetryAfterSeconds) * time.Second
+		case model.RETRY_POLICY_BACKOFF:
+			retryAfter = time.Duration(taskDef.RetryAfterSeconds*int(msg.TryNumber)) * time.Second
+		}
+		req := model.ActionExecutionRequest{
+			WorkflowName: msg.WorkflowName,
+			ActionId:     msg.ActionId,
+			FlowId:       msg.FlowId,
+			TryNumber:    msg.TryNumber + 1,
+		}
+		data, _ := ex.container.ActionExecutionRequestEncDec.Encode(req)
+
+		ex.container.GetTaskRetryQueue().PushWithDelay("retry-queue", retryAfter, data)
+	} else {
+		logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", taskDef.RetryCount))
+		flowCtx, err := ex.container.GetFlowDao().GetFlowContext(msg.WorkflowName, msg.FlowId)
+		if err != nil {
+			logger.Error("could not find workflow", zap.Error(err))
+			return err
+		}
+		flowCtx.State = model.FAILED
+		err = ex.container.GetFlowDao().SaveFlowContext(msg.WorkflowName, msg.FlowId, flowCtx)
+		if err != nil {
+			logger.Error("could not save workflow context", zap.Error(err))
+			return err
+		}
+	}
+	return nil
+}
 func (ex *TimeoutExecutor) Start() error {
 	fn := func() {
 		res, err := ex.container.GetTaskTimeoutQueue().Pop("timeout-queue")
@@ -48,40 +87,9 @@ func (ex *TimeoutExecutor) Start() error {
 				logger.Error("can not decode action execution request")
 				continue
 			}
-			taskDef, err := ex.container.GetTaskDao().GetTask(msg.TaskName)
+			err = ex.handle(msg)
 			if err != nil {
-				logger.Error("task definition not found ", zap.String("taskName", msg.TaskName), zap.Error(err))
 				continue
-			}
-			if msg.TryNumber <= taskDef.RetryCount {
-				var retryAfter time.Duration
-				switch taskDef.RetryPolicy {
-				case model.RETRY_POLICY_FIXED:
-					retryAfter = time.Duration(taskDef.RetryAfterSeconds) * time.Second
-				case model.RETRY_POLICY_BACKOFF:
-					retryAfter = time.Duration(taskDef.RetryAfterSeconds*int(msg.TryNumber)) * time.Second
-				}
-				req := model.ActionExecutionRequest{
-					WorkflowName: msg.WorkflowName,
-					ActionId:     msg.ActionId,
-					FlowId:       msg.FlowId,
-					TryNumber:    msg.TryNumber + 1,
-				}
-				data, _ := ex.container.ActionExecutionRequestEncDec.Encode(req)
-
-				ex.container.GetTaskRetryQueue().PushWithDelay("retry-queue", retryAfter, data)
-			} else {
-				logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", taskDef.RetryCount))
-				flowCtx, err := ex.container.GetFlowDao().GetFlowContext(msg.WorkflowName, msg.FlowId)
-				if err != nil {
-					logger.Error("could not find workflow", zap.Error(err))
-					return
-				}
-				flowCtx.State = model.FAILED
-				err = ex.container.GetFlowDao().SaveFlowContext(msg.WorkflowName, msg.FlowId, flowCtx)
-				if err != nil {
-					logger.Error("could not save workflow context", zap.Error(err))
-				}
 			}
 		}
 	}
