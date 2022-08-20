@@ -30,6 +30,7 @@ func setupFlags(cmd *cobra.Command) error {
 	cmd.Flags().String("queue-impl", "redis", "implementation of underline queue ")
 	cmd.Flags().String("encoder-decoder", "JSON", "encoder decoder used to serialzie data")
 	cmd.Flags().Int("executor-capacity", 512, "action executor capacity")
+	cmd.Flags().Int64("max-delay", 7*24*60*60, "max delay value which is used in delay task to wait")
 	return viper.BindPFlags(cmd.Flags())
 }
 
@@ -57,6 +58,7 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 	c.cfg.QueueType = config.QueueType(viper.GetString("queue-impl"))
 	c.cfg.EncoderDecoderType = config.EncoderDecoderType(viper.GetString("encoder-decoder"))
 	c.cfg.ActionExecutorCapacity = viper.GetInt("executor-capacity")
+	c.cfg.MaxDelayTimeInSeconds = viper.GetInt64("max-delay")
 	return nil
 }
 

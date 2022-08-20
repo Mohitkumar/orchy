@@ -5,6 +5,7 @@ import (
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/persistence"
 	rd "github.com/mohitkumar/orchy/server/persistence/redis"
+	"github.com/mohitkumar/orchy/server/timers"
 	"github.com/mohitkumar/orchy/server/util"
 )
 
@@ -18,6 +19,7 @@ type DIContiner struct {
 	delayQueue                   persistence.DelayQueue
 	taskTimeoutQueue             persistence.DelayQueue
 	taskRetryQueue               persistence.DelayQueue
+	timerManager                 *timers.TimerManager
 	FlowContextEncDec            util.EncoderDecoder[model.FlowContext]
 	ActionExecutionRequestEncDec util.EncoderDecoder[model.ActionExecutionRequest]
 	TaskEncDec                   util.EncoderDecoder[model.TaskDef]
@@ -71,6 +73,15 @@ func (d *DIContiner) Init(conf config.Config) {
 	}
 	d.stateHandler = persistence.NewStateHandlerContainer(d.flowDao)
 	d.stateHandler.Init()
+	d.timerManager = timers.NewTimerManager(conf.MaxDelayTimeInSeconds)
+	d.timerManager.Init()
+}
+
+func (d *DIContiner) GetTimerManager() *timers.TimerManager {
+	if !d.initialized {
+		panic("persistence not initalized")
+	}
+	return d.timerManager
 }
 
 func (d *DIContiner) GetWorkflowDao() persistence.WorkflowDao {
