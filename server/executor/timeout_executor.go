@@ -33,6 +33,11 @@ func (ex *TimeoutExecutor) Name() string {
 }
 
 func (ex *TimeoutExecutor) handle(msg *model.ActionExecutionRequest) error {
+	err := ex.actionExector.ValidateExecutionRequest(*msg)
+	if err != nil {
+		logger.Debug("discarding timeout action execution request, action has already executed")
+		return err
+	}
 	taskDef, err := ex.container.GetTaskDao().GetTask(msg.TaskName)
 	if err != nil {
 		logger.Error("task definition not found ", zap.String("taskName", msg.TaskName), zap.Error(err))
@@ -46,13 +51,9 @@ func (ex *TimeoutExecutor) handle(msg *model.ActionExecutionRequest) error {
 		case model.RETRY_POLICY_BACKOFF:
 			retryAfter = time.Duration(taskDef.RetryAfterSeconds*int(msg.TryNumber)) * time.Second
 		}
-		req := model.ActionExecutionRequest{
-			WorkflowName: msg.WorkflowName,
-			ActionId:     msg.ActionId,
-			FlowId:       msg.FlowId,
-			TryNumber:    msg.TryNumber + 1,
-		}
-		data, _ := ex.container.ActionExecutionRequestEncDec.Encode(req)
+		msg.TryNumber = msg.TryNumber + 1
+
+		data, _ := ex.container.ActionExecutionRequestEncDec.Encode(*msg)
 
 		ex.container.GetTaskRetryQueue().PushWithDelay("retry-queue", retryAfter, data)
 	} else {

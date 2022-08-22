@@ -69,6 +69,19 @@ func (ex *ActionExecutor) Name() string {
 	return "action-executor"
 }
 
+func (ex *ActionExecutor) ValidateExecutionRequest(req model.ActionExecutionRequest) error {
+	wfName := req.WorkflowName
+	flowId := req.FlowId
+	actionId := req.ActionId
+	flowMachine, err := flow.GetFlowStateMachine(wfName, flowId, ex.container)
+	if err != nil {
+		return err
+	}
+	if actionId != flowMachine.CurrentAction.GetId() {
+		return fmt.Errorf("action %d already executed", actionId)
+	}
+	return nil
+}
 func (ex *ActionExecutor) Execute(request model.ActionExecutionRequest) error {
 	ex.worker.Sender() <- request
 	return nil
