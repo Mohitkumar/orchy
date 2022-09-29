@@ -38,7 +38,7 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 	flowMachine.flow = Convert(wf, flowId, container)
 	flowCtx, err := container.GetFlowDao().GetFlowContext(wfName, flowId)
 	if err != nil {
-		logger.Error("flow already completed, can not create flow machine", zap.Error(err))
+		logger.Debug("flow already completed, can not create flow machine", zap.Error(err))
 		return nil, err
 	}
 	flowMachine.flowContext = flowCtx

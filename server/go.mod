@@ -3,7 +3,6 @@ module github.com/mohitkumar/orchy/server
 go 1.18
 
 require (
-	github.com/RussellLuo/timingwheel v0.0.0-20220218152713-54845bda3108
 	github.com/go-redis/redis/v9 v9.0.0-beta.1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
