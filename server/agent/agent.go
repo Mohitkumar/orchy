@@ -5,6 +5,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/executor"
@@ -18,6 +19,8 @@ import (
 
 type Agent struct {
 	Config                   config.Config
+	ring                     *cluster.Ring
+	membership               *cluster.Membership
 	diContainer              *container.DIContiner
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
@@ -39,6 +42,7 @@ func New(config config.Config) (*Agent, error) {
 		shutdowns: make(chan struct{}),
 	}
 	setup := []func() error{
+		a.setupCluster,
 		a.setupDiContainer,
 		a.setupActionExecutor,
 		a.setupDelayExecutor,
@@ -55,6 +59,17 @@ func New(config config.Config) (*Agent, error) {
 		}
 	}
 	return a, nil
+}
+
+func (a *Agent) setupCluster() error {
+	r := cluster.NewRing(a.Config.RingConfig)
+	a.ring = r
+	mem, err := cluster.New(r, a.Config.ClusterConfig)
+	if err != nil {
+		return err
+	}
+	a.membership = mem
+	return nil
 }
 
 func (a *Agent) setupDiContainer() error {

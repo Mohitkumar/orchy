@@ -1,5 +1,12 @@
 package config
 
+import (
+	"fmt"
+	"net"
+
+	"github.com/mohitkumar/orchy/server/cluster"
+)
+
 type StorageType string
 
 type QueueType string
@@ -27,7 +34,16 @@ type Config struct {
 	QueueType              QueueType
 	EncoderDecoderType     EncoderDecoderType
 	ActionExecutorCapacity int
-	MaxDelayTimeInSeconds  int64
+	ClusterConfig          cluster.Config
+	RingConfig             cluster.RingConfig
+}
+
+func (c Config) RPCAddr() (string, error) {
+	host, _, err := net.SplitHostPort(c.ClusterConfig.BindAddr)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s:%d", host, c.GrpcPort), nil
 }
 
 type RedisStorageConfig struct {
