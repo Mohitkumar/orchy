@@ -36,7 +36,7 @@ func setupFlags(cmd *cobra.Command) error {
 	cmd.Flags().String("encoder-decoder", "JSON", "encoder decoder used to serialzie data")
 	cmd.Flags().Int("executor-capacity", 512, "action executor capacity")
 	cmd.Flags().Int64("max-delay", 7*24*60*60, "max delay value which is used in delay task to wait")
-	cmd.Flags().Int("partitions", 71, "number of partition")
+	cmd.Flags().Int("partitions", 7, "number of partition")
 	cmd.Flags().String("bind-addr", "127.0.0.1:8400", "address for cluster events")
 	cmd.Flags().StringSlice("start-join-addrs", nil, "cluster address to join.")
 	cmd.Flags().String("node-name", hostname, "name of the node")

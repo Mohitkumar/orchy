@@ -46,8 +46,20 @@ message TaskResultPushResponse{
     bool status = 1;
 }
 
+message Server {
+    string id = 1;
+    string rpc_addr = 2;
+}
+
+message GetServersRequest {}
+
+message GetServersResponse {
+  repeated Server servers = 1;
+}
+
 service TaskService{
     rpc SaveTaskDef(TaskDef) returns (TaskDefSaveResponse){}
     rpc Poll(TaskPollRequest) returns (Task){}
     rpc Push(TaskResult) returns (TaskResultPushResponse) {}
+    rpc GetServers(GetServersRequest) returns (GetServersResponse) {}
 }

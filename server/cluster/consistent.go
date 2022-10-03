@@ -4,6 +4,7 @@ import (
 	"hash"
 
 	"github.com/buraksezer/consistent"
+	api_v1 "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/spaolacci/murmur3"
 	"go.uber.org/zap"
@@ -33,7 +34,8 @@ func (h hasher) Sum64(data []byte) uint64 {
 
 type Ring struct {
 	RingConfig
-	hring *consistent.Consistent
+	hring   *consistent.Consistent
+	servers map[string]*api_v1.Server
 }
 
 type Member string
@@ -45,7 +47,7 @@ func (m Member) String() string {
 func NewRing(c RingConfig) *Ring {
 	cfg := consistent.Config{
 		PartitionCount:    c.PartitionCount,
-		ReplicationFactor: 1,
+		ReplicationFactor: 20,
 		Load:              1.25,
 		Hasher:            NewHasher(),
 	}
@@ -53,17 +55,32 @@ func NewRing(c RingConfig) *Ring {
 	return &Ring{
 		RingConfig: c,
 		hring:      hr,
+		servers:    make(map[string]*api_v1.Server),
 	}
 }
 
 func (r *Ring) Join(name, addr string) error {
 	logger.Info("adding member to cluster", zap.String("node", name))
 	r.hring.Add(Member(name))
+	srv := &api_v1.Server{
+		Id:      name,
+		RpcAddr: addr,
+	}
+	r.servers[name] = srv
 	return nil
 }
 
 func (r *Ring) Leave(name string) error {
 	logger.Info("removing member from cluster", zap.String("node", name))
 	r.hring.Remove(name)
+	delete(r.servers, name)
 	return nil
+}
+
+func (r *Ring) GetServers() ([]*api_v1.Server, error) {
+	var servers []*api_v1.Server
+	for _, srv := range r.servers {
+		servers = append(servers, srv)
+	}
+	return servers, nil
 }

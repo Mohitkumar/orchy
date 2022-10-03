@@ -24,9 +24,14 @@ type TaskService interface {
 type TaskDefService interface {
 	SaveTask(task model.TaskDef) error
 }
+
+type GetServerer interface {
+	GetServers() ([]*api.Server, error)
+}
 type GrpcConfig struct {
 	TaskService    TaskService
 	TaskDefService TaskDefService
+	GetServerer    GetServerer
 }
 
 type grpcServer struct {

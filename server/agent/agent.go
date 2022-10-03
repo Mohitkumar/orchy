@@ -121,6 +121,7 @@ func (a *Agent) setupGrpcServer() error {
 	conf := &rpc.GrpcConfig{
 		TaskService:    a.actionExecutionService,
 		TaskDefService: a.diContainer.GetTaskDao(),
+		GetServerer:    a.ring,
 	}
 	a.grpcServer, err = rpc.NewGrpcServer(conf)
 	if err != nil {
