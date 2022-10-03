@@ -1,6 +1,8 @@
-package worker
+package client
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -8,31 +10,31 @@ import (
 	"github.com/mohitkumar/orchy/worker/logger"
 )
 
-type client struct {
+type RpcClient struct {
 	serverUrl         string
 	conn              *grpc.ClientConn
 	taskServiceClient api.TaskServiceClient
 }
 
-func newClient(serverAddress string) (*client, error) {
-	conn, err := grpc.Dial(serverAddress, grpc.WithInsecure())
+func NewRpcClient(serverAddress string) (*RpcClient, error) {
+	conn, err := grpc.Dial(fmt.Sprintf("orchy:///%s", serverAddress), grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
-	return &client{
+	return &RpcClient{
 		serverUrl:         serverAddress,
 		conn:              conn,
 		taskServiceClient: api.NewTaskServiceClient(conn),
 	}, nil
 }
 
-func (c *client) Close() error {
+func (c *RpcClient) Close() error {
 	return c.conn.Close()
 }
 
-func (c *client) Refresh() error {
+func (c *RpcClient) Refresh() error {
 	c.Close()
-	conn, err := grpc.Dial(c.serverUrl, grpc.WithInsecure(), grpc.WithReturnConnectionError())
+	conn, err := grpc.Dial(fmt.Sprintf("orchy:///%s", c.serverUrl), grpc.WithInsecure(), grpc.WithReturnConnectionError())
 	if err != nil {
 		logger.Error("grpc server unavailable", zap.String("server", c.serverUrl))
 		return err
@@ -42,6 +44,6 @@ func (c *client) Refresh() error {
 	return nil
 }
 
-func (c *client) GetApiClient() api.TaskServiceClient {
+func (c *RpcClient) GetApiClient() api.TaskServiceClient {
 	return c.taskServiceClient
 }

@@ -5,16 +5,17 @@ import (
 	"sync"
 
 	api "github.com/mohitkumar/orchy/api/v1"
+	"github.com/mohitkumar/orchy/worker/client"
 )
 
 type WorkerConfigurer struct {
 	config     WorkerConfiguration
 	taskPoller *taskPoller
-	client     *client
+	client     *client.RpcClient
 }
 
 func NewWorkerConfigurer(conf WorkerConfiguration, wg *sync.WaitGroup) *WorkerConfigurer {
-	client, err := newClient(conf.ServerUrl)
+	client, err := client.NewRpcClient(conf.ServerUrl)
 	if err != nil {
 		panic(err)
 	}

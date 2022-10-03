@@ -8,6 +8,7 @@ import (
 
 	backoff "github.com/cenkalti/backoff/v4"
 	api_v1 "github.com/mohitkumar/orchy/api/v1"
+	"github.com/mohitkumar/orchy/worker/client"
 	"github.com/mohitkumar/orchy/worker/logger"
 	"github.com/mohitkumar/orchy/worker/util"
 	"go.uber.org/zap"
@@ -17,7 +18,7 @@ import (
 
 type pollerWorker struct {
 	worker                   Worker
-	client                   *client
+	client                   *client.RpcClient
 	stop                     chan struct{}
 	maxRetryBeforeResultPush int
 	retryIntervalSecond      int

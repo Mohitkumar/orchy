@@ -2,6 +2,8 @@ package worker
 
 import (
 	"sync"
+
+	"github.com/mohitkumar/orchy/worker/client"
 )
 
 type workerWithStopChannel struct {
@@ -29,7 +31,7 @@ func (tp *taskPoller) registerWorker(worker Worker, numWorkers int) {
 
 func (tp *taskPoller) start() {
 	for _, w := range tp.workers {
-		client, err := newClient(tp.config.ServerUrl)
+		client, err := client.NewRpcClient(tp.config.ServerUrl)
 		if err != nil {
 			panic(err)
 		}
