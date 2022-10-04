@@ -1,4 +1,4 @@
-package client
+package lb
 
 import (
 	"sync"
@@ -13,7 +13,6 @@ var _ base.PickerBuilder = (*Picker)(nil)
 
 type Picker struct {
 	mu      sync.RWMutex
-	leader  balancer.SubConn
 	servers []balancer.SubConn
 	current uint64
 	logger  *zap.Logger
@@ -38,16 +37,19 @@ func (p *Picker) Pick(info balancer.PickInfo) (
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	var result balancer.PickResult
-	result.SubConn = p.nextFollower()
+	result.SubConn = p.nextServer()
 	if result.SubConn == nil {
 		return result, balancer.ErrNoSubConnAvailable
 	}
 	return result, nil
 }
 
-func (p *Picker) nextFollower() balancer.SubConn {
+func (p *Picker) nextServer() balancer.SubConn {
 	cur := atomic.AddUint64(&p.current, uint64(1))
 	len := uint64(len(p.servers))
+	if len == 0 {
+		return nil
+	}
 	idx := int(cur % len)
 	return p.servers[idx]
 }

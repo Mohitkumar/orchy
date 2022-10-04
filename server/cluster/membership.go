@@ -4,6 +4,7 @@ import (
 	"net"
 
 	"github.com/hashicorp/serf/serf"
+	api_v1 "github.com/mohitkumar/orchy/api/v1"
 	"go.uber.org/zap"
 )
 
@@ -109,6 +110,19 @@ func (m *Membership) isLocal(member serf.Member) bool {
 
 func (m *Membership) Members() []serf.Member {
 	return m.serf.Members()
+}
+
+func (m *Membership) GetServers() ([]*api_v1.Server, error) {
+	members := m.serf.Members()
+	servers := make([]*api_v1.Server, 0, len(members))
+	for _, member := range members {
+		srv := &api_v1.Server{
+			Id:      member.Name,
+			RpcAddr: member.Tags["rpc_addr"],
+		}
+		servers = append(servers, srv)
+	}
+	return servers, nil
 }
 
 func (m *Membership) Leave() error {

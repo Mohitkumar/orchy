@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc"
 
 	api "github.com/mohitkumar/orchy/api/v1"
+	_ "github.com/mohitkumar/orchy/worker/lb"
 	"github.com/mohitkumar/orchy/worker/logger"
 )
 
