@@ -1,4 +1,4 @@
-package persistence
+package cluster
 
 import (
 	"fmt"

@@ -73,7 +73,7 @@ func (a *Agent) setupCluster() error {
 }
 
 func (a *Agent) setupDiContainer() error {
-	a.diContainer = container.NewDiContainer()
+	a.diContainer = container.NewDiContainer(a.membership, a.ring)
 	a.diContainer.Init(a.Config)
 	return nil
 }

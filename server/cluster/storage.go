@@ -26,7 +26,7 @@ type clusterQueue struct {
 	currentPartition uint64
 }
 
-func newQueue(queue persistence.Queue, membership *Membership, ring *Ring) *clusterQueue {
+func NewQueue(queue persistence.Queue, membership *Membership, ring *Ring) *clusterQueue {
 	return &clusterQueue{
 		redisQueue:       queue,
 		membership:       membership,
@@ -84,7 +84,7 @@ type clusterDelayQueue struct {
 
 var _ DelayQueue = new(clusterDelayQueue)
 
-func newDelayQueue(queue persistence.DelayQueue, membership *Membership, ring *Ring) *clusterDelayQueue {
+func NewDelayQueue(queue persistence.DelayQueue, membership *Membership, ring *Ring) *clusterDelayQueue {
 	return &clusterDelayQueue{
 		redisQueue: queue,
 		membership: membership,
@@ -129,7 +129,7 @@ type clusterFlowDao struct {
 
 var _ FlowDao = new(clusterFlowDao)
 
-func newFlowDao(dao persistence.FlowDao, ring *Ring) *clusterFlowDao {
+func NewFlowDao(dao persistence.FlowDao, ring *Ring) *clusterFlowDao {
 	return &clusterFlowDao{
 		flowDao: dao,
 		ring:    ring,
@@ -170,9 +170,9 @@ type ClusterStore struct {
 func NewClusterStore(ring *Ring, memebership *Membership,
 	queue persistence.Queue, delayQueue persistence.DelayQueue, flowDao persistence.FlowDao) *ClusterStore {
 	return &ClusterStore{
-		Queue:      newQueue(queue, memebership, ring),
-		DelayQueue: newDelayQueue(delayQueue, memebership, ring),
-		FlowDao:    newFlowDao(flowDao, ring),
+		Queue:      NewQueue(queue, memebership, ring),
+		DelayQueue: NewDelayQueue(delayQueue, memebership, ring),
+		FlowDao:    NewFlowDao(flowDao, ring),
 		membership: memebership,
 		ring:       ring,
 	}
