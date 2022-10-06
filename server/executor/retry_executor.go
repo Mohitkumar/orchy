@@ -5,7 +5,6 @@ import (
 
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/logger"
-	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
@@ -34,10 +33,7 @@ func (ex *RetryExecutor) Start() error {
 	fn := func() {
 		res, err := ex.container.GetTaskRetryQueue().Pop("retry-queue")
 		if err != nil {
-			_, ok := err.(persistence.EmptyQueueError)
-			if !ok {
-				logger.Error("error while polling retry queue", zap.Error(err))
-			}
+			logger.Error("error while polling retry queue", zap.Error(err))
 			return
 		}
 		for _, r := range res {

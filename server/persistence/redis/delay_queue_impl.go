@@ -25,8 +25,9 @@ func NewRedisDelayQueue(config Config) *redisDelayQueue {
 	}
 }
 
-func (rq *redisDelayQueue) Push(queueName string, message []byte) error {
-	queueName = rq.getNamespaceKey(queueName)
+func (rq *redisDelayQueue) Push(queueName string, flowId string, message []byte) error {
+	partition := strconv.Itoa(rq.baseDao.getPartition(flowId))
+	queueName = rq.getNamespaceKey(queueName, partition)
 	ctx := context.Background()
 	currentTime := time.Now().UnixMilli()
 	member := rd.Z{
@@ -41,8 +42,9 @@ func (rq *redisDelayQueue) Push(queueName string, message []byte) error {
 	return nil
 }
 
-func (rq *redisDelayQueue) PushWithDelay(queueName string, delay time.Duration, message []byte) error {
-	queueName = rq.getNamespaceKey(queueName)
+func (rq *redisDelayQueue) PushWithDelay(queueName string, flowId string, delay time.Duration, message []byte) error {
+	partition := strconv.Itoa(rq.baseDao.getPartition(flowId))
+	queueName = rq.getNamespaceKey(queueName, partition)
 	ctx := context.Background()
 	currentTime := time.Now().Add(delay).UnixMilli()
 	member := rd.Z{
@@ -58,7 +60,20 @@ func (rq *redisDelayQueue) PushWithDelay(queueName string, delay time.Duration, 
 }
 
 func (rq *redisDelayQueue) Pop(queueName string) ([]string, error) {
-	queueName = rq.getNamespaceKey(queueName)
+	partitions := rq.getPartitions()
+	result := make([]string, 0)
+	for part := range partitions {
+		queueName = rq.getNamespaceKey(queueName, strconv.Itoa(part))
+		res, err := rq.pop(queueName)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, res...)
+	}
+	return result, nil
+}
+
+func (rq *redisDelayQueue) pop(queueName string) ([]string, error) {
 	ctx := context.Background()
 	currentTime := time.Now().UnixMilli()
 	pipe := rq.redisClient.Pipeline()
@@ -80,14 +95,16 @@ func (rq *redisDelayQueue) Pop(queueName string) ([]string, error) {
 	res, err := zr.Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return nil, persistence.EmptyQueueError{QueueName: queueName}
+			return []string{}, nil
 		}
 		logger.Error("error while pop from redis list", zap.String("queue", queueName), zap.Error(err))
 
 		return nil, persistence.StorageLayerError{Message: err.Error()}
 	}
-	if len(res) == 0 {
-		return nil, persistence.EmptyQueueError{QueueName: queueName}
-	}
+
 	return res, nil
+}
+
+func (rq *redisDelayQueue) getPartitions() []int {
+	return rq.baseDao.ring.GetPartitions(rq.membership.GetLocalMemebr())
 }

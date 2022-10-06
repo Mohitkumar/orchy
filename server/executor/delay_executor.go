@@ -7,7 +7,6 @@ import (
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
-	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
@@ -59,10 +58,7 @@ func (ex *DelayExecutor) Start() error {
 	fn := func() {
 		res, err := ex.container.GetDelayQueue().Pop("delay_action")
 		if err != nil {
-			_, ok := err.(persistence.EmptyQueueError)
-			if !ok {
-				logger.Error("error while polling delay queue", zap.Error(err))
-			}
+			logger.Error("error while polling delay queue", zap.Error(err))
 			return
 		}
 		for _, r := range res {

@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,7 +27,7 @@ func TestDelayQueue(t *testing.T) {
 }
 
 func testPushPop(t *testing.T, queue *redisDelayQueue) {
-	err := queue.Push("test-delay", []byte("test_msg1"))
+	err := queue.Push("test-delay", "1234", []byte("test_msg1"))
 	require.NoError(t, err)
 	time.Sleep(1 * time.Second)
 
@@ -36,29 +35,17 @@ func testPushPop(t *testing.T, queue *redisDelayQueue) {
 	require.NoError(t, err)
 
 	require.Equal(t, "test_msg1", res[0])
-
-	_, err = queue.Pop("test-delay")
-	_, ok := err.(persistence.EmptyQueueError)
-	require.True(t, ok)
 }
 
 func testPushPopDelay(t *testing.T, queue *redisDelayQueue) {
-	err := queue.PushWithDelay("test-delay", 5*time.Second, []byte("test_msg2"))
+	err := queue.PushWithDelay("test-delay", "1234", 5*time.Second, []byte("test_msg2"))
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 	res, err := queue.Pop("test-delay")
-	require.Error(t, err)
-	_, ok := err.(persistence.EmptyQueueError)
-	require.True(t, ok)
+	require.Equal(t, len(res), 0)
 
-	time.Sleep(1 * time.Second)
-	res, err = queue.Pop("test-delay")
-	require.Error(t, err)
-	_, ok = err.(persistence.EmptyQueueError)
-	require.True(t, ok)
-
-	time.Sleep(4 * time.Second)
+	time.Sleep(5 * time.Second)
 	res, err = queue.Pop("test-delay")
 	require.NoError(t, err)
 	require.Equal(t, "test_msg2", res[0])

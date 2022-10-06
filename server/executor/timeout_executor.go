@@ -7,7 +7,6 @@ import (
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
-	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
@@ -55,7 +54,7 @@ func (ex *TimeoutExecutor) handle(msg *model.ActionExecutionRequest) error {
 
 		data, _ := ex.container.ActionExecutionRequestEncDec.Encode(*msg)
 
-		ex.container.GetTaskRetryQueue().PushWithDelay("retry-queue", retryAfter, data)
+		ex.container.GetTaskRetryQueue().PushWithDelay("retry-queue", msg.FlowId, retryAfter, data)
 	} else {
 		logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", taskDef.RetryCount))
 		flowCtx, err := ex.container.GetFlowDao().GetFlowContext(msg.WorkflowName, msg.FlowId)
@@ -76,10 +75,7 @@ func (ex *TimeoutExecutor) Start() error {
 	fn := func() {
 		res, err := ex.container.GetTaskTimeoutQueue().Pop("timeout-queue")
 		if err != nil {
-			_, ok := err.(persistence.EmptyQueueError)
-			if !ok {
-				logger.Error("error while polling timeout queue", zap.Error(err))
-			}
+			logger.Error("error while polling timeout queue", zap.Error(err))
 			return
 		}
 		for _, r := range res {

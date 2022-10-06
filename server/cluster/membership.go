@@ -108,6 +108,10 @@ func (m *Membership) isLocal(member serf.Member) bool {
 	return m.serf.LocalMember().Name == member.Name
 }
 
+func (m *Membership) GetLocalMemebr() string {
+	return m.serf.LocalMember().Name
+}
+
 func (m *Membership) Members() []serf.Member {
 	return m.serf.Members()
 }

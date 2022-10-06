@@ -55,7 +55,7 @@ func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, ret
 	if err != nil {
 		return "", nil, err
 	}
-	err = ua.container.GetQueue().Push(ua.GetName(), d)
+	err = ua.container.GetQueue().Push(ua.GetName(), flowContext.Id, d)
 	if err != nil {
 		return "", nil, err
 	}
@@ -67,6 +67,6 @@ func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, ret
 		TaskName:     ua.name,
 	}
 	data, _ := ua.container.ActionExecutionRequestEncDec.Encode(req)
-	ua.container.GetTaskTimeoutQueue().PushWithDelay("timeout-queue", time.Duration(taskDef.TimeoutSeconds)*time.Second, data)
+	ua.container.GetTaskTimeoutQueue().PushWithDelay("timeout-queue", flowContext.Id, time.Duration(taskDef.TimeoutSeconds)*time.Second, data)
 	return "default", nil, nil
 }

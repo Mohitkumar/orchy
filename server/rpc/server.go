@@ -17,7 +17,7 @@ import (
 )
 
 type TaskService interface {
-	Poll(taskName string) (*api.Task, error)
+	Poll(taskName string, batchSize int) (*api.Tasks, error)
 	Push(*api.TaskResult) error
 }
 

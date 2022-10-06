@@ -79,7 +79,8 @@ func (pw *pollerWorker) sendResponse(ctx context.Context, taskResult *api_v1.Tas
 func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 	ctx := context.Background()
 	req := &api_v1.TaskPollRequest{
-		TaskType: pw.worker.GetName(),
+		TaskType:  pw.worker.GetName(),
+		BatchSize: int32(pw.worker.BatchSize()),
 	}
 	defer pw.wg.Done()
 	for {
@@ -88,7 +89,7 @@ func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			task, err := pw.client.GetApiClient().Poll(ctx, req)
+			tasks, err := pw.client.GetApiClient().Poll(ctx, req)
 			if err != nil {
 				if e, ok := status.FromError(err); ok {
 					switch e.Code() {
@@ -103,10 +104,12 @@ func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 					}
 				}
 			} else {
-				result := pw.execute(task)
-				err = pw.sendResponse(ctx, result)
-				if err != nil {
-					logger.Error("error sending task execution response to server", zap.String("taskType", pw.worker.GetName()))
+				for _, task := range tasks.Tasks {
+					result := pw.execute(task)
+					err = pw.sendResponse(ctx, result)
+					if err != nil {
+						logger.Error("error sending task execution response to server", zap.String("taskType", pw.worker.GetName()))
+					}
 				}
 			}
 		}

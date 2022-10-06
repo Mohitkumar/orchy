@@ -27,14 +27,12 @@ func (srv *grpcServer) SaveTaskDef(ctx context.Context, req *api.TaskDef) (*api.
 	return &api.TaskDefSaveResponse{Status: true}, nil
 }
 
-func (srv *grpcServer) Poll(ctx context.Context, req *api.TaskPollRequest) (*api.Task, error) {
-	task, err := srv.TaskService.Poll(req.TaskType)
+func (srv *grpcServer) Poll(ctx context.Context, req *api.TaskPollRequest) (*api.Tasks, error) {
+	task, err := srv.TaskService.Poll(req.TaskType, int(req.BatchSize))
 	if err != nil {
 		switch err.(type) {
 		case persistence.StorageLayerError:
 			return nil, &api.StorageLayerError{}
-		case persistence.EmptyQueueError:
-			return nil, &api.PollError{QueueName: req.TaskType}
 		}
 	}
 	return task, nil

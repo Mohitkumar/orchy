@@ -23,7 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TaskServiceClient interface {
 	SaveTaskDef(ctx context.Context, in *TaskDef, opts ...grpc.CallOption) (*TaskDefSaveResponse, error)
-	Poll(ctx context.Context, in *TaskPollRequest, opts ...grpc.CallOption) (*Task, error)
+	Poll(ctx context.Context, in *TaskPollRequest, opts ...grpc.CallOption) (*Tasks, error)
 	Push(ctx context.Context, in *TaskResult, opts ...grpc.CallOption) (*TaskResultPushResponse, error)
 	GetServers(ctx context.Context, in *GetServersRequest, opts ...grpc.CallOption) (*GetServersResponse, error)
 }
@@ -45,8 +45,8 @@ func (c *taskServiceClient) SaveTaskDef(ctx context.Context, in *TaskDef, opts .
 	return out, nil
 }
 
-func (c *taskServiceClient) Poll(ctx context.Context, in *TaskPollRequest, opts ...grpc.CallOption) (*Task, error) {
-	out := new(Task)
+func (c *taskServiceClient) Poll(ctx context.Context, in *TaskPollRequest, opts ...grpc.CallOption) (*Tasks, error) {
+	out := new(Tasks)
 	err := c.cc.Invoke(ctx, "/TaskService/Poll", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (c *taskServiceClient) GetServers(ctx context.Context, in *GetServersReques
 // for forward compatibility
 type TaskServiceServer interface {
 	SaveTaskDef(context.Context, *TaskDef) (*TaskDefSaveResponse, error)
-	Poll(context.Context, *TaskPollRequest) (*Task, error)
+	Poll(context.Context, *TaskPollRequest) (*Tasks, error)
 	Push(context.Context, *TaskResult) (*TaskResultPushResponse, error)
 	GetServers(context.Context, *GetServersRequest) (*GetServersResponse, error)
 	mustEmbedUnimplementedTaskServiceServer()
@@ -90,7 +90,7 @@ type UnimplementedTaskServiceServer struct {
 func (UnimplementedTaskServiceServer) SaveTaskDef(context.Context, *TaskDef) (*TaskDefSaveResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SaveTaskDef not implemented")
 }
-func (UnimplementedTaskServiceServer) Poll(context.Context, *TaskPollRequest) (*Task, error) {
+func (UnimplementedTaskServiceServer) Poll(context.Context, *TaskPollRequest) (*Tasks, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Poll not implemented")
 }
 func (UnimplementedTaskServiceServer) Push(context.Context, *TaskResult) (*TaskResultPushResponse, error) {

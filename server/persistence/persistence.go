@@ -7,14 +7,6 @@ import (
 	"github.com/mohitkumar/orchy/server/model"
 )
 
-type EmptyQueueError struct {
-	QueueName string
-}
-
-func (e EmptyQueueError) Error() string {
-	return fmt.Sprintf("%s is empty", e.QueueName)
-}
-
 type StorageLayerError struct {
 	Message string
 }
@@ -48,12 +40,12 @@ type TaskDao interface {
 	GetTask(task string) (*model.TaskDef, error)
 }
 type Queue interface {
-	Push(queueName string, mesage []byte) error
-	Pop(queuName string) ([]byte, error)
+	Push(queueName string, flowId string, mesage []byte) error
+	Pop(queuName string, batchSize int) ([]string, error)
 }
 
 type DelayQueue interface {
-	Push(queueName string, mesage []byte) error
+	Push(queueName string, flowId string, mesage []byte) error
 	Pop(queueName string) ([]string, error)
-	PushWithDelay(queueName string, delay time.Duration, message []byte) error
+	PushWithDelay(queueName string, flowId string, delay time.Duration, message []byte) error
 }

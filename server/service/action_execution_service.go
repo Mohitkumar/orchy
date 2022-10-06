@@ -25,17 +25,25 @@ func NewActionExecutionService(container *container.DIContiner, actionExecutor *
 		actionExecutor: actionExecutor,
 	}
 }
-func (ts *ActionExecutionService) Poll(taskName string) (*api.Task, error) {
-	data, err := ts.container.GetQueue().Pop(taskName)
+func (ts *ActionExecutionService) Poll(taskName string, batchSize int) (*api.Tasks, error) {
+	msgs, err := ts.container.GetQueue().Pop(taskName, batchSize)
 	if err != nil {
 		return nil, err
 	}
-	task := &api.Task{}
-	err = proto.Unmarshal(data, task)
-	if err != nil {
-		return nil, err
+	taskArray := make([]*api.Task, 0)
+	for _, msg := range msgs {
+		task := &api.Task{}
+		err = proto.Unmarshal([]byte(msg), task)
+		if err != nil {
+			continue
+		}
+		taskArray = append(taskArray, task)
 	}
-	return task, nil
+
+	tasks := &api.Tasks{
+		Tasks: taskArray,
+	}
+	return tasks, nil
 }
 
 func (ts *ActionExecutionService) Push(res *api.TaskResult) error {
@@ -92,7 +100,7 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 			if err != nil {
 				return err
 			}
-			s.container.GetTaskRetryQueue().PushWithDelay("retry-queue", retryAfter, data)
+			s.container.GetTaskRetryQueue().PushWithDelay("retry-queue", wfId, retryAfter, data)
 		} else {
 			logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", taskDef.RetryCount))
 			flowMachine.MarkFailed()

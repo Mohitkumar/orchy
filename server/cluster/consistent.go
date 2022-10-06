@@ -67,3 +67,20 @@ func (r *Ring) Leave(name string) error {
 	r.hring.Remove(name)
 	return nil
 }
+
+func (r *Ring) GetPartition(key string) int {
+	return r.hring.FindPartitionID([]byte(key))
+}
+
+func (r *Ring) GetPartitions(memberName string) []int {
+	i := 0
+	partitions := make([]int, 0)
+	for i < r.PartitionCount {
+		owner := r.hring.GetPartitionOwner(i)
+		if owner.String() == memberName {
+			partitions = append(partitions, i)
+		}
+		i++
+	}
+	return partitions
+}

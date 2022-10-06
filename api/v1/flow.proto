@@ -12,6 +12,9 @@ message Task{
     int32 retryCount = 6;
 }
 
+message Tasks {
+    repeated Task tasks = 1;
+}
 message TaskResult{
     string workflowName = 1;
     string taskName = 2;
@@ -40,6 +43,7 @@ message TaskDefSaveResponse{
 
 message TaskPollRequest{
     string taskType = 1;
+    int32 batchSize = 2;
 }
 
 message TaskResultPushResponse{
@@ -59,7 +63,7 @@ message GetServersResponse {
 
 service TaskService{
     rpc SaveTaskDef(TaskDef) returns (TaskDefSaveResponse){}
-    rpc Poll(TaskPollRequest) returns (Task){}
+    rpc Poll(TaskPollRequest) returns (Tasks){}
     rpc Push(TaskResult) returns (TaskResultPushResponse) {}
     rpc GetServers(GetServersRequest) returns (GetServersResponse) {}
 }

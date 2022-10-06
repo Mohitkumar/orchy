@@ -45,7 +45,7 @@ func (d *delayAction) Execute(wfName string, flowContext *model.FlowContext, ret
 		ActionId:     d.nextMap["default"],
 	}
 	data, err := d.container.ActionExecutionRequestEncDec.Encode(msg)
-	err = d.container.GetDelayQueue().PushWithDelay("delay_action", d.delay, data)
+	err = d.container.GetDelayQueue().PushWithDelay("delay_action", flowContext.Id, d.delay, data)
 	if err != nil {
 		return "", nil, err
 	}
