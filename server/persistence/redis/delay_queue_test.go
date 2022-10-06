@@ -31,7 +31,7 @@ func testPushPop(t *testing.T, queue *redisDelayQueue) {
 	require.NoError(t, err)
 	time.Sleep(1 * time.Second)
 
-	res, err := queue.Pop("test-delay")
+	res, err := queue.Pop("test-delay", "1234")
 	require.NoError(t, err)
 
 	require.Equal(t, "test_msg1", res[0])
@@ -42,7 +42,7 @@ func testPushPopDelay(t *testing.T, queue *redisDelayQueue) {
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
-	res, err := queue.Pop("test-delay")
+	res, err := queue.Pop("test-delay", "1234")
 	require.Equal(t, len(res), 0)
 
 	time.Sleep(5 * time.Second)

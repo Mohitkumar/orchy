@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
@@ -27,7 +26,7 @@ func NewRedisFlowDao(conf Config, encoderDecoder util.EncoderDecoder[model.FlowC
 		encoderDecoder: encoderDecoder,
 	}
 }
-func (rf *redisFlowDao) CreateAndSaveFlowContext(wFname string, flowId string, action int, input map[string]any) (*model.FlowContext, error) {
+func (rf *redisFlowDao) CreateAndSaveFlowContext(wFname string, flowId string, partition string, action int, input map[string]any) (*model.FlowContext, error) {
 	dataMap := make(map[string]any)
 	dataMap["input"] = input
 	flowCtx := &model.FlowContext{
@@ -36,15 +35,15 @@ func (rf *redisFlowDao) CreateAndSaveFlowContext(wFname string, flowId string, a
 		CurrentAction: action,
 		Data:          dataMap,
 	}
-	if err := rf.SaveFlowContext(wFname, flowId, flowCtx); err != nil {
+	if err := rf.SaveFlowContext(wFname, flowId, partition, flowCtx); err != nil {
 		return nil, err
 	}
 
 	return flowCtx, nil
 }
 
-func (rf *redisFlowDao) AddActionOutputToFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error) {
-	flowCtx, err := rf.GetFlowContext(wFname, flowId)
+func (rf *redisFlowDao) AddActionOutputToFlowContext(wFname string, flowId string, partition string, action int, dataMap map[string]any) (*model.FlowContext, error) {
+	flowCtx, err := rf.GetFlowContext(wFname, flowId, partition)
 	if err != nil {
 		return nil, err
 	}
@@ -52,14 +51,13 @@ func (rf *redisFlowDao) AddActionOutputToFlowContext(wFname string, flowId strin
 	output := make(map[string]any)
 	output["output"] = dataMap
 	data[fmt.Sprintf("%d", action)] = util.ConvertMapToStructPb(output)
-	if err := rf.SaveFlowContext(wFname, flowId, flowCtx); err != nil {
+	if err := rf.SaveFlowContext(wFname, flowId, partition, flowCtx); err != nil {
 		return nil, err
 	}
 	return flowCtx, nil
 }
 
-func (rf *redisFlowDao) SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error {
-	partition := strconv.Itoa(rf.baseDao.getPartition(flowId))
+func (rf *redisFlowDao) SaveFlowContext(wfName string, flowId string, partition string, flowCtx *model.FlowContext) error {
 	key := rf.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName, partition)
 	ctx := context.Background()
 	data, err := rf.encoderDecoder.Encode(*flowCtx)
@@ -73,8 +71,7 @@ func (rf *redisFlowDao) SaveFlowContext(wfName string, flowId string, flowCtx *m
 	return nil
 }
 
-func (rf *redisFlowDao) GetFlowContext(wfName string, flowId string) (*model.FlowContext, error) {
-	partition := strconv.Itoa(rf.baseDao.getPartition(flowId))
+func (rf *redisFlowDao) GetFlowContext(wfName string, flowId string, partition string) (*model.FlowContext, error) {
 	key := rf.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName, partition)
 	ctx := context.Background()
 	flowCtxStr, err := rf.baseDao.redisClient.HGet(ctx, key, flowId).Result()
@@ -90,8 +87,7 @@ func (rf *redisFlowDao) GetFlowContext(wfName string, flowId string) (*model.Flo
 	return flowCtx, nil
 }
 
-func (rf *redisFlowDao) DeleteFlowContext(wfName string, flowId string) error {
-	partition := strconv.Itoa(rf.baseDao.getPartition(flowId))
+func (rf *redisFlowDao) DeleteFlowContext(wfName string, flowId string, partition string) error {
 	key := rf.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName, partition)
 	ctx := context.Background()
 	err := rf.baseDao.redisClient.HDel(ctx, key, flowId).Err()

@@ -3,10 +3,7 @@ package redis
 import (
 	"context"
 	"errors"
-	"sort"
-	"strconv"
 	"sync"
-	"sync/atomic"
 
 	"github.com/go-redis/redis/v9"
 	"github.com/mohitkumar/orchy/server/logger"
@@ -27,8 +24,7 @@ func NewRedisQueue(config Config) *redisQueue {
 		baseDao: *newBaseDao(config),
 	}
 }
-func (rq *redisQueue) Push(queueName string, flowId string, mesage []byte) error {
-	partition := strconv.Itoa(rq.baseDao.getPartition(flowId))
+func (rq *redisQueue) Push(queueName string, partition string, mesage []byte) error {
 	queueName = rq.getNamespaceKey(queueName, partition)
 	ctx := context.Background()
 
@@ -40,23 +36,8 @@ func (rq *redisQueue) Push(queueName string, flowId string, mesage []byte) error
 	return nil
 }
 
-func (rq *redisQueue) Pop(queueName string, batchSize int) ([]string, error) {
-
-	result := make([]string, 0)
-	for len(result) < batchSize {
-		partition := rq.getNextPartition()
-		queueName = rq.getNamespaceKey(queueName, strconv.Itoa(partition))
-		numOfItemsToFetch := batchSize - len(result)
-		items, err := rq.pop(queueName, numOfItemsToFetch)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, items...)
-	}
-	return result, nil
-}
-
-func (rq *redisQueue) pop(queueName string, batchSize int) ([]string, error) {
+func (rq *redisQueue) Pop(queueName string, partition string, batchSize int) ([]string, error) {
+	queueName = rq.getNamespaceKey(queueName, partition)
 	ctx := context.Background()
 	res, err := rq.redisClient.LPopCount(ctx, queueName, batchSize).Result()
 	if err != nil {
@@ -67,20 +48,4 @@ func (rq *redisQueue) pop(queueName string, batchSize int) ([]string, error) {
 		return nil, persistence.StorageLayerError{}
 	}
 	return res, nil
-}
-
-func (rq *redisQueue) getNextPartition() int {
-	rq.mu.Lock()
-	defer rq.mu.Unlock()
-	partitions := rq.baseDao.ring.GetPartitions(rq.membership.GetLocalMemebr())
-	partitions = sort.IntSlice(partitions)
-	idx := sort.Search(len(partitions), func(i int) bool {
-		return partitions[i] > int(rq.currentPartition)
-	})
-	if idx >= len(partitions) {
-		idx = 0
-	}
-	nextPartition := partitions[idx]
-	atomic.StoreUint64(&rq.currentPartition, uint64(nextPartition))
-	return nextPartition
 }
