@@ -1,10 +1,8 @@
 package cluster
 
 import (
-	"sort"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/mohitkumar/orchy/server/model"
@@ -19,17 +17,15 @@ type Queue interface {
 var _ Queue = new(clusterQueue)
 
 type clusterQueue struct {
-	redisQueue       persistence.Queue
-	ring             *Ring
-	mu               sync.Mutex
-	currentPartition uint64
+	redisQueue persistence.Queue
+	ring       *Ring
+	mu         sync.Mutex
 }
 
 func NewQueue(queue persistence.Queue, ring *Ring) *clusterQueue {
 	return &clusterQueue{
-		redisQueue:       queue,
-		ring:             ring,
-		currentPartition: 0,
+		redisQueue: queue,
+		ring:       ring,
 	}
 }
 
@@ -40,32 +36,21 @@ func (cq *clusterQueue) Push(queueName string, flowId string, mesage []byte) err
 
 func (cq *clusterQueue) Pop(queueName string, batchSize int) ([]string, error) {
 	result := make([]string, 0)
-	for len(result) < batchSize {
-		partition := cq.getNextPartition()
-		numOfItemsToFetch := batchSize - len(result)
-		items, err := cq.redisQueue.Pop(queueName, strconv.Itoa(partition), numOfItemsToFetch)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, items...)
-	}
-	return result, nil
-}
-
-func (cq *clusterQueue) getNextPartition() int {
-	cq.mu.Lock()
-	defer cq.mu.Unlock()
 	partitions := cq.ring.GetPartitions()
-	partitions = sort.IntSlice(partitions)
-	idx := sort.Search(len(partitions), func(i int) bool {
-		return partitions[i] > int(cq.currentPartition)
-	})
-	if idx >= len(partitions) {
-		idx = 0
+	for partition := range partitions {
+		if len(result) < batchSize {
+			numOfItemsToFetch := batchSize - len(result)
+			items, err := cq.redisQueue.Pop(queueName, strconv.Itoa(partition), numOfItemsToFetch)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, items...)
+		} else {
+			break
+		}
 	}
-	nextPartition := partitions[idx]
-	atomic.StoreUint64(&cq.currentPartition, uint64(nextPartition))
-	return nextPartition
+
+	return result, nil
 }
 
 type DelayQueue interface {

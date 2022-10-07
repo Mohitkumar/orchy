@@ -1,6 +1,8 @@
 package cluster
 
 import (
+	"io/ioutil"
+	"log"
 	"net"
 
 	"github.com/hashicorp/serf/serf"
@@ -51,6 +53,9 @@ func (m *Membership) setupSerf() (err error) {
 	config.EventCh = m.events
 	config.Tags = m.Tags
 	config.NodeName = m.Config.NodeName
+	logger := log.Default()
+	logger.SetOutput(ioutil.Discard)
+	config.Logger = logger
 	m.serf, err = serf.Create(config)
 	if err != nil {
 		return err

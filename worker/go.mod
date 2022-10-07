@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/cenkalti/backoff/v4 v4.1.3
-	github.com/mohitkumar/orchy/api v0.0.0-beta.1
+	github.com/mohitkumar/orchy/api v0.0.0-beta
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
