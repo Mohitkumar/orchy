@@ -73,7 +73,7 @@ func (a *Agent) setupCluster() error {
 }
 
 func (a *Agent) setupDiContainer() error {
-	a.diContainer = container.NewDiContainer(a.membership, a.ring)
+	a.diContainer = container.NewDiContainer(a.ring)
 	a.diContainer.Init(a.Config)
 	return nil
 }
@@ -121,7 +121,7 @@ func (a *Agent) setupGrpcServer() error {
 	conf := &rpc.GrpcConfig{
 		TaskService:    a.actionExecutionService,
 		TaskDefService: a.diContainer.GetTaskDao(),
-		GetServerer:    a.membership,
+		GetServerer:    a.ring,
 	}
 	a.grpcServer, err = rpc.NewGrpcServer(conf)
 	if err != nil {

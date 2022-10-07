@@ -2,8 +2,10 @@ package cluster
 
 import (
 	"hash"
+	"sync"
 
 	"github.com/buraksezer/consistent"
+	api_v1 "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/spaolacci/murmur3"
 	"go.uber.org/zap"
@@ -33,13 +35,19 @@ func (h hasher) Sum64(data []byte) uint64 {
 
 type Ring struct {
 	RingConfig
-	hring *consistent.Consistent
+	hring     *consistent.Consistent
+	nodes     map[string]Node
+	localNode Node
+	mu        sync.Mutex
 }
 
-type Member string
+type Node struct {
+	name string
+	addr string
+}
 
-func (m Member) String() string {
-	return string(m)
+func (n Node) String() string {
+	return n.name
 }
 
 func NewRing(c RingConfig) *Ring {
@@ -53,17 +61,34 @@ func NewRing(c RingConfig) *Ring {
 	return &Ring{
 		RingConfig: c,
 		hring:      hr,
+		nodes:      make(map[string]Node),
 	}
 }
 
-func (r *Ring) Join(name, addr string) error {
+func (r *Ring) Join(name, addr string, isLocal bool) error {
 	logger.Info("adding member to cluster", zap.String("node", name))
-	r.hring.Add(Member(name))
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.nodes[name]; ok {
+		return nil
+	}
+	node := Node{
+		name: name,
+		addr: addr,
+	}
+	r.nodes[name] = node
+	r.hring.Add(node)
+	if isLocal {
+		r.localNode = node
+	}
 	return nil
 }
 
 func (r *Ring) Leave(name string) error {
 	logger.Info("removing member from cluster", zap.String("node", name))
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.nodes, name)
 	r.hring.Remove(name)
 	return nil
 }
@@ -72,15 +97,28 @@ func (r *Ring) GetPartition(key string) int {
 	return r.hring.FindPartitionID([]byte(key))
 }
 
-func (r *Ring) GetPartitions(memberName string) []int {
+func (r *Ring) GetPartitions() []int {
 	i := 0
 	partitions := make([]int, 0)
 	for i < r.PartitionCount {
 		owner := r.hring.GetPartitionOwner(i)
-		if owner.String() == memberName {
+		if owner.String() == r.localNode.name {
 			partitions = append(partitions, i)
 		}
 		i++
 	}
 	return partitions
+}
+
+func (r *Ring) GetServers() ([]*api_v1.Server, error) {
+	nodes := r.nodes
+	servers := make([]*api_v1.Server, 0, len(nodes))
+	for _, node := range nodes {
+		srv := &api_v1.Server{
+			Id:      node.name,
+			RpcAddr: node.addr,
+		}
+		servers = append(servers, srv)
+	}
+	return servers, nil
 }

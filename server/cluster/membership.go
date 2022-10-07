@@ -4,7 +4,6 @@ import (
 	"net"
 
 	"github.com/hashicorp/serf/serf"
-	api_v1 "github.com/mohitkumar/orchy/api/v1"
 	"go.uber.org/zap"
 )
 
@@ -16,7 +15,7 @@ type Config struct {
 }
 
 type Handler interface {
-	Join(name, addr string) error
+	Join(name, addr string, isLocal bool) error
 	Leave(name string) error
 }
 
@@ -71,9 +70,6 @@ func (m *Membership) eventHandler() {
 		switch e.EventType() {
 		case serf.EventMemberJoin:
 			for _, member := range e.(serf.MemberEvent).Members {
-				if m.isLocal(member) {
-					continue
-				}
 				m.handleJoin(member)
 			}
 		case serf.EventMemberLeave, serf.EventMemberFailed:
@@ -91,6 +87,7 @@ func (m *Membership) handleJoin(member serf.Member) {
 	if err := m.handler.Join(
 		member.Name,
 		member.Tags["rpc_addr"],
+		m.isLocal(member),
 	); err != nil {
 		m.logError(err, "failed to join", member)
 	}
@@ -108,25 +105,8 @@ func (m *Membership) isLocal(member serf.Member) bool {
 	return m.serf.LocalMember().Name == member.Name
 }
 
-func (m *Membership) GetLocalMemebr() string {
-	return m.serf.LocalMember().Name
-}
-
 func (m *Membership) Members() []serf.Member {
 	return m.serf.Members()
-}
-
-func (m *Membership) GetServers() ([]*api_v1.Server, error) {
-	members := m.serf.Members()
-	servers := make([]*api_v1.Server, 0, len(members))
-	for _, member := range members {
-		srv := &api_v1.Server{
-			Id:      member.Name,
-			RpcAddr: member.Tags["rpc_addr"],
-		}
-		servers = append(servers, srv)
-	}
-	return servers, nil
 }
 
 func (m *Membership) Leave() error {

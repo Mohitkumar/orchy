@@ -30,10 +30,9 @@ func (p *DIContiner) setInitialized() {
 	p.initialized = true
 }
 
-func NewDiContainer(memberShip *cluster.Membership, ring *cluster.Ring) *DIContiner {
+func NewDiContainer(ring *cluster.Ring) *DIContiner {
 	return &DIContiner{
 		initialized: false,
-		memebership: memberShip,
 		ring:        ring,
 	}
 }
@@ -69,10 +68,10 @@ func (d *DIContiner) Init(conf config.Config) {
 			Addrs:     conf.RedisConfig.Addrs,
 			Namespace: conf.RedisConfig.Namespace,
 		}
-		d.queue = cluster.NewQueue(rd.NewRedisQueue(*rdConf), d.memebership, d.ring)
-		d.delayQueue = cluster.NewDelayQueue(rd.NewRedisDelayQueue(*rdConf), d.memebership, d.ring)
-		d.taskTimeoutQueue = cluster.NewDelayQueue(rd.NewRedisDelayQueue(*rdConf), d.memebership, d.ring)
-		d.taskRetryQueue = cluster.NewDelayQueue(rd.NewRedisDelayQueue(*rdConf), d.memebership, d.ring)
+		d.queue = cluster.NewQueue(rd.NewRedisQueue(*rdConf), d.ring)
+		d.delayQueue = cluster.NewDelayQueue(rd.NewRedisDelayQueue(*rdConf), d.ring)
+		d.taskTimeoutQueue = cluster.NewDelayQueue(rd.NewRedisDelayQueue(*rdConf), d.ring)
+		d.taskRetryQueue = cluster.NewDelayQueue(rd.NewRedisDelayQueue(*rdConf), d.ring)
 	}
 	d.stateHandler = cluster.NewStateHandlerContainer(d.flowDao)
 	d.stateHandler.Init()

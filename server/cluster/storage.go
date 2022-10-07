@@ -20,16 +20,14 @@ var _ Queue = new(clusterQueue)
 
 type clusterQueue struct {
 	redisQueue       persistence.Queue
-	membership       *Membership
 	ring             *Ring
 	mu               sync.Mutex
 	currentPartition uint64
 }
 
-func NewQueue(queue persistence.Queue, membership *Membership, ring *Ring) *clusterQueue {
+func NewQueue(queue persistence.Queue, ring *Ring) *clusterQueue {
 	return &clusterQueue{
 		redisQueue:       queue,
-		membership:       membership,
 		ring:             ring,
 		currentPartition: 0,
 	}
@@ -57,7 +55,7 @@ func (cq *clusterQueue) Pop(queueName string, batchSize int) ([]string, error) {
 func (cq *clusterQueue) getNextPartition() int {
 	cq.mu.Lock()
 	defer cq.mu.Unlock()
-	partitions := cq.ring.GetPartitions(cq.membership.GetLocalMemebr())
+	partitions := cq.ring.GetPartitions()
 	partitions = sort.IntSlice(partitions)
 	idx := sort.Search(len(partitions), func(i int) bool {
 		return partitions[i] > int(cq.currentPartition)
@@ -78,16 +76,14 @@ type DelayQueue interface {
 
 type clusterDelayQueue struct {
 	redisQueue persistence.DelayQueue
-	membership *Membership
 	ring       *Ring
 }
 
 var _ DelayQueue = new(clusterDelayQueue)
 
-func NewDelayQueue(queue persistence.DelayQueue, membership *Membership, ring *Ring) *clusterDelayQueue {
+func NewDelayQueue(queue persistence.DelayQueue, ring *Ring) *clusterDelayQueue {
 	return &clusterDelayQueue{
 		redisQueue: queue,
-		membership: membership,
 		ring:       ring,
 	}
 }
@@ -97,7 +93,7 @@ func (dq *clusterDelayQueue) Push(queueName string, flowId string, mesage []byte
 }
 
 func (dq *clusterDelayQueue) Pop(queueName string) ([]string, error) {
-	partitions := dq.ring.GetPartitions(dq.membership.GetLocalMemebr())
+	partitions := dq.ring.GetPartitions()
 	result := make([]string, 0)
 	for part := range partitions {
 		res, err := dq.redisQueue.Pop(queueName, strconv.Itoa(part))
@@ -157,23 +153,4 @@ func (cd *clusterFlowDao) GetFlowContext(wfName string, flowId string) (*model.F
 func (cd *clusterFlowDao) DeleteFlowContext(wfName string, flowId string) error {
 	partition := strconv.Itoa(cd.ring.GetPartition(flowId))
 	return cd.flowDao.DeleteFlowContext(wfName, flowId, partition)
-}
-
-type ClusterStore struct {
-	Queue      Queue
-	DelayQueue DelayQueue
-	FlowDao    FlowDao
-	membership *Membership
-	ring       *Ring
-}
-
-func NewClusterStore(ring *Ring, memebership *Membership,
-	queue persistence.Queue, delayQueue persistence.DelayQueue, flowDao persistence.FlowDao) *ClusterStore {
-	return &ClusterStore{
-		Queue:      NewQueue(queue, memebership, ring),
-		DelayQueue: NewDelayQueue(delayQueue, memebership, ring),
-		FlowDao:    NewFlowDao(flowDao, ring),
-		membership: memebership,
-		ring:       ring,
-	}
 }
