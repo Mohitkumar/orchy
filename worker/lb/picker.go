@@ -1,6 +1,7 @@
 package lb
 
 import (
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -12,10 +13,11 @@ import (
 var _ base.PickerBuilder = (*Picker)(nil)
 
 type Picker struct {
-	mu      sync.RWMutex
-	servers []balancer.SubConn
-	current uint64
-	logger  *zap.Logger
+	mu            sync.RWMutex
+	servers       []balancer.SubConn
+	workerCounter sync.Map
+	current       uint64
+	logger        *zap.Logger
 }
 
 func (p *Picker) Build(buildInfo base.PickerBuildInfo) balancer.Picker {
@@ -23,7 +25,7 @@ func (p *Picker) Build(buildInfo base.PickerBuildInfo) balancer.Picker {
 	defer p.mu.Unlock()
 	p.logger = zap.L().Named("picker")
 	var servers []balancer.SubConn
-	for sc, _ := range buildInfo.ReadySCs {
+	for sc := range buildInfo.ReadySCs {
 		servers = append(servers, sc)
 	}
 	p.servers = servers
@@ -34,16 +36,39 @@ var _ balancer.Picker = (*Picker)(nil)
 
 func (p *Picker) Pick(info balancer.PickInfo) (
 	balancer.PickResult, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	var result balancer.PickResult
-	result.SubConn = p.nextServer()
+	if strings.Contains(info.FullMethodName, "Poll") {
+		worker := info.Ctx.Value("worker")
+		result.SubConn = p.nextServerPoll(worker.(string))
+	} else {
+		result.SubConn = p.nextServer()
+	}
 	if result.SubConn == nil {
 		return result, balancer.ErrNoSubConnAvailable
 	}
 	return result, nil
 }
 
+func (p *Picker) nextServerPoll(worker string) balancer.SubConn {
+	currentObj, ok := p.workerCounter.Load(worker)
+	var cur uint64
+	if ok {
+		current := currentObj.(uint64)
+		cur = atomic.AddUint64(&current, uint64(1))
+		p.workerCounter.Store(worker, cur)
+	} else {
+		p.workerCounter.Store(worker, uint64(0))
+		cur = 0
+	}
+	len := uint64(len(p.servers))
+	if len == 0 {
+		return nil
+	}
+	idx := int(cur % len)
+	return p.servers[idx]
+}
 func (p *Picker) nextServer() balancer.SubConn {
 	cur := atomic.AddUint64(&p.current, uint64(1))
 	len := uint64(len(p.servers))

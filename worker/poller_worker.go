@@ -65,6 +65,7 @@ func (pw *pollerWorker) sendResponse(ctx context.Context, taskResult *api_v1.Tas
 		if err != nil {
 			return err
 		}
+		logger.Info("send result to server", zap.Bool("status", res.Status))
 		if !res.Status {
 			return fmt.Errorf("push task execution result failed")
 		}
@@ -77,7 +78,7 @@ func (pw *pollerWorker) sendResponse(ctx context.Context, taskResult *api_v1.Tas
 }
 
 func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), "worker", pw.worker.GetName())
 	req := &api_v1.TaskPollRequest{
 		TaskType:  pw.worker.GetName(),
 		BatchSize: int32(pw.worker.BatchSize()),
@@ -105,6 +106,7 @@ func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 				}
 			} else {
 				for _, task := range tasks.Tasks {
+					logger.Info("executing task", zap.String("flowId", task.FlowId), zap.String("task", task.TaskName))
 					result := pw.execute(task)
 					err = pw.sendResponse(ctx, result)
 					if err != nil {
