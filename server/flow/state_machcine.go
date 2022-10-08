@@ -133,6 +133,9 @@ func (f *FlowMachine) MarkRunning() {
 	logger.Info("workflow running", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
+func (f *FlowMachine) GetFlowState() model.FlowState {
+	return f.flowContext.State
+}
 func (f *FlowMachine) Execute(tryCount int) error {
 	currentAction := f.CurrentAction
 	event, dataMap, err := currentAction.Execute(f.WorkflowName, f.flowContext, tryCount)

@@ -77,6 +77,9 @@ func (ex *ActionExecutor) ValidateExecutionRequest(req model.ActionExecutionRequ
 	if err != nil {
 		return err
 	}
+	if flowMachine.GetFlowState() == model.COMPLETED {
+		return fmt.Errorf("flow completed")
+	}
 	if actionId != flowMachine.CurrentAction.GetId() {
 		return fmt.Errorf("action %d already executed", actionId)
 	}
