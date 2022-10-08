@@ -37,7 +37,7 @@ func (cq *clusterQueue) Push(queueName string, flowId string, mesage []byte) err
 func (cq *clusterQueue) Pop(queueName string, batchSize int) ([]string, error) {
 	result := make([]string, 0)
 	partitions := cq.ring.GetPartitions()
-	for partition := range partitions {
+	for _, partition := range partitions {
 		if len(result) < batchSize {
 			numOfItemsToFetch := batchSize - len(result)
 			items, err := cq.redisQueue.Pop(queueName, strconv.Itoa(partition), numOfItemsToFetch)
@@ -80,7 +80,7 @@ func (dq *clusterDelayQueue) Push(queueName string, flowId string, mesage []byte
 func (dq *clusterDelayQueue) Pop(queueName string) ([]string, error) {
 	partitions := dq.ring.GetPartitions()
 	result := make([]string, 0)
-	for part := range partitions {
+	for _, part := range partitions {
 		res, err := dq.redisQueue.Pop(queueName, strconv.Itoa(part))
 		if err != nil {
 			return nil, err

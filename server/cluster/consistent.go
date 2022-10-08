@@ -7,6 +7,7 @@ import (
 	"github.com/buraksezer/consistent"
 	api_v1 "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/util"
 	"github.com/spaolacci/murmur3"
 	"go.uber.org/zap"
 )
@@ -107,6 +108,7 @@ func (r *Ring) GetPartitions() []int {
 		}
 		i++
 	}
+	util.Shuffle(partitions)
 	return partitions
 }
 
