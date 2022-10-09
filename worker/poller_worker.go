@@ -56,12 +56,6 @@ func (pw *pollerWorker) sendResponse(ctx context.Context, taskResult *api_v1.Tas
 	b := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(pw.retryIntervalSecond)*time.Second), uint64(pw.maxRetryBeforeResultPush))
 	err := backoff.Retry(func() error {
 		res, err := pw.client.GetApiClient().Push(ctx, taskResult)
-		if e, ok := status.FromError(err); ok {
-			switch e.Code() {
-			case codes.Unavailable:
-				pw.client.Refresh()
-			}
-		}
 		if err != nil {
 			return err
 		}
@@ -96,8 +90,6 @@ func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 					switch e.Code() {
 					case codes.Unavailable:
 						logger.Error("server unavialable trying reconnect...")
-						pw.client.Refresh()
-						logger.Info("server reconnect successfull, continueing..")
 					case codes.NotFound:
 						logger.Debug("not task available", zap.Error(err))
 					default:

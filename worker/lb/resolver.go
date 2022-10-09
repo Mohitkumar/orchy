@@ -34,9 +34,10 @@ func (r *Resolver) Build(
 		dialOpts = append(
 			dialOpts,
 			grpc.WithTransportCredentials(opts.DialCreds),
+			grpc.WithBlock(),
 		)
 	} else {
-		dialOpts = append(dialOpts, grpc.WithInsecure())
+		dialOpts = append(dialOpts, grpc.WithInsecure(), grpc.WithBlock())
 	}
 	r.serviceConfig = r.clientConn.ParseServiceConfig(
 		fmt.Sprintf(`{"loadBalancingConfig":[{"%s":{}}]}`, Name),
@@ -62,7 +63,7 @@ func init() {
 
 var _ resolver.Resolver = (*Resolver)(nil)
 
-func (r *Resolver) ResolveNow(resolver.ResolveNowOptions) {
+func (r *Resolver) ResolveNow(opt resolver.ResolveNowOptions) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	client := api.NewTaskServiceClient(r.resolverConn)

@@ -35,7 +35,7 @@ func (c *RpcClient) Close() error {
 
 func (c *RpcClient) Refresh() error {
 	c.Close()
-	conn, err := grpc.Dial(fmt.Sprintf("orchy:///%s", c.serverUrl), grpc.WithInsecure(), grpc.WithReturnConnectionError())
+	conn, err := grpc.Dial(fmt.Sprintf("orchy:///%s", c.serverUrl), grpc.WithInsecure())
 	if err != nil {
 		logger.Error("grpc server unavailable", zap.String("server", c.serverUrl))
 		return err
