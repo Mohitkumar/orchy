@@ -6,16 +6,16 @@ const RETRY_POLICY_FIXED RetryPolicy = "FIXED"
 const RETRY_POLICY_BACKOFF RetryPolicy = "BACKOFF"
 
 type WorkerWrapper struct {
-	Worker
+	worker            func(map[string]any) (map[string]any, error)
 	retryCount        int
 	retryAfterSeconds int
 	retryPolicy       RetryPolicy
 	timeoutSeconds    int
 }
 
-func NewDefaultWorker(w Worker) *WorkerWrapper {
+func NewDefaultWorker(w func(map[string]any) (map[string]any, error)) *WorkerWrapper {
 	return &WorkerWrapper{
-		Worker:            w,
+		worker:            w,
 		retryCount:        1,
 		retryAfterSeconds: 5,
 		retryPolicy:       RETRY_POLICY_FIXED,

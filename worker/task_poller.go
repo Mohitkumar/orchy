@@ -1,55 +1,56 @@
 package worker
 
 import (
+	"strconv"
 	"sync"
 
 	"github.com/mohitkumar/orchy/worker/client"
 )
 
-type workerWithStopChannel struct {
-	worker     Worker
-	stop       chan struct{}
-	numWorkers int
+type nWorker struct {
+	worker *worker
+	num    int
 }
 type taskPoller struct {
-	workers []*workerWithStopChannel
-	config  WorkerConfiguration
-	wg      *sync.WaitGroup
+	workers      []*nWorker
+	pollerWorker []*pollerWorker
+	config       WorkerConfiguration
 }
 
-func NewTaskPoller(conf WorkerConfiguration, wg *sync.WaitGroup) *taskPoller {
+func newTaskPoller(conf WorkerConfiguration) *taskPoller {
 	return &taskPoller{
 		config: conf,
-		wg:     wg,
 	}
 }
 
-func (tp *taskPoller) registerWorker(worker Worker, numWorkers int) {
-	stopc := make(chan struct{})
-	tp.workers = append(tp.workers, &workerWithStopChannel{worker: worker, stop: stopc, numWorkers: numWorkers})
+func (tp *taskPoller) registerWorker(worker *worker, numWorkers int) {
+	tp.workers = append(tp.workers, &nWorker{worker: worker, num: numWorkers})
 }
 
-func (tp *taskPoller) start() {
+func (tp *taskPoller) start(wg *sync.WaitGroup) {
 	for _, w := range tp.workers {
-		client, err := client.NewRpcClient(tp.config.ServerUrl)
-		if err != nil {
-			panic(err)
+		for i := 0; i < w.num; i++ {
+			client, err := client.NewRpcClient(tp.config.ServerUrl)
+			if err != nil {
+				panic(err)
+			}
+			pw := &pollerWorker{
+				worker:                   w.worker,
+				stop:                     make(chan struct{}),
+				client:                   client,
+				wg:                       wg,
+				maxRetryBeforeResultPush: tp.config.MaxRetryBeforeResultPush,
+				retryIntervalSecond:      tp.config.RetryIntervalSecond,
+				workerName:               w.worker.GetName() + "_" + strconv.Itoa(i),
+			}
+			tp.pollerWorker = append(tp.pollerWorker, pw)
+			pw.Start()
 		}
-		pw := &pollerWorker{
-			worker:                   w.worker,
-			stop:                     w.stop,
-			client:                   client,
-			wg:                       tp.wg,
-			maxRetryBeforeResultPush: tp.config.MaxRetryBeforeResultPush,
-			retryIntervalSecond:      tp.config.RetryIntervalSecond,
-			numWorker:                w.numWorkers,
-		}
-		pw.Start()
 	}
 }
 
 func (tp *taskPoller) stop() {
-	for _, w := range tp.workers {
-		w.stop <- struct{}{}
+	for _, w := range tp.pollerWorker {
+		w.Stop()
 	}
 }

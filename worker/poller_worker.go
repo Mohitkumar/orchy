@@ -17,13 +17,13 @@ import (
 )
 
 type pollerWorker struct {
-	worker                   Worker
+	worker                   *worker
+	workerName               string
 	client                   *client.RpcClient
 	stop                     chan struct{}
 	maxRetryBeforeResultPush int
 	retryIntervalSecond      int
 	wg                       *sync.WaitGroup
-	numWorker                int
 }
 
 func (pw *pollerWorker) execute(task *api_v1.Task) *api_v1.TaskResult {
@@ -81,6 +81,7 @@ func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 	for {
 		select {
 		case <-pw.stop:
+			logger.Info("stopping worker", zap.String("worker", pw.workerName))
 			ticker.Stop()
 			return
 		case <-ticker.C:
@@ -110,11 +111,14 @@ func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 	}
 }
 func (pw *pollerWorker) Start() {
-	logger.Info("starting workers", zap.String("worker", pw.worker.GetName()), zap.Int("workerCount", pw.numWorker))
-	for i := 0; i < pw.numWorker; i++ {
-		pw.wg.Add(1)
-		ticker := time.NewTicker(time.Duration(pw.worker.GetPollInterval()) * time.Second)
-		go pw.workerLoop(ticker)
-		logger.Info("started worker", zap.String("name", pw.worker.GetName()))
-	}
+	logger.Info("starting workers", zap.String("worker", pw.workerName))
+	pw.wg.Add(1)
+	ticker := time.NewTicker(pw.worker.GetPollInterval())
+	go pw.workerLoop(ticker)
+	logger.Info("started worker", zap.String("name", pw.workerName))
+}
+
+func (pw *pollerWorker) Stop() {
+	pw.stop <- struct{}{}
+	pw.client.Close()
 }

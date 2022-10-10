@@ -34,7 +34,7 @@ func (c *RpcClient) Close() error {
 }
 
 func (c *RpcClient) Refresh() error {
-	c.Close()
+	oldConn := c.conn
 	conn, err := grpc.Dial(fmt.Sprintf("orchy:///%s", c.serverUrl), grpc.WithInsecure())
 	if err != nil {
 		logger.Error("grpc server unavailable", zap.String("server", c.serverUrl))
@@ -42,6 +42,7 @@ func (c *RpcClient) Refresh() error {
 	}
 	c.conn = conn
 	c.taskServiceClient = api.NewTaskServiceClient(conn)
+	oldConn.Close()
 	return nil
 }
 
