@@ -20,4 +20,4 @@ require (
 	google.golang.org/genproto v0.0.0-20220722212130-b98a9ff5e252 // indirect
 )
 
-
+replace github.com/mohitkumar/orchy/api v0.0.0-beta => ../api
