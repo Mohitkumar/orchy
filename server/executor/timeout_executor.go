@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mohitkumar/orchy/server/container"
+	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/util"
@@ -12,18 +13,16 @@ import (
 )
 
 type TimeoutExecutor struct {
-	container     *container.DIContiner
-	wg            *sync.WaitGroup
-	stop          chan struct{}
-	actionExector *ActionExecutor
+	container *container.DIContiner
+	wg        *sync.WaitGroup
+	stop      chan struct{}
 }
 
-func NewTimeoutExecutor(container *container.DIContiner, actionExector *ActionExecutor, wg *sync.WaitGroup) *TimeoutExecutor {
+func NewTimeoutExecutor(container *container.DIContiner, wg *sync.WaitGroup) *TimeoutExecutor {
 	return &TimeoutExecutor{
-		container:     container,
-		actionExector: actionExector,
-		stop:          make(chan struct{}),
-		wg:            wg,
+		container: container,
+		stop:      make(chan struct{}),
+		wg:        wg,
 	}
 }
 
@@ -32,7 +31,11 @@ func (ex *TimeoutExecutor) Name() string {
 }
 
 func (ex *TimeoutExecutor) handle(msg *model.ActionExecutionRequest) error {
-	err := ex.actionExector.ValidateExecutionRequest(*msg)
+	flowMachine, err := flow.GetFlowStateMachine(msg.WorkflowName, msg.FlowId, ex.container)
+	if err != nil {
+		return err
+	}
+	err = flowMachine.ValidateExecutionRequest(msg.ActionId)
 	if err != nil {
 		logger.Debug("discarding timeout action execution request, action has already executed")
 		return err

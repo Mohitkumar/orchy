@@ -5,7 +5,6 @@ import (
 
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/container"
-	"github.com/mohitkumar/orchy/server/executor"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
@@ -15,14 +14,12 @@ import (
 )
 
 type ActionExecutionService struct {
-	container      *container.DIContiner
-	actionExecutor *executor.ActionExecutor
+	container *container.DIContiner
 }
 
-func NewActionExecutionService(container *container.DIContiner, actionExecutor *executor.ActionExecutor) *ActionExecutionService {
+func NewActionExecutionService(container *container.DIContiner) *ActionExecutionService {
 	return &ActionExecutionService{
-		container:      container,
-		actionExecutor: actionExecutor,
+		container: container,
 	}
 }
 func (ts *ActionExecutionService) Poll(taskName string, batchSize int) (*api.Tasks, error) {
@@ -65,14 +62,7 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 			logger.Error("error moving forward in workflow", zap.Error(err))
 			return err
 		}
-
-		req := model.ActionExecutionRequest{
-			WorkflowName: wfName,
-			ActionId:     flowMachine.CurrentAction.GetId(),
-			FlowId:       wfId,
-			TryNumber:    1,
-		}
-		s.actionExecutor.Execute(req)
+		flowMachine.Execute(1, flowMachine.CurrentAction.GetId())
 	case api.TaskResult_FAIL:
 		taskDef, err := s.container.GetTaskDao().GetTask(taskResult.TaskName)
 		if err != nil {

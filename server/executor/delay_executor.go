@@ -14,18 +14,16 @@ import (
 var _ Executor = new(DelayExecutor)
 
 type DelayExecutor struct {
-	container     *container.DIContiner
-	wg            *sync.WaitGroup
-	stop          chan struct{}
-	actionExector *ActionExecutor
+	container *container.DIContiner
+	wg        *sync.WaitGroup
+	stop      chan struct{}
 }
 
-func NewDelayExecutor(container *container.DIContiner, actionExector *ActionExecutor, wg *sync.WaitGroup) *DelayExecutor {
+func NewDelayExecutor(container *container.DIContiner, wg *sync.WaitGroup) *DelayExecutor {
 	return &DelayExecutor{
-		container:     container,
-		actionExector: actionExector,
-		stop:          make(chan struct{}),
-		wg:            wg,
+		container: container,
+		stop:      make(chan struct{}),
+		wg:        wg,
 	}
 }
 
@@ -45,7 +43,7 @@ func (ex *DelayExecutor) handle(msg *model.ActionExecutionRequest) error {
 	}
 
 	flowMachine.MarkRunning()
-	err = ex.actionExector.Execute(*msg)
+	err = flowMachine.Execute(msg.TryNumber, msg.ActionId)
 	if err != nil {
 		logger.Error("error in executing workflow", zap.String("wfName", msg.WorkflowName), zap.String("flowId", msg.FlowId))
 		return err

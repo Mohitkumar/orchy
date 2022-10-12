@@ -25,7 +25,6 @@ type Agent struct {
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
 	delayExecutor            *executor.DelayExecutor
-	actionExecutor           *executor.ActionExecutor
 	retryExecutor            *executor.RetryExecutor
 	timeoutExecutor          *executor.TimeoutExecutor
 	actionExecutionService   *service.ActionExecutionService
@@ -44,7 +43,6 @@ func New(config config.Config) (*Agent, error) {
 	setup := []func() error{
 		a.setupCluster,
 		a.setupDiContainer,
-		a.setupActionExecutor,
 		a.setupDelayExecutor,
 		a.setupRetryExecutor,
 		a.setupTimeoutExecutor,
@@ -78,33 +76,28 @@ func (a *Agent) setupDiContainer() error {
 	return nil
 }
 
-func (a *Agent) setupActionExecutor() error {
-	a.actionExecutor = executor.NewActionExecutor(a.diContainer, a.Config.ActionExecutorCapacity, &a.wg)
-	return a.actionExecutor.Start()
-}
-
 func (a *Agent) setupDelayExecutor() error {
-	a.delayExecutor = executor.NewDelayExecutor(a.diContainer, a.actionExecutor, &a.wg)
+	a.delayExecutor = executor.NewDelayExecutor(a.diContainer, &a.wg)
 	return a.delayExecutor.Start()
 }
 
 func (a *Agent) setupRetryExecutor() error {
-	a.retryExecutor = executor.NewRetryExecutor(a.diContainer, a.actionExecutor, &a.wg)
+	a.retryExecutor = executor.NewRetryExecutor(a.diContainer, &a.wg)
 	return a.retryExecutor.Start()
 }
 
 func (a *Agent) setupTimeoutExecutor() error {
-	a.timeoutExecutor = executor.NewTimeoutExecutor(a.diContainer, a.actionExecutor, &a.wg)
+	a.timeoutExecutor = executor.NewTimeoutExecutor(a.diContainer, &a.wg)
 	return a.timeoutExecutor.Start()
 }
 
 func (a *Agent) setupWorkflowExecutionService() error {
-	a.workflowExecutionService = service.NewWorkflowExecutionService(a.diContainer, a.actionExecutor)
+	a.workflowExecutionService = service.NewWorkflowExecutionService(a.diContainer)
 	return nil
 }
 
 func (a *Agent) setupActionExecutorService() error {
-	a.actionExecutionService = service.NewActionExecutionService(a.diContainer, a.actionExecutor)
+	a.actionExecutionService = service.NewActionExecutionService(a.diContainer)
 	return nil
 }
 func (a *Agent) setupHttpServer() error {
@@ -168,7 +161,6 @@ func (a *Agent) Shutdown() error {
 	close(a.shutdowns)
 
 	shutdown := []func() error{
-		a.actionExecutor.Stop,
 		a.delayExecutor.Stop,
 		a.retryExecutor.Stop,
 		a.timeoutExecutor.Stop,

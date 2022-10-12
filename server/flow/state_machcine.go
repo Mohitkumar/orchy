@@ -8,7 +8,6 @@ import (
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
-	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
 
@@ -53,6 +52,7 @@ func (f *FlowMachine) Init(wfName string, input map[string]any) error {
 	}
 	flowId := uuid.New().String()
 
+	f.WorkflowName = wfName
 	f.flow = Convert(wf, flowId, f.container)
 	f.CurrentAction = f.flow.Actions[wf.RootAction]
 	f.FlowId = flowId
@@ -77,12 +77,13 @@ func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) error {
 	nextActionId := nextActionMap[event]
 	f.CurrentAction = f.flow.Actions[nextActionId]
 	f.flowContext.CurrentAction = nextActionId
+	data := f.flowContext.Data
 	if dataMap != nil || len(dataMap) > 0 {
-		data := f.flowContext.Data
 		output := make(map[string]any)
 		output["output"] = dataMap
-		data[fmt.Sprintf("%d", currentActionId)] = util.ConvertMapToStructPb(output)
+		data[fmt.Sprintf("%d", currentActionId)] = output
 	}
+	f.flowContext.Data = data
 	return f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 }
 
@@ -136,7 +137,11 @@ func (f *FlowMachine) MarkRunning() {
 func (f *FlowMachine) GetFlowState() model.FlowState {
 	return f.flowContext.State
 }
-func (f *FlowMachine) Execute(tryCount int) error {
+func (f *FlowMachine) Execute(tryCount int, actionId int) error {
+	err := f.ValidateExecutionRequest(actionId)
+	if err != nil {
+		return err
+	}
 	currentAction := f.CurrentAction
 	event, dataMap, err := currentAction.Execute(f.WorkflowName, f.flowContext, tryCount)
 	if err != nil {
@@ -150,13 +155,23 @@ func (f *FlowMachine) Execute(tryCount int) error {
 				logger.Error("error moving forward in workflow", zap.Error(err))
 				return err
 			}
-			return f.Execute(1)
+			return f.Execute(1, f.CurrentAction.GetId())
 		case "delay":
 			f.MarkWaitingDelay()
 		case "wait":
 			f.MarkWaitingEvent()
 		}
 
+	}
+	return nil
+}
+
+func (f *FlowMachine) ValidateExecutionRequest(actionId int) error {
+	if f.GetFlowState() == model.COMPLETED {
+		return fmt.Errorf("flow completed")
+	}
+	if actionId != f.CurrentAction.GetId() {
+		return fmt.Errorf("action %d already executed", actionId)
 	}
 	return nil
 }

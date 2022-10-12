@@ -4,24 +4,23 @@ import (
 	"sync"
 
 	"github.com/mohitkumar/orchy/server/container"
+	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
 
 type RetryExecutor struct {
-	container     *container.DIContiner
-	wg            *sync.WaitGroup
-	stop          chan struct{}
-	actionExector *ActionExecutor
+	container *container.DIContiner
+	wg        *sync.WaitGroup
+	stop      chan struct{}
 }
 
-func NewRetryExecutor(container *container.DIContiner, actionExector *ActionExecutor, wg *sync.WaitGroup) *RetryExecutor {
+func NewRetryExecutor(container *container.DIContiner, wg *sync.WaitGroup) *RetryExecutor {
 	return &RetryExecutor{
-		container:     container,
-		actionExector: actionExector,
-		stop:          make(chan struct{}),
-		wg:            wg,
+		container: container,
+		stop:      make(chan struct{}),
+		wg:        wg,
 	}
 }
 
@@ -43,10 +42,14 @@ func (ex *RetryExecutor) Start() error {
 				logger.Error("can not decode action execution request")
 				continue
 			}
-			err = ex.actionExector.Execute(*msg)
+			flowMachine, err := flow.GetFlowStateMachine(msg.WorkflowName, msg.FlowId, ex.container)
 			if err != nil {
 				logger.Error("error in executing workflow", zap.String("wfName", msg.WorkflowName), zap.String("flowId", msg.FlowId))
 				continue
+			}
+			err = flowMachine.Execute(msg.TryNumber, msg.ActionId)
+			if err != nil {
+				logger.Error("error in executing workflow", zap.String("wfName", msg.WorkflowName), zap.String("flowId", msg.FlowId))
 			}
 		}
 	}

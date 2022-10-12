@@ -2,22 +2,18 @@ package service
 
 import (
 	"github.com/mohitkumar/orchy/server/container"
-	"github.com/mohitkumar/orchy/server/executor"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
-	"github.com/mohitkumar/orchy/server/model"
 	"go.uber.org/zap"
 )
 
 type WorkflowExecutionService struct {
-	container      *container.DIContiner
-	actionExecutor *executor.ActionExecutor
+	container *container.DIContiner
 }
 
-func NewWorkflowExecutionService(container *container.DIContiner, actionExecutor *executor.ActionExecutor) *WorkflowExecutionService {
+func NewWorkflowExecutionService(container *container.DIContiner) *WorkflowExecutionService {
 	return &WorkflowExecutionService{
-		container:      container,
-		actionExecutor: actionExecutor,
+		container: container,
 	}
 }
 func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) (string, error) {
@@ -27,13 +23,7 @@ func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) 
 		return "", err
 	}
 	logger.Info("starting workflow", zap.String("workflow", name), zap.Any("input", input))
-	req := model.ActionExecutionRequest{
-		WorkflowName: name,
-		ActionId:     flowMachine.CurrentAction.GetId(),
-		FlowId:       flowMachine.FlowId,
-		TryNumber:    1,
-	}
-	return flowMachine.FlowId, s.actionExecutor.Execute(req)
+	return flowMachine.FlowId, flowMachine.Execute(1, flowMachine.CurrentAction.GetId())
 }
 
 func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, event string) error {
@@ -46,5 +36,5 @@ func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, even
 		return err
 	}
 	flowMachine.MarkRunning()
-	return flowMachine.Execute(1)
+	return flowMachine.Execute(1, flowMachine.CurrentAction.GetId())
 }
