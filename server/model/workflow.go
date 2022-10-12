@@ -17,9 +17,16 @@ type ActionDef struct {
 	Expression   string         `json:"expression"`
 	Join         int            `json:"join"`
 	DelaySeconds int            `json:"delaySeconds"`
+	Event        string         `json:"event"`
 }
 
 type WorkflowRunRequest struct {
 	Name  string         `json:"name"`
 	Input map[string]any `json:"input"`
+}
+
+type WorkflowEvent struct {
+	Name   string `json:"name"`
+	FlowId string `json:"flowId"`
+	Event  string `json:"event"`
 }

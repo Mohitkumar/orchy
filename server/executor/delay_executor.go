@@ -38,15 +38,13 @@ func (ex *DelayExecutor) handle(msg *model.ActionExecutionRequest) error {
 	if err != nil {
 		return err
 	}
-	completed, err := flowMachine.MoveForward("default", nil)
+	err = flowMachine.MoveForward("default", nil)
 	if err != nil {
 		logger.Error("error moving forward in workflow", zap.Error(err))
 		return err
 	}
-	if completed {
-		logger.Info("workflow completed, no more action to execute", zap.String("workflow", msg.WorkflowName), zap.String("flow", msg.FlowId))
-		return err
-	}
+
+	flowMachine.MarkRunning()
 	err = ex.actionExector.Execute(*msg)
 	if err != nil {
 		logger.Error("error in executing workflow", zap.String("wfName", msg.WorkflowName), zap.String("flowId", msg.FlowId))

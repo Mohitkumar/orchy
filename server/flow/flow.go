@@ -32,6 +32,8 @@ func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Fl
 				flAct = action.NewSwitchAction(actionDef.Expression, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "delay") {
 				flAct = action.NewDelayAction(actionDef.DelaySeconds, *baseAction)
+			} else if strings.EqualFold(actionDef.Name, "wait") {
+				flAct = action.NewWaitAction(actionDef.Event, *baseAction)
 			}
 		} else {
 			flAct = action.NewUserAction(*baseAction)

@@ -35,3 +35,16 @@ func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) 
 	}
 	return flowMachine.FlowId, s.actionExecutor.Execute(req)
 }
+
+func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, event string) error {
+	flowMachine, err := flow.GetFlowStateMachine(name, flowId, s.container)
+	if err != nil {
+		return err
+	}
+	err = flowMachine.MoveForward("default", nil)
+	if err != nil {
+		return err
+	}
+	flowMachine.MarkRunning()
+	return flowMachine.Execute(1)
+}

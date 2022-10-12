@@ -67,12 +67,12 @@ func (f *FlowMachine) Init(wfName string, input map[string]any) error {
 	return f.container.GetFlowDao().SaveFlowContext(wfName, flowId, f.flowContext)
 }
 
-func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, error) {
+func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) error {
 	currentActionId := f.CurrentAction.GetId()
 	nextActionMap := f.CurrentAction.GetNext()
 	if nextActionMap == nil || len(nextActionMap) == 0 {
 		f.MarkComplete()
-		return true, nil
+		return fmt.Errorf("flow already completed")
 	}
 	nextActionId := nextActionMap[event]
 	f.CurrentAction = f.flow.Actions[nextActionId]
@@ -83,7 +83,7 @@ func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, e
 		output["output"] = dataMap
 		data[fmt.Sprintf("%d", currentActionId)] = util.ConvertMapToStructPb(output)
 	}
-	return false, f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	return f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 }
 
 func (f *FlowMachine) MarkComplete() {
@@ -145,40 +145,18 @@ func (f *FlowMachine) Execute(tryCount int) error {
 	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
 		switch currentAction.GetName() {
 		case "switch":
-			completed, err := f.MoveForward(event, dataMap)
+			err := f.MoveForward(event, dataMap)
 			if err != nil {
 				logger.Error("error moving forward in workflow", zap.Error(err))
 				return err
 			}
-			if completed {
-				logger.Info("workflow completed, no more action to execute", zap.String("workflow", f.WorkflowName), zap.String("flow", f.FlowId))
-				return nil
-			}
 			return f.Execute(1)
 		case "delay":
 			f.MarkWaitingDelay()
+		case "wait":
+			f.MarkWaitingEvent()
 		}
+
 	}
 	return nil
-}
-
-func (f *FlowMachine) DelayTask() {
-	completed, err := f.MoveForward("default", nil)
-	if err != nil {
-		logger.Error("error moving forward in workflow", zap.Error(err))
-		return
-	}
-	if completed {
-		logger.Info("workflow completed, no more action to execute", zap.String("workflow", f.WorkflowName), zap.String("flow", f.FlowId))
-		return
-	}
-	f.Execute(1)
-}
-
-func (f *FlowMachine) RetryTask(tryNumber int) {
-	if f.completed {
-		logger.Info("workflow completed, can not retry", zap.String("workflow", f.WorkflowName), zap.String("flow", f.FlowId))
-		return
-	}
-	f.Execute(tryNumber)
 }

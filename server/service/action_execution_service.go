@@ -60,15 +60,12 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 	}
 	switch taskResult.Status {
 	case api.TaskResult_SUCCESS:
-		completed, err := flowMachine.MoveForward("default", data)
+		err := flowMachine.MoveForward("default", data)
 		if err != nil {
 			logger.Error("error moving forward in workflow", zap.Error(err))
 			return err
 		}
-		if completed {
-			logger.Info("workflow completed, no more action to execute", zap.String("workflow", wfName), zap.String("flow", wfId))
-			return nil
-		}
+
 		req := model.ActionExecutionRequest{
 			WorkflowName: wfName,
 			ActionId:     flowMachine.CurrentAction.GetId(),

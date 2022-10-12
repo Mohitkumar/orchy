@@ -36,6 +36,7 @@ func NewServer(httpPort int, container *container.DIContiner, executorService *s
 	router.HandleFunc("/workflow", s.HandleCreateFlow).Methods(http.MethodPost)
 	router.HandleFunc("/workflow/{name}", s.HandleGetFlow).Methods(http.MethodGet)
 	router.HandleFunc("/flow/execute", s.HandleRunFlow).Methods(http.MethodPost)
+	router.HandleFunc("/flow/event", s.HandleEvent).Methods(http.MethodPost)
 	router.Use(loggingMiddleware)
 	s.Handler = router
 	return s, nil
@@ -80,6 +81,11 @@ func respondOK(w http.ResponseWriter, message map[string]any) {
 	w.WriteHeader(200)
 	res, _ := json.Marshal(message)
 	w.Write(res)
+}
+
+func respondOKWithoutBody(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
 }
 
 func respondWithError(w http.ResponseWriter, code int, message string) {

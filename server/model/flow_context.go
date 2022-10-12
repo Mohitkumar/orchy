@@ -15,4 +15,5 @@ type FlowContext struct {
 	Data          map[string]any `json:"data"`
 	State         FlowState      `json:"flowState"`
 	TTL           uint64         `json:"ttl"`
+	Event         string         `json:"event"`
 }
