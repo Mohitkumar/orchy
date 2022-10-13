@@ -24,9 +24,9 @@ type Agent struct {
 	diContainer              *container.DIContiner
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
-	delayExecutor            *executor.DelayExecutor
-	retryExecutor            *executor.RetryExecutor
-	timeoutExecutor          *executor.TimeoutExecutor
+	delayExecutor            executor.Executor
+	retryExecutor            executor.Executor
+	timeoutExecutor          executor.Executor
 	actionExecutionService   *service.ActionExecutionService
 	workflowExecutionService *service.WorkflowExecutionService
 	shutdown                 bool

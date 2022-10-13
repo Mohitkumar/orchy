@@ -36,7 +36,6 @@ func (ex *RetryExecutor) Start() error {
 			return
 		}
 		for _, r := range res {
-
 			msg, err := ex.container.ActionExecutionRequestEncDec.Decode([]byte(r))
 			if err != nil {
 				logger.Error("can not decode action execution request")

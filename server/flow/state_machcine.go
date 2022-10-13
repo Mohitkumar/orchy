@@ -106,7 +106,7 @@ func (f *FlowMachine) MarkComplete() {
 }
 
 func (f *FlowMachine) MarkFailed() {
-	f.flowContext.State = model.COMPLETED
+	f.flowContext.State = model.FAILED
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	failureHandler := f.container.GetStateHandler().GetHandler(f.flow.FailureHandler)
 	err := failureHandler(f.WorkflowName, f.FlowId)

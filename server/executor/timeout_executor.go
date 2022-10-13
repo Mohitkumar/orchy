@@ -60,17 +60,7 @@ func (ex *TimeoutExecutor) handle(msg *model.ActionExecutionRequest) error {
 		ex.container.GetTaskRetryQueue().PushWithDelay("retry-queue", msg.FlowId, retryAfter, data)
 	} else {
 		logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", taskDef.RetryCount))
-		flowCtx, err := ex.container.GetFlowDao().GetFlowContext(msg.WorkflowName, msg.FlowId)
-		if err != nil {
-			logger.Error("could not find workflow", zap.Error(err))
-			return err
-		}
-		flowCtx.State = model.FAILED
-		err = ex.container.GetFlowDao().SaveFlowContext(msg.WorkflowName, msg.FlowId, flowCtx)
-		if err != nil {
-			logger.Error("could not save workflow context", zap.Error(err))
-			return err
-		}
+		flowMachine.MarkFailed()
 	}
 	return nil
 }

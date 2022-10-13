@@ -31,27 +31,26 @@ func (ex *DelayExecutor) Name() string {
 	return "delay-executor"
 }
 
-func (ex *DelayExecutor) handle(msg *model.ActionExecutionRequest) error {
+func (ex *DelayExecutor) handle(msg *model.ActionExecutionRequest) {
 	flowMachine, err := flow.GetFlowStateMachine(msg.WorkflowName, msg.FlowId, ex.container)
 	if err != nil {
-		return err
+		return
 	}
 	completed, err := flowMachine.MoveForward("default", nil)
 	if completed {
-		return nil
+		return
 	}
 	if err != nil {
 		logger.Error("error moving forward in workflow", zap.Error(err))
-		return err
+		return
 	}
 
 	flowMachine.MarkRunning()
 	err = flowMachine.Execute(msg.TryNumber, msg.ActionId)
 	if err != nil {
 		logger.Error("error in executing workflow", zap.String("wfName", msg.WorkflowName), zap.String("flowId", msg.FlowId))
-		return err
+		return
 	}
-	return nil
 }
 func (ex *DelayExecutor) Start() error {
 	fn := func() {
