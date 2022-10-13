@@ -57,12 +57,15 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 	}
 	switch taskResult.Status {
 	case api.TaskResult_SUCCESS:
-		err := flowMachine.MoveForward("default", data)
+		completed, err := flowMachine.MoveForward("default", data)
+		if completed {
+			return nil
+		}
 		if err != nil {
 			logger.Error("error moving forward in workflow", zap.Error(err))
 			return err
 		}
-		flowMachine.Execute(1, flowMachine.CurrentAction.GetId())
+		return flowMachine.Execute(1, flowMachine.CurrentAction.GetId())
 	case api.TaskResult_FAIL:
 		taskDef, err := s.container.GetTaskDao().GetTask(taskResult.TaskName)
 		if err != nil {

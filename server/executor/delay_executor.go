@@ -36,7 +36,10 @@ func (ex *DelayExecutor) handle(msg *model.ActionExecutionRequest) error {
 	if err != nil {
 		return err
 	}
-	err = flowMachine.MoveForward("default", nil)
+	completed, err := flowMachine.MoveForward("default", nil)
+	if completed {
+		return nil
+	}
 	if err != nil {
 		logger.Error("error moving forward in workflow", zap.Error(err))
 		return err
@@ -58,16 +61,12 @@ func (ex *DelayExecutor) Start() error {
 			return
 		}
 		for _, r := range res {
-
 			msg, err := ex.container.ActionExecutionRequestEncDec.Decode([]byte(r))
 			if err != nil {
 				logger.Error("can not decode action execution request")
 				continue
 			}
-			err = ex.handle(msg)
-			if err != nil {
-				continue
-			}
+			ex.handle(msg)
 		}
 	}
 	tw := util.NewTickWorker("delay-worker", 1, ex.stop, fn, ex.wg)

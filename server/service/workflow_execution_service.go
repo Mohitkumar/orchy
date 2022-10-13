@@ -31,7 +31,10 @@ func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, even
 	if err != nil {
 		return err
 	}
-	err = flowMachine.MoveForward("default", nil)
+	completed, err := flowMachine.MoveForward("default", nil)
+	if completed {
+		return nil
+	}
 	if err != nil {
 		return err
 	}

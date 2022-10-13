@@ -42,6 +42,9 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 	}
 	flowMachine.flowContext = flowCtx
 	flowMachine.CurrentAction = flowMachine.flow.Actions[flowMachine.flowContext.CurrentAction]
+	if flowMachine.flowContext.State == model.COMPLETED {
+		flowMachine.completed = true
+	}
 	return flowMachine, nil
 }
 
@@ -67,12 +70,15 @@ func (f *FlowMachine) Init(wfName string, input map[string]any) error {
 	return f.container.GetFlowDao().SaveFlowContext(wfName, flowId, f.flowContext)
 }
 
-func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) error {
+func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, error) {
 	currentActionId := f.CurrentAction.GetId()
 	nextActionMap := f.CurrentAction.GetNext()
+	if f.completed {
+		return true, nil
+	}
 	if nextActionMap == nil || len(nextActionMap) == 0 {
 		f.MarkComplete()
-		return fmt.Errorf("flow already completed")
+		return true, nil
 	}
 	nextActionId := nextActionMap[event]
 	f.CurrentAction = f.flow.Actions[nextActionId]
@@ -84,7 +90,7 @@ func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) error {
 		data[fmt.Sprintf("%d", currentActionId)] = output
 	}
 	f.flowContext.Data = data
-	return f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	return false, f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 }
 
 func (f *FlowMachine) MarkComplete() {
@@ -150,7 +156,10 @@ func (f *FlowMachine) Execute(tryCount int, actionId int) error {
 	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
 		switch currentAction.GetName() {
 		case "switch":
-			err := f.MoveForward(event, dataMap)
+			completed, err := f.MoveForward(event, dataMap)
+			if completed {
+				return nil
+			}
 			if err != nil {
 				logger.Error("error moving forward in workflow", zap.Error(err))
 				return err
