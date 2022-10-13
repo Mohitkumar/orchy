@@ -59,7 +59,7 @@ func (pw *pollerWorker) sendResponse(ctx context.Context, taskResult *api_v1.Tas
 		if err != nil {
 			return err
 		}
-		logger.Info("send result to server", zap.Bool("status", res.Status))
+		logger.Debug("send result to server", zap.Bool("status", res.Status))
 		if !res.Status {
 			return fmt.Errorf("push task execution result failed")
 		}
