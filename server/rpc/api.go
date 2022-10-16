@@ -49,6 +49,7 @@ func (srv *grpcServer) Push(ctx context.Context, req *api.TaskResult) (*api.Task
 }
 
 func (s *grpcServer) GetServers(ctx context.Context, req *api.GetServersRequest) (*api.GetServersResponse, error) {
+	s.ClusterRefresher.RefreshCluster()
 	servers, err := s.GetServerer.GetServers()
 	if err != nil {
 		return nil, err

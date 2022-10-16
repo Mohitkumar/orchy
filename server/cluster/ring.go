@@ -27,7 +27,6 @@ type RingConfig struct {
 }
 
 func (h hasher) Sum64(data []byte) uint64 {
-	// you should use a proper hash function for uniformity.
 	h.hf.Write(data)
 	out := h.hf.Sum64()
 	h.hf.Reset()
@@ -38,6 +37,7 @@ type Ring struct {
 	RingConfig
 	hring     *consistent.Consistent
 	nodes     map[string]Node
+	temp      map[string]Node
 	localNode Node
 	mu        sync.Mutex
 }
@@ -63,11 +63,11 @@ func NewRing(c RingConfig) *Ring {
 		RingConfig: c,
 		hring:      hr,
 		nodes:      make(map[string]Node),
+		temp:       make(map[string]Node),
 	}
 }
 
 func (r *Ring) Join(name, addr string, isLocal bool) error {
-	logger.Info("adding member to cluster", zap.String("node", name))
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.nodes[name]; ok {
@@ -77,10 +77,13 @@ func (r *Ring) Join(name, addr string, isLocal bool) error {
 		name: name,
 		addr: addr,
 	}
-	r.nodes[name] = node
-	r.hring.Add(node)
 	if isLocal {
+		logger.Info("adding member to cluster", zap.String("node", name), zap.String("address", addr))
 		r.localNode = node
+		r.nodes[name] = node
+		r.hring.Add(node)
+	} else {
+		r.temp[name] = node
 	}
 	return nil
 }
@@ -90,6 +93,7 @@ func (r *Ring) Leave(name string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.nodes, name)
+	delete(r.temp, name)
 	r.hring.Remove(name)
 	return nil
 }
@@ -123,4 +127,21 @@ func (r *Ring) GetServers() ([]*api_v1.Server, error) {
 		servers = append(servers, srv)
 	}
 	return servers, nil
+}
+
+func (r *Ring) RefreshCluster() {
+	r.copyNodes()
+}
+
+func (r *Ring) copyNodes() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for name, node := range r.temp {
+		logger.Info("adding member to cluster", zap.String("node", name), zap.String("address", node.addr))
+		r.nodes[name] = node
+		r.hring.Add(node)
+	}
+	for k := range r.temp {
+		delete(r.temp, k)
+	}
 }

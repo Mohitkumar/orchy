@@ -19,6 +19,7 @@ type Config struct {
 type Handler interface {
 	Join(name, addr string, isLocal bool) error
 	Leave(name string) error
+	RefreshCluster()
 }
 
 type Membership struct {
@@ -84,6 +85,11 @@ func (m *Membership) eventHandler() {
 				}
 				m.handleLeave(member)
 			}
+		case serf.EventUser:
+			event := e.(serf.UserEvent)
+			if event.Name == "REFRESH_CLUSTER" {
+				m.handler.RefreshCluster()
+			}
 		}
 	}
 }
@@ -116,6 +122,10 @@ func (m *Membership) Members() []serf.Member {
 
 func (m *Membership) Leave() error {
 	return m.serf.Leave()
+}
+
+func (m *Membership) RefreshCluster() {
+	m.serf.UserEvent("REFRESH_CLUSTER", []byte{}, false)
 }
 
 func (m *Membership) logError(err error, msg string, member serf.Member) {

@@ -29,16 +29,16 @@ func setupFlags(cmd *cobra.Command) error {
 	cmd.Flags().String("config-file", "", "Path to config file.")
 	cmd.Flags().String("redis-addr", "localhost:6379", "comma separated list of redis host:port")
 	cmd.Flags().String("namespace", "orchy", "namespace used in storage")
-	cmd.Flags().Int("http-port", 8080, "htt port for rest endpoints")
+	cmd.Flags().Int("http-port", 8080, "http port for rest endpoints")
 	cmd.Flags().Int("grpc-port", 8099, "grpc port for worker connection")
 	cmd.Flags().String("storage-impl", "redis", "implementation of underline storage")
 	cmd.Flags().String("queue-impl", "redis", "implementation of underline queue ")
-	cmd.Flags().String("encoder-decoder", "JSON", "encoder decoder used to serialzie data")
+	cmd.Flags().String("data-serializer", "JSON", "encoder decoder used to serialzie data")
 	cmd.Flags().Int("executor-capacity", 512, "action executor capacity")
 	cmd.Flags().Int64("max-delay", 7*24*60*60, "max delay value which is used in delay task to wait")
 	cmd.Flags().Int("partitions", 7, "number of partition")
 	cmd.Flags().String("bind-addr", "127.0.0.1:8400", "address for cluster events")
-	cmd.Flags().StringSlice("start-join-addrs", nil, "cluster address to join.")
+	cmd.Flags().StringSlice("cluster-address", nil, "cluster address to join.")
 	cmd.Flags().String("node-name", hostname, "name of the node")
 	return viper.BindPFlags(cmd.Flags())
 }
@@ -65,14 +65,14 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 	c.cfg.GrpcPort = viper.GetInt("grpc-port")
 	c.cfg.StorageType = config.StorageType(viper.GetString("storage-impl"))
 	c.cfg.QueueType = config.QueueType(viper.GetString("queue-impl"))
-	c.cfg.EncoderDecoderType = config.EncoderDecoderType(viper.GetString("encoder-decoder"))
+	c.cfg.EncoderDecoderType = config.EncoderDecoderType(viper.GetString("data-serializer"))
 	c.cfg.ActionExecutorCapacity = viper.GetInt("executor-capacity")
 	c.cfg.RingConfig = cluster.RingConfig{PartitionCount: viper.GetInt("partitions")}
 
 	c.cfg.ClusterConfig = cluster.Config{
 		NodeName:       viper.GetString("node-name"),
 		BindAddr:       viper.GetString("bind-addr"),
-		StartJoinAddrs: viper.GetStringSlice("start-join-addrs"),
+		StartJoinAddrs: viper.GetStringSlice("cluster-address"),
 	}
 	rpcAddr, err := c.cfg.RPCAddr()
 	if err != nil {

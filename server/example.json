@@ -1,40 +1,53 @@
 {
-	"name" :"wf",
+	"name" :"wf2",
 	"rootAction":1,
 	"actions":[
 		{
 			"id":1,
+			"type":"user",
+			"name":"add-data-worker",
+			"parameters":{
+                "key1" : "200",
+                "key2" :39
+            },
+			"next":{"default":7}
+		},
+        {
+			"id":7,
 			"type":"system",
-			"name":"http",
-			"inputParams":{
-
-			},
-			"next":{"default":2}
+			"name":"delay",
+			"delaySeconds":10,
+			"next":{
+				"default": 2
+			}
 		},
 		{
 			"id":2,
 			"type":"system",
-			"name":"decision",
-			"expression":"$1.output.status",
+			"name":"switch",
+			"expression":"$1.output.key1",
 			"next":{
-				"200":3,
-				"500":5
+				"200": 3
+			}
+		},
+        {
+			"id":3,
+			"type":"system",
+			"name":"wait",
+			"event":"test",
+			"next":{
+				"default": 4
 			}
 		},
 		{
-			"id":3,
-			"type":"system",
-			"name":"fork",
-			"next": {"fork1":5,"fork2":6},
-			"join":8
-		},
-		{
 			"id":4,
-			"type":"system",
-			"name":"delay",
-			"delaySeconds":20
+			"type":"user",
+			"name":"print-worker",
+            "parameters" :{
+                "k1" :23,
+                "k2" : "$1.data.key1",
+                "k3" :""
+            }
 		}
 	]
 }
-
-{"a":22, "body":{"test":1},"1":{"output":{"z":89,"status":200}}}
