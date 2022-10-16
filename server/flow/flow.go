@@ -34,6 +34,8 @@ func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Fl
 				flAct = action.NewDelayAction(actionDef.DelaySeconds, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "wait") {
 				flAct = action.NewWaitAction(actionDef.Event, *baseAction)
+			} else if strings.EqualFold(actionDef.Name, "javascript") {
+				flAct = action.NewJsAction(actionDef.Expression, *baseAction)
 			}
 		} else {
 			flAct = action.NewUserAction(*baseAction)

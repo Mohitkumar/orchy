@@ -155,7 +155,11 @@ func (f *FlowMachine) Execute(tryCount int, actionId int) error {
 	}
 	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
 		switch currentAction.GetName() {
-		case "switch":
+		case "delay":
+			f.MarkWaitingDelay()
+		case "wait":
+			f.MarkWaitingEvent()
+		default:
 			completed, err := f.MoveForward(event, dataMap)
 			if completed {
 				return nil
@@ -165,12 +169,7 @@ func (f *FlowMachine) Execute(tryCount int, actionId int) error {
 				return err
 			}
 			return f.Execute(1, f.CurrentAction.GetId())
-		case "delay":
-			f.MarkWaitingDelay()
-		case "wait":
-			f.MarkWaitingEvent()
 		}
-
 	}
 	return nil
 }

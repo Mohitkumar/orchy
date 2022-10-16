@@ -3,6 +3,7 @@ module github.com/mohitkumar/orchy/server
 go 1.18
 
 require (
+	github.com/buraksezer/consistent v0.9.0
 	github.com/go-redis/redis/v9 v9.0.0-beta.1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
@@ -10,6 +11,7 @@ require (
 	github.com/hashicorp/serf v0.9.7
 	github.com/mohitkumar/orchy/api v0.0.0-beta.1
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
+	github.com/spaolacci/murmur3 v1.1.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.7.1
@@ -17,11 +19,11 @@ require (
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
+	rogchap.com/v8go v0.7.0
 )
 
 require (
 	github.com/armon/go-metrics v0.3.10 // indirect
-	github.com/buraksezer/consistent v0.9.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
@@ -45,7 +47,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
-	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
