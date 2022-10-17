@@ -10,6 +10,13 @@
                 "key1" : "200",
                 "key2" :39
             },
+			"next":{"default":6}
+		},
+        {
+			"id":6,
+			"type":"system",
+			"name":"javascript",
+            "expression":"if($['1'].output.key1 == '200') {$['x']='nesX'};",
 			"next":{"default":7}
 		},
         {
@@ -25,7 +32,7 @@
 			"id":2,
 			"type":"system",
 			"name":"switch",
-			"expression":"$1.output.key1",
+			"expression":"$.1.output.key1",
 			"next":{
 				"200": 3
 			}
@@ -45,8 +52,8 @@
 			"name":"print-worker",
             "parameters" :{
                 "k1" :23,
-                "k2" : "$1.data.key1",
-                "k3" :""
+                "k2" : "$1.output.key1",
+                "k3" :"$6.output.x"
             }
 		}
 	]

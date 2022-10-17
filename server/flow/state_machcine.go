@@ -119,13 +119,13 @@ func (f *FlowMachine) MarkFailed() {
 func (f *FlowMachine) MarkWaitingDelay() {
 	f.flowContext.State = model.WAITING_DELAY
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
-	logger.Info("workflow wairing delay", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
+	logger.Info("workflow waiting delay", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
 func (f *FlowMachine) MarkWaitingEvent() {
 	f.flowContext.State = model.WAITING_EVENT
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
-	logger.Info("workflow wairing for event", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
+	logger.Info("workflow waiting for event", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
 func (f *FlowMachine) MarkPaused() {
