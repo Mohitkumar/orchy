@@ -113,3 +113,10 @@ System actions are type of action which runs inside the server itself instead of
 ### User Action- 
 User actions are defined in the worker liberary which runs as a independent process/system and access the orchy server using grpc for available actions to execute.<br />
 Any number of actions can be defined in the worker and their definition is registerd on server by the worker itself.
+
+## Table of Content
+* [Design](docs/design.md)
+* [installing]()
+* [Starting worker]()
+* [System action]()
+* [User action]()
