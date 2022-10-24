@@ -24,6 +24,7 @@ type DIContiner struct {
 	TaskEncDec                   util.EncoderDecoder[model.TaskDef]
 	ring                         *cluster.Ring
 	memebership                  *cluster.Membership
+	partitions                   *persistence.Partitions
 }
 
 func (p *DIContiner) setInitialized() {
@@ -55,8 +56,17 @@ func (d *DIContiner) Init(conf config.Config) {
 			Addrs:     conf.RedisConfig.Addrs,
 			Namespace: conf.RedisConfig.Namespace,
 		}
+		d.partitions = rd.NewRedisPartitions(*rdConf, d.FlowContextEncDec, conf.RingConfig.PartitionCount)
+	case config.STORAGE_TYPE_INMEM:
+	}
+	switch conf.StorageType {
+	case config.STORAGE_TYPE_REDIS:
+		rdConf := &rd.Config{
+			Addrs:     conf.RedisConfig.Addrs,
+			Namespace: conf.RedisConfig.Namespace,
+		}
 		d.wfDao = rd.NewRedisWorkflowDao(*rdConf)
-		d.flowDao = cluster.NewFlowDao(rd.NewRedisFlowDao(*rdConf, d.FlowContextEncDec), d.ring)
+		d.flowDao = cluster.NewFlowDao(d.partitions, d.ring)
 		d.taskDao = rd.NewRedisTaskDao(*rdConf, d.TaskEncDec)
 
 	case config.STORAGE_TYPE_INMEM:
@@ -64,14 +74,10 @@ func (d *DIContiner) Init(conf config.Config) {
 	}
 	switch conf.QueueType {
 	case config.QUEUE_TYPE_REDIS:
-		rdConf := &rd.Config{
-			Addrs:     conf.RedisConfig.Addrs,
-			Namespace: conf.RedisConfig.Namespace,
-		}
-		d.queue = cluster.NewQueue(rd.NewRedisQueue(*rdConf), d.ring)
-		d.delayQueue = cluster.NewDelayQueue(rd.NewRedisDelayQueue(*rdConf), d.ring)
-		d.taskTimeoutQueue = cluster.NewDelayQueue(rd.NewRedisDelayQueue(*rdConf), d.ring)
-		d.taskRetryQueue = cluster.NewDelayQueue(rd.NewRedisDelayQueue(*rdConf), d.ring)
+		d.queue = cluster.NewQueue(d.partitions, d.ring)
+		d.delayQueue = cluster.NewDelayQueue(d.partitions, d.ring)
+		d.taskTimeoutQueue = cluster.NewDelayQueue(d.partitions, d.ring)
+		d.taskRetryQueue = cluster.NewDelayQueue(d.partitions, d.ring)
 	}
 	d.stateHandler = cluster.NewStateHandlerContainer(d.flowDao)
 	d.stateHandler.Init()

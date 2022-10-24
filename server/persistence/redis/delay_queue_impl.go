@@ -15,18 +15,20 @@ import (
 
 type redisDelayQueue struct {
 	baseDao
+	partitionId string
 }
 
 var _ persistence.DelayQueue = new(redisDelayQueue)
 
-func NewRedisDelayQueue(config Config) *redisDelayQueue {
+func NewRedisDelayQueue(config Config, partitionId string) *redisDelayQueue {
 	return &redisDelayQueue{
-		baseDao: *newBaseDao(config),
+		baseDao:     *newBaseDao(config),
+		partitionId: partitionId,
 	}
 }
 
-func (rq *redisDelayQueue) Push(queueName string, partition string, message []byte) error {
-	queueName = rq.getNamespaceKey(queueName, partition)
+func (rq *redisDelayQueue) Push(queueName string, message []byte) error {
+	queueName = rq.getNamespaceKey(queueName, rq.partitionId)
 	ctx := context.Background()
 	currentTime := time.Now().UnixMilli()
 	member := rd.Z{
@@ -41,8 +43,8 @@ func (rq *redisDelayQueue) Push(queueName string, partition string, message []by
 	return nil
 }
 
-func (rq *redisDelayQueue) PushWithDelay(queueName string, partition string, delay time.Duration, message []byte) error {
-	queueName = rq.getNamespaceKey(queueName, partition)
+func (rq *redisDelayQueue) PushWithDelay(queueName string, delay time.Duration, message []byte) error {
+	queueName = rq.getNamespaceKey(queueName, rq.partitionId)
 	ctx := context.Background()
 	currentTime := time.Now().Add(delay).UnixMilli()
 	member := rd.Z{
@@ -57,8 +59,8 @@ func (rq *redisDelayQueue) PushWithDelay(queueName string, partition string, del
 	return nil
 }
 
-func (rq *redisDelayQueue) Pop(queueName string, partition string) ([]string, error) {
-	queueName = rq.getNamespaceKey(queueName, partition)
+func (rq *redisDelayQueue) Pop(queueName string) ([]string, error) {
+	queueName = rq.getNamespaceKey(queueName, rq.partitionId)
 	ctx := context.Background()
 	currentTime := time.Now().UnixMilli()
 	pipe := rq.redisClient.Pipeline()

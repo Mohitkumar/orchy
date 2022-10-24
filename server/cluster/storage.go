@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"strconv"
 	"sync"
 	"time"
 
@@ -17,21 +16,21 @@ type Queue interface {
 var _ Queue = new(clusterQueue)
 
 type clusterQueue struct {
-	redisQueue persistence.Queue
-	ring       *Ring
-	mu         sync.Mutex
+	parts *persistence.Partitions
+	ring  *Ring
+	mu    sync.Mutex
 }
 
-func NewQueue(queue persistence.Queue, ring *Ring) *clusterQueue {
+func NewQueue(parts *persistence.Partitions, ring *Ring) *clusterQueue {
 	return &clusterQueue{
-		redisQueue: queue,
-		ring:       ring,
+		parts: parts,
+		ring:  ring,
 	}
 }
 
 func (cq *clusterQueue) Push(queueName string, flowId string, mesage []byte) error {
-	partition := strconv.Itoa(cq.ring.GetPartition(flowId))
-	return cq.redisQueue.Push(queueName, partition, mesage)
+	queue := cq.parts.GetPartition(cq.ring.GetPartition(flowId)).GetQueue()
+	return queue.Push(queueName, mesage)
 }
 
 func (cq *clusterQueue) Pop(queueName string, batchSize int) ([]string, error) {
@@ -40,7 +39,8 @@ func (cq *clusterQueue) Pop(queueName string, batchSize int) ([]string, error) {
 	for _, partition := range partitions {
 		if len(result) < batchSize {
 			numOfItemsToFetch := batchSize - len(result)
-			items, err := cq.redisQueue.Pop(queueName, strconv.Itoa(partition), numOfItemsToFetch)
+			queue := cq.parts.GetPartition(partition).GetQueue()
+			items, err := queue.Pop(queueName, numOfItemsToFetch)
 			if err != nil {
 				return nil, err
 			}
@@ -60,28 +60,29 @@ type DelayQueue interface {
 }
 
 type clusterDelayQueue struct {
-	redisQueue persistence.DelayQueue
-	ring       *Ring
+	parts *persistence.Partitions
+	ring  *Ring
 }
 
 var _ DelayQueue = new(clusterDelayQueue)
 
-func NewDelayQueue(queue persistence.DelayQueue, ring *Ring) *clusterDelayQueue {
+func NewDelayQueue(parts *persistence.Partitions, ring *Ring) *clusterDelayQueue {
 	return &clusterDelayQueue{
-		redisQueue: queue,
-		ring:       ring,
+		parts: parts,
+		ring:  ring,
 	}
 }
 func (dq *clusterDelayQueue) Push(queueName string, flowId string, mesage []byte) error {
-	partition := strconv.Itoa(dq.ring.GetPartition(flowId))
-	return dq.redisQueue.Push(queueName, partition, mesage)
+	queue := dq.parts.GetPartition(dq.ring.GetPartition(flowId)).GetDelayQueue()
+	return queue.Push(queueName, mesage)
 }
 
 func (dq *clusterDelayQueue) Pop(queueName string) ([]string, error) {
 	partitions := dq.ring.GetPartitions()
 	result := make([]string, 0)
 	for _, part := range partitions {
-		res, err := dq.redisQueue.Pop(queueName, strconv.Itoa(part))
+		queue := dq.parts.GetPartition(part).GetDelayQueue()
+		res, err := queue.Pop(queueName)
 		if err != nil {
 			return nil, err
 		}
@@ -91,8 +92,8 @@ func (dq *clusterDelayQueue) Pop(queueName string) ([]string, error) {
 }
 
 func (dq *clusterDelayQueue) PushWithDelay(queueName string, flowId string, delay time.Duration, message []byte) error {
-	partition := strconv.Itoa(dq.ring.GetPartition(flowId))
-	return dq.redisQueue.PushWithDelay(queueName, partition, delay, message)
+	queue := dq.parts.GetPartition(dq.ring.GetPartition(flowId)).GetDelayQueue()
+	return queue.PushWithDelay(queueName, delay, message)
 }
 
 type FlowDao interface {
@@ -104,38 +105,38 @@ type FlowDao interface {
 }
 
 type clusterFlowDao struct {
-	flowDao persistence.FlowDao
-	ring    *Ring
+	parts *persistence.Partitions
+	ring  *Ring
 }
 
 var _ FlowDao = new(clusterFlowDao)
 
-func NewFlowDao(dao persistence.FlowDao, ring *Ring) *clusterFlowDao {
+func NewFlowDao(parts *persistence.Partitions, ring *Ring) *clusterFlowDao {
 	return &clusterFlowDao{
-		flowDao: dao,
-		ring:    ring,
+		parts: parts,
+		ring:  ring,
 	}
 }
 
 func (cd *clusterFlowDao) SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error {
-	partition := strconv.Itoa(cd.ring.GetPartition(flowId))
-	return cd.flowDao.SaveFlowContext(wfName, flowId, partition, flowCtx)
+	flowDao := cd.parts.GetPartition(cd.ring.GetPartition(flowId)).GetFlowDao()
+	return flowDao.SaveFlowContext(wfName, flowId, flowCtx)
 }
 
 func (cd *clusterFlowDao) CreateAndSaveFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error) {
-	partition := strconv.Itoa(cd.ring.GetPartition(flowId))
-	return cd.flowDao.CreateAndSaveFlowContext(wFname, flowId, partition, action, dataMap)
+	flowDao := cd.parts.GetPartition(cd.ring.GetPartition(flowId)).GetFlowDao()
+	return flowDao.CreateAndSaveFlowContext(wFname, flowId, action, dataMap)
 }
 
 func (cd *clusterFlowDao) AddActionOutputToFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error) {
-	partition := strconv.Itoa(cd.ring.GetPartition(flowId))
-	return cd.flowDao.AddActionOutputToFlowContext(wFname, flowId, partition, action, dataMap)
+	flowDao := cd.parts.GetPartition(cd.ring.GetPartition(flowId)).GetFlowDao()
+	return flowDao.AddActionOutputToFlowContext(wFname, flowId, action, dataMap)
 }
 func (cd *clusterFlowDao) GetFlowContext(wfName string, flowId string) (*model.FlowContext, error) {
-	partition := strconv.Itoa(cd.ring.GetPartition(flowId))
-	return cd.flowDao.GetFlowContext(wfName, flowId, partition)
+	flowDao := cd.parts.GetPartition(cd.ring.GetPartition(flowId)).GetFlowDao()
+	return flowDao.GetFlowContext(wfName, flowId)
 }
 func (cd *clusterFlowDao) DeleteFlowContext(wfName string, flowId string) error {
-	partition := strconv.Itoa(cd.ring.GetPartition(flowId))
-	return cd.flowDao.DeleteFlowContext(wfName, flowId, partition)
+	flowDao := cd.parts.GetPartition(cd.ring.GetPartition(flowId)).GetFlowDao()
+	return flowDao.DeleteFlowContext(wfName, flowId)
 }

@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/mohitkumar/orchy/server/model"
@@ -27,11 +28,11 @@ type WorkflowDao interface {
 }
 
 type FlowDao interface {
-	SaveFlowContext(wfName string, flowId string, partition string, flowCtx *model.FlowContext) error
-	CreateAndSaveFlowContext(wFname string, flowId string, partition string, action int, dataMap map[string]any) (*model.FlowContext, error)
-	AddActionOutputToFlowContext(wFname string, flowId string, partition string, action int, dataMap map[string]any) (*model.FlowContext, error)
-	GetFlowContext(wfName string, flowId string, partition string) (*model.FlowContext, error)
-	DeleteFlowContext(wfName string, flowId string, partition string) error
+	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
+	CreateAndSaveFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
+	AddActionOutputToFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
+	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
+	DeleteFlowContext(wfName string, flowId string) error
 }
 
 type TaskDao interface {
@@ -40,12 +41,30 @@ type TaskDao interface {
 	GetTask(task string) (*model.TaskDef, error)
 }
 type Queue interface {
-	Push(queueName string, partition string, mesage []byte) error
-	Pop(queuName string, partition string, batchSize int) ([]string, error)
+	Push(queueName string, mesage []byte) error
+	Pop(queuName string, batchSize int) ([]string, error)
 }
 
 type DelayQueue interface {
-	Push(queueName string, partition string, mesage []byte) error
-	Pop(queueName string, partition string) ([]string, error)
-	PushWithDelay(queueName string, partition string, delay time.Duration, message []byte) error
+	Push(queueName string, mesage []byte) error
+	Pop(queueName string) ([]string, error)
+	PushWithDelay(queueName string, delay time.Duration, message []byte) error
+}
+
+type Partition interface {
+	GetFlowDao() FlowDao
+	GetQueue() Queue
+	GetDelayQueue() DelayQueue
+}
+
+type Partitions struct {
+	Partitions map[int]Partition
+	mu         sync.Mutex
+}
+
+func (p *Partitions) GetPartition(partId int) Partition {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	part := p.Partitions[partId]
+	return part
 }
