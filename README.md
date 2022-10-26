@@ -116,7 +116,7 @@ Any number of actions can be defined in the worker and their definition is regis
 
 ## Table of Content
 * [Design](docs/design.md)
-* [installing]()
+* [installing](docs/install.md)
 * [Starting worker]()
 * [System action]()
 * [User action]()
