@@ -118,5 +118,6 @@ Any number of actions can be defined in the worker and their definition is regis
 * [Design](docs/design.md)
 * [installing](docs/install.md)
 * [Starting worker](docs/worker.md)
-* [System action]()
-* [User action]()
+* [Workflow & Actions](docs/workflow.md)
+* [System action](docs/system-action.md)
+* [User action](docs/user-action.md)

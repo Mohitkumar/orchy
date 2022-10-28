@@ -46,7 +46,7 @@ func (d *switchAction) Execute(wfName string, flowContext *model.FlowContext, re
 	logger.Info("running action", zap.String("name", d.name), zap.String("workflow", wfName), zap.String("id", flowContext.Id))
 	dataMap := flowContext.Data
 	expressionValue, err := jsonpath.JsonPathLookup(dataMap, d.expression)
-	event := ""
+	event := "default"
 	if err != nil {
 		return event, nil, err
 	}
