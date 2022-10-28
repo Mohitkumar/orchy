@@ -34,8 +34,6 @@ func setupFlags(cmd *cobra.Command) error {
 	cmd.Flags().String("storage-impl", "redis", "implementation of underline storage")
 	cmd.Flags().String("queue-impl", "redis", "implementation of underline queue ")
 	cmd.Flags().String("data-serializer", "JSON", "encoder decoder used to serialzie data")
-	cmd.Flags().Int("executor-capacity", 512, "action executor capacity")
-	cmd.Flags().Int64("max-delay", 7*24*60*60, "max delay value which is used in delay task to wait")
 	cmd.Flags().Int("partitions", 7, "number of partition")
 	cmd.Flags().String("bind-addr", "127.0.0.1:8400", "address for cluster events")
 	cmd.Flags().StringSlice("cluster-address", nil, "cluster address to join.")
@@ -66,7 +64,6 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 	c.cfg.StorageType = config.StorageType(viper.GetString("storage-impl"))
 	c.cfg.QueueType = config.QueueType(viper.GetString("queue-impl"))
 	c.cfg.EncoderDecoderType = config.EncoderDecoderType(viper.GetString("data-serializer"))
-	c.cfg.ActionExecutorCapacity = viper.GetInt("executor-capacity")
 	c.cfg.RingConfig = cluster.RingConfig{PartitionCount: viper.GetInt("partitions")}
 
 	c.cfg.ClusterConfig = cluster.Config{

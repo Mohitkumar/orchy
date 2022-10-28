@@ -24,18 +24,17 @@ const JSON_ENCODER_DECODER EncoderDecoderType = "JSON"
 const PROTO_ENCODER_DECODER EncoderDecoderType = "PROTO"
 
 type Config struct {
-	RedisConfig            RedisStorageConfig
-	InMemoryConfig         InmemStorageConfig
-	RedisQueueConfig       RedisQueueConfig
-	InMemQueueConfig       InMemQueueConfig
-	HttpPort               int
-	GrpcPort               int
-	StorageType            StorageType
-	QueueType              QueueType
-	EncoderDecoderType     EncoderDecoderType
-	ActionExecutorCapacity int
-	ClusterConfig          cluster.Config
-	RingConfig             cluster.RingConfig
+	RedisConfig        RedisStorageConfig
+	InMemoryConfig     InmemStorageConfig
+	RedisQueueConfig   RedisQueueConfig
+	InMemQueueConfig   InMemQueueConfig
+	HttpPort           int
+	GrpcPort           int
+	StorageType        StorageType
+	QueueType          QueueType
+	EncoderDecoderType EncoderDecoderType
+	ClusterConfig      cluster.Config
+	RingConfig         cluster.RingConfig
 }
 
 func (c Config) RPCAddr() (string, error) {
