@@ -93,6 +93,7 @@ func (a *Agent) setupTimeoutExecutor() error {
 
 func (a *Agent) setupWorkflowExecutionService() error {
 	a.workflowExecutionService = service.NewWorkflowExecutionService(a.diContainer)
+	a.workflowExecutionService.Init()
 	return nil
 }
 

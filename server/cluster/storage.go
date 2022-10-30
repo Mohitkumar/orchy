@@ -102,6 +102,9 @@ type FlowDao interface {
 	AddActionOutputToFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
 	DeleteFlowContext(wfName string, flowId string) error
+	AddRunningFlow(wfName string, flowId string) error
+	DeleteRunningFlow(wfName string, flowId string) error
+	GetRunningFlows() (map[string][]string, error)
 }
 
 type clusterFlowDao struct {
@@ -139,4 +142,35 @@ func (cd *clusterFlowDao) GetFlowContext(wfName string, flowId string) (*model.F
 func (cd *clusterFlowDao) DeleteFlowContext(wfName string, flowId string) error {
 	flowDao := cd.parts.GetPartition(cd.ring.GetPartition(flowId)).GetFlowDao()
 	return flowDao.DeleteFlowContext(wfName, flowId)
+}
+func (cd *clusterFlowDao) AddRunningFlow(wfName string, flowId string) error {
+	flowDao := cd.parts.GetPartition(cd.ring.GetPartition(flowId)).GetFlowDao()
+	return flowDao.AddRunningFlow(wfName, flowId)
+}
+func (cd *clusterFlowDao) DeleteRunningFlow(wfName string, flowId string) error {
+	flowDao := cd.parts.GetPartition(cd.ring.GetPartition(flowId)).GetFlowDao()
+	return flowDao.DeleteRunningFlow(wfName, flowId)
+}
+func (cd *clusterFlowDao) GetRunningFlows() (map[string][]string, error) {
+	partitions := cd.ring.GetPartitions()
+	result := make(map[string][]string)
+	for _, part := range partitions {
+		flowDao := cd.parts.GetPartition(part).GetFlowDao()
+		flows, err := flowDao.GetRunningFlows()
+		if err != nil {
+			//ignore
+		}
+		for name, ids := range flows {
+			list, ok := result[name]
+			if !ok {
+				list = append(list, ids...)
+				result[name] = list
+			} else {
+				list = result[name]
+				list = append(list, ids...)
+				result[name] = list
+			}
+		}
+	}
+	return result, nil
 }

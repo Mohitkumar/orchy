@@ -67,7 +67,7 @@ func (f *FlowMachine) Init(wfName string, input map[string]any) error {
 		CurrentAction: wf.RootAction,
 		Data:          dataMap,
 	}
-	return f.container.GetFlowDao().SaveFlowContext(wfName, flowId, f.flowContext)
+	return f.MarkRunning()
 }
 
 func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, error) {
@@ -97,6 +97,7 @@ func (f *FlowMachine) MarkComplete() {
 	f.flowContext.State = model.COMPLETED
 	f.completed = true
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	f.container.GetFlowDao().DeleteRunningFlow(f.WorkflowName, f.FlowId)
 	successHandler := f.container.GetStateHandler().GetHandler(f.flow.SuccessHandler)
 	err := successHandler(f.WorkflowName, f.FlowId)
 	if err != nil {
@@ -108,6 +109,7 @@ func (f *FlowMachine) MarkComplete() {
 func (f *FlowMachine) MarkFailed() {
 	f.flowContext.State = model.FAILED
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	f.container.GetFlowDao().DeleteRunningFlow(f.WorkflowName, f.FlowId)
 	failureHandler := f.container.GetStateHandler().GetHandler(f.flow.FailureHandler)
 	err := failureHandler(f.WorkflowName, f.FlowId)
 	if err != nil {
@@ -128,21 +130,39 @@ func (f *FlowMachine) MarkWaitingEvent() {
 	logger.Info("workflow waiting for event", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
-func (f *FlowMachine) MarkPaused() {
+func (f *FlowMachine) MarkPaused() error {
 	f.flowContext.State = model.PAUSED
-	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	err := f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	if err != nil {
+		return err
+	}
 	logger.Info("workflow paused", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
+	return nil
 }
 
-func (f *FlowMachine) MarkRunning() {
+func (f *FlowMachine) MarkRunning() error {
 	f.flowContext.State = model.RUNNING
-	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	err := f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	if err != nil {
+		return err
+	}
+	err = f.container.GetFlowDao().AddRunningFlow(f.WorkflowName, f.FlowId)
+	if err != nil {
+		return err
+	}
 	logger.Info("workflow running", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
+	return nil
 }
 
 func (f *FlowMachine) GetFlowState() model.FlowState {
 	return f.flowContext.State
 }
+
+func (f *FlowMachine) Resume() error {
+	f.MarkRunning()
+	return f.Execute(1, f.CurrentAction.GetId())
+}
+
 func (f *FlowMachine) Execute(tryCount int, actionId int) error {
 	err := f.ValidateExecutionRequest(actionId)
 	if err != nil {
@@ -176,7 +196,13 @@ func (f *FlowMachine) Execute(tryCount int, actionId int) error {
 
 func (f *FlowMachine) ValidateExecutionRequest(actionId int) error {
 	if f.GetFlowState() == model.COMPLETED {
-		return fmt.Errorf("flow completed")
+		return fmt.Errorf("can not run completed flow")
+	}
+	if f.GetFlowState() == model.FAILED {
+		return fmt.Errorf("can not run failed flow")
+	}
+	if f.GetFlowState() == model.PAUSED {
+		return fmt.Errorf("can not run paused flow")
 	}
 	if actionId != f.CurrentAction.GetId() {
 		return fmt.Errorf("action %d already executed", actionId)
