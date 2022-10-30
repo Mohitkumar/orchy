@@ -28,10 +28,11 @@ type redisPartition struct {
 var _ persistence.Partition = new(redisPartition)
 
 func NewRedisPartition(config Config, encoderDecoder util.EncoderDecoder[model.FlowContext], partId string) *redisPartition {
+	baseDao := newBaseDao(config)
 	return &redisPartition{
-		flowDao:     NewRedisFlowDao(config, encoderDecoder, partId),
-		queue:       NewRedisQueue(config, partId),
-		delayQueue:  NewRedisDelayQueue(config, partId),
+		flowDao:     NewRedisFlowDao(*baseDao, encoderDecoder, partId),
+		queue:       NewRedisQueue(*baseDao, partId),
+		delayQueue:  NewRedisDelayQueue(*baseDao, partId),
 		partitionId: partId,
 	}
 }

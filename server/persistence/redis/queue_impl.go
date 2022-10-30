@@ -19,9 +19,9 @@ type redisQueue struct {
 
 var _ persistence.Queue = new(redisQueue)
 
-func NewRedisQueue(config Config, partitionId string) *redisQueue {
+func NewRedisQueue(baseDao baseDao, partitionId string) *redisQueue {
 	return &redisQueue{
-		baseDao:    *newBaseDao(config),
+		baseDao:    baseDao,
 		partitonId: partitionId,
 	}
 }

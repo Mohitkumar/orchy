@@ -21,9 +21,9 @@ type redisFlowDao struct {
 	partitonId     string
 }
 
-func NewRedisFlowDao(conf Config, encoderDecoder util.EncoderDecoder[model.FlowContext], partId string) *redisFlowDao {
+func NewRedisFlowDao(baseDao baseDao, encoderDecoder util.EncoderDecoder[model.FlowContext], partId string) *redisFlowDao {
 	return &redisFlowDao{
-		baseDao:        *newBaseDao(conf),
+		baseDao:        baseDao,
 		encoderDecoder: encoderDecoder,
 		partitonId:     partId,
 	}

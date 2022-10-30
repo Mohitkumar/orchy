@@ -20,9 +20,9 @@ type redisDelayQueue struct {
 
 var _ persistence.DelayQueue = new(redisDelayQueue)
 
-func NewRedisDelayQueue(config Config, partitionId string) *redisDelayQueue {
+func NewRedisDelayQueue(baseDao baseDao, partitionId string) *redisDelayQueue {
 	return &redisDelayQueue{
-		baseDao:     *newBaseDao(config),
+		baseDao:     baseDao,
 		partitionId: partitionId,
 	}
 }

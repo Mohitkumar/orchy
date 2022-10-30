@@ -34,7 +34,7 @@ func setupFlags(cmd *cobra.Command) error {
 	cmd.Flags().String("storage-impl", "redis", "implementation of underline storage")
 	cmd.Flags().String("queue-impl", "redis", "implementation of underline queue ")
 	cmd.Flags().String("data-serializer", "JSON", "encoder decoder used to serialzie data")
-	cmd.Flags().Int("partitions", 7, "number of partition")
+	cmd.Flags().Int("partitions", 71, "number of partition")
 	cmd.Flags().String("bind-addr", "127.0.0.1:8400", "address for cluster events")
 	cmd.Flags().StringSlice("cluster-address", nil, "cluster address to join.")
 	cmd.Flags().String("node-name", hostname, "name of the node")
