@@ -16,7 +16,7 @@ func NewWorkflowExecutionService(container *container.DIContiner) *WorkflowExecu
 		container: container,
 	}
 }
-func (s *WorkflowExecutionService) Init() {
+func (s *WorkflowExecutionService) ResumeFlows() {
 	flows, err := s.container.GetFlowDao().GetRunningFlows()
 	if err != nil {
 		logger.Error("can not get running flows", zap.Error(err))
