@@ -97,7 +97,6 @@ func (f *FlowMachine) MarkComplete() {
 	f.flowContext.State = model.COMPLETED
 	f.completed = true
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
-	f.container.GetFlowDao().DeleteRunningFlow(f.WorkflowName, f.FlowId)
 	successHandler := f.container.GetStateHandler().GetHandler(f.flow.SuccessHandler)
 	err := successHandler(f.WorkflowName, f.FlowId)
 	if err != nil {
@@ -109,7 +108,6 @@ func (f *FlowMachine) MarkComplete() {
 func (f *FlowMachine) MarkFailed() {
 	f.flowContext.State = model.FAILED
 	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
-	f.container.GetFlowDao().DeleteRunningFlow(f.WorkflowName, f.FlowId)
 	failureHandler := f.container.GetStateHandler().GetHandler(f.flow.FailureHandler)
 	err := failureHandler(f.WorkflowName, f.FlowId)
 	if err != nil {
@@ -143,10 +141,6 @@ func (f *FlowMachine) MarkPaused() error {
 func (f *FlowMachine) MarkRunning() error {
 	f.flowContext.State = model.RUNNING
 	err := f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
-	if err != nil {
-		return err
-	}
-	err = f.container.GetFlowDao().AddRunningFlow(f.WorkflowName, f.FlowId)
 	if err != nil {
 		return err
 	}

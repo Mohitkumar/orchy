@@ -16,20 +16,6 @@ func NewWorkflowExecutionService(container *container.DIContiner) *WorkflowExecu
 		container: container,
 	}
 }
-func (s *WorkflowExecutionService) ResumeFlows() {
-	flows, err := s.container.GetFlowDao().GetRunningFlows()
-	if err != nil {
-		logger.Error("can not get running flows", zap.Error(err))
-	}
-	for name, ids := range flows {
-		for _, id := range ids {
-			err := s.ResumeFlow(name, id)
-			if err != nil {
-				logger.Error("error resuming flow", zap.String("name", name), zap.String("id", id), zap.Error(err))
-			}
-		}
-	}
-}
 
 func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) (string, error) {
 	flowMachine := flow.NewFlowStateMachine(s.container)

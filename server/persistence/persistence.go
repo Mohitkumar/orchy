@@ -33,9 +33,6 @@ type FlowDao interface {
 	AddActionOutputToFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
 	DeleteFlowContext(wfName string, flowId string) error
-	AddRunningFlow(wfName string, flowId string) error
-	DeleteRunningFlow(wfName string, flowId string) error
-	GetRunningFlows() (map[string][]string, error)
 }
 
 type TaskDao interface {

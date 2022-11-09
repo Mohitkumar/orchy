@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
@@ -13,7 +12,6 @@ import (
 )
 
 const WORKFLOW_KEY string = "FLOW"
-const RUNNING_FLOW_SET string = "RUNNING_FLOW"
 
 var _ persistence.FlowDao = new(redisFlowDao)
 
@@ -100,50 +98,4 @@ func (rf *redisFlowDao) DeleteFlowContext(wfName string, flowId string) error {
 		return persistence.StorageLayerError{}
 	}
 	return nil
-}
-
-func (rf *redisFlowDao) AddRunningFlow(wfName string, flowId string) error {
-	key := rf.baseDao.getNamespaceKey(RUNNING_FLOW_SET, rf.partitonId)
-	ctx := context.Background()
-	err := rf.baseDao.redisClient.SAdd(ctx, key, fmt.Sprintf("%s:%s", wfName, flowId)).Err()
-	if err != nil {
-		logger.Error("error in saving running flow", zap.String("flowName", wfName), zap.String("flowId", flowId), zap.Error(err))
-		return persistence.StorageLayerError{}
-	}
-	return nil
-}
-func (rf *redisFlowDao) DeleteRunningFlow(wfName string, flowId string) error {
-	key := rf.baseDao.getNamespaceKey(RUNNING_FLOW_SET, rf.partitonId)
-	ctx := context.Background()
-	err := rf.baseDao.redisClient.SRem(ctx, key, fmt.Sprintf("%s:%s", wfName, flowId)).Err()
-	if err != nil {
-		logger.Error("error in deleting running flow", zap.String("flowName", wfName), zap.String("flowId", flowId), zap.Error(err))
-		return persistence.StorageLayerError{}
-	}
-	return nil
-}
-func (rf *redisFlowDao) GetRunningFlows() (map[string][]string, error) {
-	key := rf.baseDao.getNamespaceKey(RUNNING_FLOW_SET, rf.partitonId)
-	ctx := context.Background()
-	flows, err := rf.baseDao.redisClient.SMembers(ctx, key).Result()
-	if err != nil {
-		logger.Error("error in getting running flows", zap.Error(err))
-		return nil, persistence.StorageLayerError{}
-	}
-	result := make(map[string][]string)
-	for _, flow := range flows {
-		split := strings.Split(flow, ":")
-		name := split[0]
-		id := split[1]
-		list, ok := result[name]
-		if !ok {
-			list = append(list, id)
-			result[name] = list
-		} else {
-			list = result[name]
-			list = append(list, id)
-			result[name] = list
-		}
-	}
-	return result, nil
 }
