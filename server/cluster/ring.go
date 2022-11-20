@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"hash"
 	"sync"
 
 	"github.com/buraksezer/consistent"
@@ -13,13 +12,10 @@ import (
 )
 
 type hasher struct {
-	hf hash.Hash64
 }
 
 func NewHasher() *hasher {
-	return &hasher{
-		hf: murmur3.New64(),
-	}
+	return &hasher{}
 }
 
 type RingConfig struct {
@@ -27,10 +23,7 @@ type RingConfig struct {
 }
 
 func (h hasher) Sum64(data []byte) uint64 {
-	h.hf.Write(data)
-	out := h.hf.Sum64()
-	h.hf.Reset()
-	return out
+	return murmur3.Sum64(data)
 }
 
 type Ring struct {
