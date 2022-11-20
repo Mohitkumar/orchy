@@ -107,8 +107,37 @@ func (ba *baseAction) resolveParams(flowData map[string]any, params map[string]a
 			} else {
 				output[k] = v
 			}
+		case []any:
+			l := v.([]any)
+			output[k] = ba.resolveList(flowData, l)
 		default:
 			output[k] = v
 		}
 	}
+}
+
+func (ba *baseAction) resolveList(flowData map[string]any, list []any) []any {
+	var output []any
+	for _, v := range list {
+		switch v.(type) {
+		case map[string]any:
+			out := make(map[string]any)
+			output = append(output, out)
+			ba.resolveParams(flowData, v.(map[string]any), out)
+		case string:
+			if strings.HasPrefix(v.(string), "$") {
+				value, _ := jsonpath.JsonPathLookup(flowData, v.(string))
+				output = append(output, value)
+			} else {
+				output = append(output, v)
+			}
+		case []any:
+			l := v.([]any)
+			outList := ba.resolveList(flowData, l)
+			output = append(output, outList...)
+		default:
+			output = append(output, v)
+		}
+	}
+	return output
 }
