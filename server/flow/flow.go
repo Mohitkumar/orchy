@@ -5,17 +5,17 @@ import (
 	"strings"
 
 	"github.com/mohitkumar/orchy/server/action"
-	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/model"
+	"github.com/mohitkumar/orchy/server/persistence"
 )
 
 type Flow struct {
 	Id             string
 	RootAction     int
 	Actions        map[int]action.Action
-	FailureHandler cluster.Statehandler
-	SuccessHandler cluster.Statehandler
+	FailureHandler persistence.Statehandler
+	SuccessHandler persistence.Statehandler
 }
 
 func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Flow {
@@ -42,17 +42,17 @@ func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Fl
 		}
 		actionMap[actionDef.Id] = flAct
 	}
-	var stateHandlerFailure cluster.Statehandler
-	var stateHandlerSuccess cluster.Statehandler
+	var stateHandlerFailure persistence.Statehandler
+	var stateHandlerSuccess persistence.Statehandler
 	if len(wf.OnFailure) > 0 {
-		stateHandlerFailure = cluster.Statehandler(wf.OnFailure)
+		stateHandlerFailure = persistence.Statehandler(wf.OnFailure)
 	} else {
-		stateHandlerFailure = cluster.NOOP
+		stateHandlerFailure = persistence.NOOP
 	}
 	if len(wf.OnSuccess) > 0 {
-		stateHandlerSuccess = cluster.Statehandler(wf.OnSuccess)
+		stateHandlerSuccess = persistence.Statehandler(wf.OnSuccess)
 	} else {
-		stateHandlerSuccess = cluster.NOOP
+		stateHandlerSuccess = persistence.NOOP
 	}
 
 	flow := &Flow{
@@ -66,11 +66,11 @@ func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Fl
 }
 
 func Validate(wf *model.Workflow, container *container.DIContiner) error {
-	err := cluster.ValidateStateHandler(wf.OnFailure)
+	err := persistence.ValidateStateHandler(wf.OnFailure)
 	if err != nil {
 		return err
 	}
-	err = cluster.ValidateStateHandler(wf.OnSuccess)
+	err = persistence.ValidateStateHandler(wf.OnSuccess)
 	if err != nil {
 		return err
 	}

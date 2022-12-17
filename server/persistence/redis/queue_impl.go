@@ -13,20 +13,18 @@ import (
 
 type redisQueue struct {
 	baseDao
-	mu         sync.Mutex
-	partitonId string
+	mu sync.Mutex
 }
 
 var _ persistence.Queue = new(redisQueue)
 
-func NewRedisQueue(baseDao baseDao, partitionId string) *redisQueue {
+func NewRedisQueue(conf Config) *redisQueue {
 	return &redisQueue{
-		baseDao:    baseDao,
-		partitonId: partitionId,
+		baseDao: *newBaseDao(conf),
 	}
 }
 func (rq *redisQueue) Push(queueName string, mesage []byte) error {
-	queueName = rq.getNamespaceKey(queueName, rq.partitonId)
+	queueName = rq.getNamespaceKey(queueName)
 	ctx := context.Background()
 
 	err := rq.redisClient.LPush(ctx, queueName, mesage).Err()
@@ -38,7 +36,7 @@ func (rq *redisQueue) Push(queueName string, mesage []byte) error {
 }
 
 func (rq *redisQueue) Pop(queueName string, batchSize int) ([]string, error) {
-	queueName = rq.getNamespaceKey(queueName, rq.partitonId)
+	queueName = rq.getNamespaceKey(queueName)
 	ctx := context.Background()
 	res, err := rq.redisClient.LPopCount(ctx, queueName, batchSize).Result()
 	if err != nil {

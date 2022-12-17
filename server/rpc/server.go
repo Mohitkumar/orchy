@@ -26,19 +26,9 @@ type TaskDefService interface {
 	SaveTask(task model.TaskDef) error
 }
 
-type GetServerer interface {
-	GetServers() ([]*api.Server, error)
-}
-
-type ClusterRefresher interface {
-	RefreshCluster()
-}
-
 type GrpcConfig struct {
-	TaskService      TaskService
-	TaskDefService   TaskDefService
-	GetServerer      GetServerer
-	ClusterRefresher ClusterRefresher
+	TaskService    TaskService
+	TaskDefService TaskDefService
 }
 
 type grpcServer struct {

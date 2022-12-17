@@ -57,7 +57,7 @@ func (ex *TimeoutExecutor) handle(msg *model.ActionExecutionRequest) error {
 
 		data, _ := ex.container.ActionExecutionRequestEncDec.Encode(*msg)
 
-		ex.container.GetTaskRetryQueue().PushWithDelay("retry-queue", msg.FlowId, retryAfter, data)
+		ex.container.GetTaskRetryQueue().PushWithDelay("retry-queue", retryAfter, data)
 	} else {
 		logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", taskDef.RetryCount))
 		flowMachine.MarkFailed()

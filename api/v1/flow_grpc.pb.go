@@ -25,7 +25,6 @@ type TaskServiceClient interface {
 	SaveTaskDef(ctx context.Context, in *TaskDef, opts ...grpc.CallOption) (*TaskDefSaveResponse, error)
 	Poll(ctx context.Context, in *TaskPollRequest, opts ...grpc.CallOption) (*Tasks, error)
 	Push(ctx context.Context, in *TaskResult, opts ...grpc.CallOption) (*TaskResultPushResponse, error)
-	GetServers(ctx context.Context, in *GetServersRequest, opts ...grpc.CallOption) (*GetServersResponse, error)
 }
 
 type taskServiceClient struct {
@@ -63,15 +62,6 @@ func (c *taskServiceClient) Push(ctx context.Context, in *TaskResult, opts ...gr
 	return out, nil
 }
 
-func (c *taskServiceClient) GetServers(ctx context.Context, in *GetServersRequest, opts ...grpc.CallOption) (*GetServersResponse, error) {
-	out := new(GetServersResponse)
-	err := c.cc.Invoke(ctx, "/TaskService/GetServers", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // TaskServiceServer is the server API for TaskService service.
 // All implementations must embed UnimplementedTaskServiceServer
 // for forward compatibility
@@ -79,7 +69,6 @@ type TaskServiceServer interface {
 	SaveTaskDef(context.Context, *TaskDef) (*TaskDefSaveResponse, error)
 	Poll(context.Context, *TaskPollRequest) (*Tasks, error)
 	Push(context.Context, *TaskResult) (*TaskResultPushResponse, error)
-	GetServers(context.Context, *GetServersRequest) (*GetServersResponse, error)
 	mustEmbedUnimplementedTaskServiceServer()
 }
 
@@ -95,9 +84,6 @@ func (UnimplementedTaskServiceServer) Poll(context.Context, *TaskPollRequest) (*
 }
 func (UnimplementedTaskServiceServer) Push(context.Context, *TaskResult) (*TaskResultPushResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Push not implemented")
-}
-func (UnimplementedTaskServiceServer) GetServers(context.Context, *GetServersRequest) (*GetServersResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetServers not implemented")
 }
 func (UnimplementedTaskServiceServer) mustEmbedUnimplementedTaskServiceServer() {}
 
@@ -166,24 +152,6 @@ func _TaskService_Push_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TaskService_GetServers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetServersRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(TaskServiceServer).GetServers(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/TaskService/GetServers",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TaskServiceServer).GetServers(ctx, req.(*GetServersRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // TaskService_ServiceDesc is the grpc.ServiceDesc for TaskService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -202,10 +170,6 @@ var TaskService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Push",
 			Handler:    _TaskService_Push_Handler,
-		},
-		{
-			MethodName: "GetServers",
-			Handler:    _TaskService_GetServers_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

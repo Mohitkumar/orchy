@@ -2,7 +2,6 @@ package persistence
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/mohitkumar/orchy/server/model"
@@ -49,22 +48,4 @@ type DelayQueue interface {
 	Push(queueName string, mesage []byte) error
 	Pop(queueName string) ([]string, error)
 	PushWithDelay(queueName string, delay time.Duration, message []byte) error
-}
-
-type Partition interface {
-	GetFlowDao() FlowDao
-	GetQueue() Queue
-	GetDelayQueue() DelayQueue
-}
-
-type Partitions struct {
-	Partitions map[int]Partition
-	mu         sync.Mutex
-}
-
-func (p *Partitions) GetPartition(partId int) Partition {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	part := p.Partitions[partId]
-	return part
 }

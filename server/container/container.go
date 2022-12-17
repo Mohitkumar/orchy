@@ -1,7 +1,6 @@
 package container
 
 import (
-	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/persistence"
@@ -13,28 +12,24 @@ type DIContiner struct {
 	initialized                  bool
 	wfDao                        persistence.WorkflowDao
 	taskDao                      persistence.TaskDao
-	flowDao                      cluster.FlowDao
-	stateHandler                 *cluster.StateHandlerContainer
-	queue                        cluster.Queue
-	delayQueue                   cluster.DelayQueue
-	taskTimeoutQueue             cluster.DelayQueue
-	taskRetryQueue               cluster.DelayQueue
+	flowDao                      persistence.FlowDao
+	stateHandler                 *persistence.StateHandlerContainer
+	queue                        persistence.Queue
+	delayQueue                   persistence.DelayQueue
+	taskTimeoutQueue             persistence.DelayQueue
+	taskRetryQueue               persistence.DelayQueue
 	FlowContextEncDec            util.EncoderDecoder[model.FlowContext]
 	ActionExecutionRequestEncDec util.EncoderDecoder[model.ActionExecutionRequest]
 	TaskEncDec                   util.EncoderDecoder[model.TaskDef]
-	ring                         *cluster.Ring
-	memebership                  *cluster.Membership
-	partitions                   *persistence.Partitions
 }
 
 func (p *DIContiner) setInitialized() {
 	p.initialized = true
 }
 
-func NewDiContainer(ring *cluster.Ring) *DIContiner {
+func NewDiContainer() *DIContiner {
 	return &DIContiner{
 		initialized: false,
-		ring:        ring,
 	}
 }
 
@@ -52,34 +47,29 @@ func (d *DIContiner) Init(conf config.Config) {
 
 	switch conf.StorageType {
 	case config.STORAGE_TYPE_REDIS:
-		rdConf := &rd.Config{
+		rdConf := rd.Config{
 			Addrs:     conf.RedisConfig.Addrs,
 			Namespace: conf.RedisConfig.Namespace,
 		}
-		d.partitions = rd.NewRedisPartitions(*rdConf, d.FlowContextEncDec, conf.RingConfig.PartitionCount)
-	case config.STORAGE_TYPE_INMEM:
-	}
-	switch conf.StorageType {
-	case config.STORAGE_TYPE_REDIS:
-		rdConf := &rd.Config{
-			Addrs:     conf.RedisConfig.Addrs,
-			Namespace: conf.RedisConfig.Namespace,
-		}
-		d.wfDao = rd.NewRedisWorkflowDao(*rdConf)
-		d.flowDao = cluster.NewFlowDao(d.partitions, d.ring)
-		d.taskDao = rd.NewRedisTaskDao(*rdConf, d.TaskEncDec)
+		d.wfDao = rd.NewRedisWorkflowDao(rdConf)
+		d.flowDao = rd.NewRedisFlowDao(rdConf, d.FlowContextEncDec)
+		d.taskDao = rd.NewRedisTaskDao(rdConf, d.TaskEncDec)
 
 	case config.STORAGE_TYPE_INMEM:
 
 	}
 	switch conf.QueueType {
 	case config.QUEUE_TYPE_REDIS:
-		d.queue = cluster.NewQueue(d.partitions, d.ring)
-		d.delayQueue = cluster.NewDelayQueue(d.partitions, d.ring)
-		d.taskTimeoutQueue = cluster.NewDelayQueue(d.partitions, d.ring)
-		d.taskRetryQueue = cluster.NewDelayQueue(d.partitions, d.ring)
+		rdConf := rd.Config{
+			Addrs:     conf.RedisConfig.Addrs,
+			Namespace: conf.RedisConfig.Namespace,
+		}
+		d.queue = rd.NewRedisQueue(rdConf)
+		d.delayQueue = rd.NewRedisDelayQueue(rdConf)
+		d.taskTimeoutQueue = rd.NewRedisDelayQueue(rdConf)
+		d.taskRetryQueue = rd.NewRedisDelayQueue(rdConf)
 	}
-	d.stateHandler = cluster.NewStateHandlerContainer(d.flowDao)
+	d.stateHandler = persistence.NewStateHandlerContainer(d.flowDao)
 	d.stateHandler.Init()
 }
 
@@ -90,14 +80,14 @@ func (d *DIContiner) GetWorkflowDao() persistence.WorkflowDao {
 	return d.wfDao
 }
 
-func (d *DIContiner) GetFlowDao() cluster.FlowDao {
+func (d *DIContiner) GetFlowDao() persistence.FlowDao {
 	if !d.initialized {
 		panic("persistence not initalized")
 	}
 	return d.flowDao
 }
 
-func (d *DIContiner) GetStateHandler() *cluster.StateHandlerContainer {
+func (d *DIContiner) GetStateHandler() *persistence.StateHandlerContainer {
 	if !d.initialized {
 		panic("persistence not initalized")
 	}
@@ -111,28 +101,28 @@ func (d *DIContiner) GetTaskDao() persistence.TaskDao {
 	return d.taskDao
 }
 
-func (d *DIContiner) GetQueue() cluster.Queue {
+func (d *DIContiner) GetQueue() persistence.Queue {
 	if !d.initialized {
 		panic("persistence not initalized")
 	}
 	return d.queue
 }
 
-func (d *DIContiner) GetDelayQueue() cluster.DelayQueue {
+func (d *DIContiner) GetDelayQueue() persistence.DelayQueue {
 	if !d.initialized {
 		panic("persistence not initalized")
 	}
 	return d.delayQueue
 }
 
-func (d *DIContiner) GetTaskTimeoutQueue() cluster.DelayQueue {
+func (d *DIContiner) GetTaskTimeoutQueue() persistence.DelayQueue {
 	if !d.initialized {
 		panic("persistence not initalized")
 	}
 	return d.taskTimeoutQueue
 }
 
-func (d *DIContiner) GetTaskRetryQueue() cluster.DelayQueue {
+func (d *DIContiner) GetTaskRetryQueue() persistence.DelayQueue {
 	if !d.initialized {
 		panic("persistence not initalized")
 	}

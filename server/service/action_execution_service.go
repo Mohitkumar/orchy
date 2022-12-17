@@ -90,7 +90,7 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 			if err != nil {
 				return err
 			}
-			s.container.GetTaskRetryQueue().PushWithDelay("retry-queue", wfId, retryAfter, data)
+			s.container.GetTaskRetryQueue().PushWithDelay("retry-queue", retryAfter, data)
 		} else {
 			logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", taskDef.RetryCount))
 			flowMachine.MarkFailed()

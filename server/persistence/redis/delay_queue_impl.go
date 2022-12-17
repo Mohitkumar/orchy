@@ -15,20 +15,18 @@ import (
 
 type redisDelayQueue struct {
 	baseDao
-	partitionId string
 }
 
 var _ persistence.DelayQueue = new(redisDelayQueue)
 
-func NewRedisDelayQueue(baseDao baseDao, partitionId string) *redisDelayQueue {
+func NewRedisDelayQueue(conf Config) *redisDelayQueue {
 	return &redisDelayQueue{
-		baseDao:     baseDao,
-		partitionId: partitionId,
+		baseDao: *newBaseDao(conf),
 	}
 }
 
 func (rq *redisDelayQueue) Push(queueName string, message []byte) error {
-	queueName = rq.getNamespaceKey(queueName, rq.partitionId)
+	queueName = rq.getNamespaceKey(queueName)
 	ctx := context.Background()
 	currentTime := time.Now().UnixMilli()
 	member := rd.Z{
@@ -44,7 +42,7 @@ func (rq *redisDelayQueue) Push(queueName string, message []byte) error {
 }
 
 func (rq *redisDelayQueue) PushWithDelay(queueName string, delay time.Duration, message []byte) error {
-	queueName = rq.getNamespaceKey(queueName, rq.partitionId)
+	queueName = rq.getNamespaceKey(queueName)
 	ctx := context.Background()
 	currentTime := time.Now().Add(delay).UnixMilli()
 	member := rd.Z{
@@ -60,7 +58,7 @@ func (rq *redisDelayQueue) PushWithDelay(queueName string, delay time.Duration, 
 }
 
 func (rq *redisDelayQueue) Pop(queueName string) ([]string, error) {
-	queueName = rq.getNamespaceKey(queueName, rq.partitionId)
+	queueName = rq.getNamespaceKey(queueName)
 	ctx := context.Background()
 	currentTime := time.Now().UnixMilli()
 	pipe := rq.redisClient.Pipeline()

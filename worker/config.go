@@ -1,7 +1,7 @@
 package worker
 
 type WorkerConfiguration struct {
-	ServerUrl                string
+	ServerUrl                []string
 	MaxRetryBeforeResultPush int
 	RetryIntervalSecond      int
 }

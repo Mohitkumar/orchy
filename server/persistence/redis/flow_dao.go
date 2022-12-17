@@ -18,14 +18,12 @@ var _ persistence.FlowDao = new(redisFlowDao)
 type redisFlowDao struct {
 	baseDao
 	encoderDecoder util.EncoderDecoder[model.FlowContext]
-	partitonId     string
 }
 
-func NewRedisFlowDao(baseDao baseDao, encoderDecoder util.EncoderDecoder[model.FlowContext], partId string) *redisFlowDao {
+func NewRedisFlowDao(conf Config, encoderDecoder util.EncoderDecoder[model.FlowContext]) *redisFlowDao {
 	return &redisFlowDao{
-		baseDao:        baseDao,
+		baseDao:        *newBaseDao(conf),
 		encoderDecoder: encoderDecoder,
-		partitonId:     partId,
 	}
 }
 func (rf *redisFlowDao) CreateAndSaveFlowContext(wFname string, flowId string, action int, input map[string]any) (*model.FlowContext, error) {
@@ -60,7 +58,7 @@ func (rf *redisFlowDao) AddActionOutputToFlowContext(wFname string, flowId strin
 }
 
 func (rf *redisFlowDao) SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error {
-	key := rf.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName, rf.partitonId)
+	key := rf.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName)
 	ctx := context.Background()
 	data, err := rf.encoderDecoder.Encode(*flowCtx)
 	if err != nil {
@@ -74,7 +72,7 @@ func (rf *redisFlowDao) SaveFlowContext(wfName string, flowId string, flowCtx *m
 }
 
 func (rf *redisFlowDao) GetFlowContext(wfName string, flowId string) (*model.FlowContext, error) {
-	key := rf.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName, rf.partitonId)
+	key := rf.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName)
 	ctx := context.Background()
 	flowCtxStr, err := rf.baseDao.redisClient.HGet(ctx, key, flowId).Result()
 	if err != nil {
@@ -90,7 +88,7 @@ func (rf *redisFlowDao) GetFlowContext(wfName string, flowId string) (*model.Flo
 }
 
 func (rf *redisFlowDao) DeleteFlowContext(wfName string, flowId string) error {
-	key := rf.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName, rf.partitonId)
+	key := rf.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName)
 	ctx := context.Background()
 	err := rf.baseDao.redisClient.HDel(ctx, key, flowId).Err()
 	if err != nil {

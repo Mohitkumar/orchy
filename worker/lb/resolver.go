@@ -1,11 +1,9 @@
 package lb
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
-	api "github.com/mohitkumar/orchy/api/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/resolver"
@@ -18,6 +16,7 @@ type Resolver struct {
 	resolverConn  *grpc.ClientConn
 	serviceConfig *serviceconfig.ParseResult
 	logger        *zap.Logger
+	addrs         []string
 }
 
 var _ resolver.Builder = (*Resolver)(nil)
@@ -57,7 +56,13 @@ func (r *Resolver) Scheme() string {
 	return Name
 }
 
-func init() {
+func NewResolver(addrs []string) *Resolver {
+	return &Resolver{
+		addrs: addrs,
+	}
+}
+
+func (r *Resolver) Init() {
 	resolver.Register(&Resolver{})
 }
 
@@ -66,20 +71,11 @@ var _ resolver.Resolver = (*Resolver)(nil)
 func (r *Resolver) ResolveNow(opt resolver.ResolveNowOptions) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	client := api.NewTaskServiceClient(r.resolverConn)
-	ctx := context.Background()
-	res, err := client.GetServers(ctx, &api.GetServersRequest{})
-	if err != nil {
-		r.logger.Error(
-			"failed to resolve server",
-			zap.Error(err),
-		)
-		return
-	}
+
 	var addrs []resolver.Address
-	for _, server := range res.Servers {
+	for _, addr := range r.addrs {
 		addrs = append(addrs, resolver.Address{
-			Addr: server.RpcAddr,
+			Addr: addr,
 		})
 	}
 	r.clientConn.UpdateState(resolver.State{
