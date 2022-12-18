@@ -163,10 +163,29 @@ func (f *FlowMachine) Execute(tryCount int, actionId int) error {
 		return err
 	}
 	currentAction := f.CurrentAction
+	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
+		return f.pushSystemAction(tryCount)
+	} else {
+		_, _, err := currentAction.Execute(f.WorkflowName, f.flowContext, tryCount)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (f *FlowMachine) ExecuteSystemAction(tryCount int, actionId int) error {
+	err := f.ValidateExecutionRequest(actionId)
+	if err != nil {
+		return err
+	}
+	currentAction := f.CurrentAction
 	event, dataMap, err := currentAction.Execute(f.WorkflowName, f.flowContext, tryCount)
 	if err != nil {
 		return err
 	}
+
 	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
 		switch currentAction.GetName() {
 		case "delay":
@@ -184,6 +203,8 @@ func (f *FlowMachine) Execute(tryCount int, actionId int) error {
 			}
 			return f.Execute(1, f.CurrentAction.GetId())
 		}
+	} else {
+		return fmt.Errorf("should be system action")
 	}
 	return nil
 }
@@ -200,6 +221,23 @@ func (f *FlowMachine) ValidateExecutionRequest(actionId int) error {
 	}
 	if actionId != f.CurrentAction.GetId() {
 		return fmt.Errorf("action %d already executed", actionId)
+	}
+	return nil
+}
+
+func (f *FlowMachine) pushSystemAction(tryCount int) error {
+	req := model.ActionExecutionRequest{
+		WorkflowName: f.WorkflowName,
+		ActionId:     f.CurrentAction.GetId(),
+		FlowId:       f.FlowId,
+		TryNumber:    tryCount,
+		TaskName:     f.CurrentAction.GetName(),
+	}
+	data, _ := f.container.ActionExecutionRequestEncDec.Encode(req)
+
+	err := f.container.GetQueue().Push("system", f.FlowId, data)
+	if err != nil {
+		return err
 	}
 	return nil
 }
