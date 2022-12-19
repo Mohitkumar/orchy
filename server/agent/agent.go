@@ -169,6 +169,7 @@ func (a *Agent) Shutdown() error {
 	close(a.shutdowns)
 
 	shutdown := []func() error{
+		a.systemActionExecutor.Stop,
 		a.delayExecutor.Stop,
 		a.retryExecutor.Stop,
 		a.timeoutExecutor.Stop,

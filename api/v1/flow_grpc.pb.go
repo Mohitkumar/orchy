@@ -22,9 +22,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TaskServiceClient interface {
-	SaveTaskDef(ctx context.Context, in *TaskDef, opts ...grpc.CallOption) (*TaskDefSaveResponse, error)
-	Poll(ctx context.Context, in *TaskPollRequest, opts ...grpc.CallOption) (*Tasks, error)
-	Push(ctx context.Context, in *TaskResult, opts ...grpc.CallOption) (*TaskResultPushResponse, error)
+	SaveTaskDef(ctx context.Context, in *ActionDefinition, opts ...grpc.CallOption) (*ActionDefinitionSaveResponse, error)
+	Poll(ctx context.Context, in *ActionPollRequest, opts ...grpc.CallOption) (*Actions, error)
+	Push(ctx context.Context, in *ActionResult, opts ...grpc.CallOption) (*ActionResultPushResponse, error)
 	GetServers(ctx context.Context, in *GetServersRequest, opts ...grpc.CallOption) (*GetServersResponse, error)
 }
 
@@ -36,8 +36,8 @@ func NewTaskServiceClient(cc grpc.ClientConnInterface) TaskServiceClient {
 	return &taskServiceClient{cc}
 }
 
-func (c *taskServiceClient) SaveTaskDef(ctx context.Context, in *TaskDef, opts ...grpc.CallOption) (*TaskDefSaveResponse, error) {
-	out := new(TaskDefSaveResponse)
+func (c *taskServiceClient) SaveTaskDef(ctx context.Context, in *ActionDefinition, opts ...grpc.CallOption) (*ActionDefinitionSaveResponse, error) {
+	out := new(ActionDefinitionSaveResponse)
 	err := c.cc.Invoke(ctx, "/TaskService/SaveTaskDef", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -45,8 +45,8 @@ func (c *taskServiceClient) SaveTaskDef(ctx context.Context, in *TaskDef, opts .
 	return out, nil
 }
 
-func (c *taskServiceClient) Poll(ctx context.Context, in *TaskPollRequest, opts ...grpc.CallOption) (*Tasks, error) {
-	out := new(Tasks)
+func (c *taskServiceClient) Poll(ctx context.Context, in *ActionPollRequest, opts ...grpc.CallOption) (*Actions, error) {
+	out := new(Actions)
 	err := c.cc.Invoke(ctx, "/TaskService/Poll", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -54,8 +54,8 @@ func (c *taskServiceClient) Poll(ctx context.Context, in *TaskPollRequest, opts 
 	return out, nil
 }
 
-func (c *taskServiceClient) Push(ctx context.Context, in *TaskResult, opts ...grpc.CallOption) (*TaskResultPushResponse, error) {
-	out := new(TaskResultPushResponse)
+func (c *taskServiceClient) Push(ctx context.Context, in *ActionResult, opts ...grpc.CallOption) (*ActionResultPushResponse, error) {
+	out := new(ActionResultPushResponse)
 	err := c.cc.Invoke(ctx, "/TaskService/Push", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -76,9 +76,9 @@ func (c *taskServiceClient) GetServers(ctx context.Context, in *GetServersReques
 // All implementations must embed UnimplementedTaskServiceServer
 // for forward compatibility
 type TaskServiceServer interface {
-	SaveTaskDef(context.Context, *TaskDef) (*TaskDefSaveResponse, error)
-	Poll(context.Context, *TaskPollRequest) (*Tasks, error)
-	Push(context.Context, *TaskResult) (*TaskResultPushResponse, error)
+	SaveTaskDef(context.Context, *ActionDefinition) (*ActionDefinitionSaveResponse, error)
+	Poll(context.Context, *ActionPollRequest) (*Actions, error)
+	Push(context.Context, *ActionResult) (*ActionResultPushResponse, error)
 	GetServers(context.Context, *GetServersRequest) (*GetServersResponse, error)
 	mustEmbedUnimplementedTaskServiceServer()
 }
@@ -87,13 +87,13 @@ type TaskServiceServer interface {
 type UnimplementedTaskServiceServer struct {
 }
 
-func (UnimplementedTaskServiceServer) SaveTaskDef(context.Context, *TaskDef) (*TaskDefSaveResponse, error) {
+func (UnimplementedTaskServiceServer) SaveTaskDef(context.Context, *ActionDefinition) (*ActionDefinitionSaveResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SaveTaskDef not implemented")
 }
-func (UnimplementedTaskServiceServer) Poll(context.Context, *TaskPollRequest) (*Tasks, error) {
+func (UnimplementedTaskServiceServer) Poll(context.Context, *ActionPollRequest) (*Actions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Poll not implemented")
 }
-func (UnimplementedTaskServiceServer) Push(context.Context, *TaskResult) (*TaskResultPushResponse, error) {
+func (UnimplementedTaskServiceServer) Push(context.Context, *ActionResult) (*ActionResultPushResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Push not implemented")
 }
 func (UnimplementedTaskServiceServer) GetServers(context.Context, *GetServersRequest) (*GetServersResponse, error) {
@@ -113,7 +113,7 @@ func RegisterTaskServiceServer(s grpc.ServiceRegistrar, srv TaskServiceServer) {
 }
 
 func _TaskService_SaveTaskDef_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TaskDef)
+	in := new(ActionDefinition)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -125,13 +125,13 @@ func _TaskService_SaveTaskDef_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: "/TaskService/SaveTaskDef",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TaskServiceServer).SaveTaskDef(ctx, req.(*TaskDef))
+		return srv.(TaskServiceServer).SaveTaskDef(ctx, req.(*ActionDefinition))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _TaskService_Poll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TaskPollRequest)
+	in := new(ActionPollRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -143,13 +143,13 @@ func _TaskService_Poll_Handler(srv interface{}, ctx context.Context, dec func(in
 		FullMethod: "/TaskService/Poll",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TaskServiceServer).Poll(ctx, req.(*TaskPollRequest))
+		return srv.(TaskServiceServer).Poll(ctx, req.(*ActionPollRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _TaskService_Push_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TaskResult)
+	in := new(ActionResult)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func _TaskService_Push_Handler(srv interface{}, ctx context.Context, dec func(in
 		FullMethod: "/TaskService/Push",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TaskServiceServer).Push(ctx, req.(*TaskResult))
+		return srv.(TaskServiceServer).Push(ctx, req.(*ActionResult))
 	}
 	return interceptor(ctx, in, info, handler)
 }

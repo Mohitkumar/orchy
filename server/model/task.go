@@ -12,3 +12,11 @@ type TaskDef struct {
 	RetryPolicy       RetryPolicy `json:"retry_policy"`
 	TimeoutSeconds    int         `json:"timeout_seconds"`
 }
+
+type ActionDefinition struct {
+	Name              string      `json:"name"`
+	RetryCount        int         `json:"retry_count"`
+	RetryAfterSeconds int         `json:"retry_after_seconds"`
+	RetryPolicy       RetryPolicy `json:"retry_policy"`
+	TimeoutSeconds    int         `json:"timeout_seconds"`
+}

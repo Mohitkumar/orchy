@@ -16,9 +16,6 @@ func (e StorageLayerError) Error() string {
 	return fmt.Sprintf("storage layer error %s", e.Message)
 }
 
-const WF_PREFIX string = "WF_"
-const METADATA_CF string = "METADATA_"
-
 type WorkflowDao interface {
 	Save(wf model.Workflow) error
 
@@ -30,7 +27,6 @@ type WorkflowDao interface {
 type FlowDao interface {
 	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
 	CreateAndSaveFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
-	AddActionOutputToFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
 	DeleteFlowContext(wfName string, flowId string) error
 }

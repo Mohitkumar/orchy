@@ -99,7 +99,6 @@ func (dq *clusterDelayQueue) PushWithDelay(queueName string, flowId string, dela
 type FlowDao interface {
 	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
 	CreateAndSaveFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
-	AddActionOutputToFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
 	DeleteFlowContext(wfName string, flowId string) error
 }
@@ -128,10 +127,6 @@ func (cd *clusterFlowDao) CreateAndSaveFlowContext(wFname string, flowId string,
 	return flowDao.CreateAndSaveFlowContext(wFname, flowId, action, dataMap)
 }
 
-func (cd *clusterFlowDao) AddActionOutputToFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error) {
-	flowDao := cd.parts.GetPartition(cd.ring.GetPartition(flowId)).GetFlowDao()
-	return flowDao.AddActionOutputToFlowContext(wFname, flowId, action, dataMap)
-}
 func (cd *clusterFlowDao) GetFlowContext(wfName string, flowId string) (*model.FlowContext, error) {
 	flowDao := cd.parts.GetPartition(cd.ring.GetPartition(flowId)).GetFlowDao()
 	return flowDao.GetFlowContext(wfName, flowId)
