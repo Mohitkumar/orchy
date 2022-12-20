@@ -22,8 +22,8 @@ func NewActionExecutionService(container *container.DIContiner) *ActionExecution
 		container: container,
 	}
 }
-func (ts *ActionExecutionService) Poll(taskName string, batchSize int) (*api.Tasks, error) {
-	msgs, err := ts.container.GetQueue().Pop(taskName, batchSize)
+func (ts *ActionExecutionService) Poll(actionName string, batchSize int) (*api.Actions, error) {
+	msgs, err := ts.container.GetClusterStorage().PollAction(actionName, batchSize)
 	if err != nil {
 		return nil, err
 	}

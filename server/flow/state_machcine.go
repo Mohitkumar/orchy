@@ -33,9 +33,9 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 		FlowId:       flowId,
 		container:    container,
 	}
-	wf, _ := container.GetWorkflowDao().Get(wfName)
+	wf, _ := container.GetMetadataStorage().GetWorkflowDefinition(wfName)
 	flowMachine.flow = Convert(wf, flowId, container)
-	flowCtx, err := container.GetFlowDao().GetFlowContext(wfName, flowId)
+	flowCtx, err := container.GetClusterStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
 		logger.Debug("flow already completed, can not create flow machine", zap.Error(err))
 		return nil, err
@@ -49,7 +49,7 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 }
 
 func (f *FlowMachine) Init(wfName string, input map[string]any) error {
-	wf, err := f.container.GetWorkflowDao().Get(wfName)
+	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
 	if err != nil {
 		return fmt.Errorf("workflow %s not found", wfName)
 	}
@@ -90,13 +90,13 @@ func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, e
 		data[fmt.Sprintf("%d", currentActionId)] = output
 	}
 	f.flowContext.Data = data
-	return false, f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	return false, f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 }
 
 func (f *FlowMachine) MarkComplete() {
 	f.flowContext.State = model.COMPLETED
 	f.completed = true
-	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	successHandler := f.container.GetStateHandler().GetHandler(f.flow.SuccessHandler)
 	err := successHandler(f.WorkflowName, f.FlowId)
 	if err != nil {
@@ -107,7 +107,7 @@ func (f *FlowMachine) MarkComplete() {
 
 func (f *FlowMachine) MarkFailed() {
 	f.flowContext.State = model.FAILED
-	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	failureHandler := f.container.GetStateHandler().GetHandler(f.flow.FailureHandler)
 	err := failureHandler(f.WorkflowName, f.FlowId)
 	if err != nil {
@@ -118,19 +118,19 @@ func (f *FlowMachine) MarkFailed() {
 
 func (f *FlowMachine) MarkWaitingDelay() {
 	f.flowContext.State = model.WAITING_DELAY
-	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	logger.Info("workflow waiting delay", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
 func (f *FlowMachine) MarkWaitingEvent() {
 	f.flowContext.State = model.WAITING_EVENT
-	f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	logger.Info("workflow waiting for event", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
 func (f *FlowMachine) MarkPaused() error {
 	f.flowContext.State = model.PAUSED
-	err := f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	err := f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	if err != nil {
 		return err
 	}
@@ -140,7 +140,7 @@ func (f *FlowMachine) MarkPaused() error {
 
 func (f *FlowMachine) MarkRunning() error {
 	f.flowContext.State = model.RUNNING
-	err := f.container.GetFlowDao().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+	err := f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	if err != nil {
 		return err
 	}
