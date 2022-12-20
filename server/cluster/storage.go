@@ -14,29 +14,18 @@ type Storage interface {
 	CreateAndSaveFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
 	DeleteFlowContext(wfName string, flowId string) error
-	DispatchAction(wfName string, flowId string, action *api.Action) error
-	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action *api.Action) error
-	PollAction(actionName string, batchSize int) (*api.Actions, error)
-	Retry(req *model.ActionExecutionRequest, delay time.Duration) error
-	PollRetry(batch int) (*model.ActionExecutionRequest, error)
-	Delay(req *model.ActionExecutionRequest, delay time.Duration) error
-	PollDelay(batch int) (*model.ActionExecutionRequest, error)
-	Timeout(req *model.ActionExecutionRequest, delay time.Duration) error
-	PollTimeout(batch int) (*model.ActionExecutionRequest, error)
+	DispatchAction(action *api.Action, actionType string) error
+	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action *api.Action, actionType string) error
+	PollAction(actionType string, batchSize int) (*api.Actions, error)
+	Retry(action *api.Action, delay time.Duration) error
+	PollRetry(batch int) (*api.Actions, error)
+	Delay(action *api.Action, delay time.Duration) error
+	PollDelay(batch int) (*api.Actions, error)
+	Timeout(action *api.Action, delay time.Duration) error
+	PollTimeout(batch int) (*api.Actions, error)
 }
 
-type Queue interface {
-	Push(queueName string, flowId string, mesage []byte) error
-	Pop(queuName string, batchSize int) ([]string, error)
-}
-
-var _ Queue = new(clusterQueue)
-
-type clusterQueue struct {
-	parts *persistence.Partitions
-	ring  *Ring
-	mu    sync.Mutex
-}
+var _ Storage = new(clusterStorage)
 
 type clusterStorage struct {
 	shards *persistence.Shards
@@ -70,113 +59,96 @@ func (s *clusterStorage) DeleteFlowContext(wfName string, flowId string) error {
 	return shard.DeleteFlowContext(wfName, flowId)
 }
 
-func (s *clusterStorage) DispatchAction(wfName string, flowId string, action *api.Action) error {
-
+func (s *clusterStorage) DispatchAction(action *api.Action, actionType string) error {
+	shard := s.shards.GetShard(s.ring.GetPartition(action.FlowId))
+	return shard.DispatchAction(action, actionType)
 }
-func (r *redisShard) SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action *api.Action) error {
-
+func (s *clusterStorage) SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action *api.Action, actionType string) error {
+	shard := s.shards.GetShard(s.ring.GetPartition(flowId))
+	return shard.SaveFlowContextAndDispatchAction(wfName, flowId, flowCtx, action, actionType)
 }
-func (s *clusterStorage) PollAction(actionName string, batchSize int) (*api.Actions, error) {
-	var result []string
+func (s *clusterStorage) PollAction(actionType string, batchSize int) (*api.Actions, error) {
+	var result []*api.Action
 	partitions := s.ring.GetPartitions()
 	for _, partition := range partitions {
 		if len(result) < batchSize {
 			numOfItemsToFetch := batchSize - len(result)
 			shard := s.shards.GetShard(partition)
-			items, err := shard.Pop(queueName, numOfItemsToFetch)
+			items, err := shard.PollAction(actionType, numOfItemsToFetch)
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, items...)
+			result = append(result, items.Actions...)
 		} else {
 			break
 		}
 	}
+	return &api.Actions{Actions: result}, nil
 }
 
-func (r *redisShard) Retry(req *model.ActionExecutionRequest, delay time.Duration) error {
-
+func (s *clusterStorage) Retry(action *api.Action, delay time.Duration) error {
+	shard := s.shards.GetShard(s.ring.GetPartition(action.FlowId))
+	return shard.Retry(action, delay)
 }
-func (r *redisShard) PollRetry(batch int) (*model.ActionExecutionRequest, error) {
-
-}
-func (r *redisShard) Delay(req *model.ActionExecutionRequest, delay time.Duration) error {
-
-}
-func (r *redisShard) PollDelay(batch int) (*model.ActionExecutionRequest, error) {
-
-}
-func (r *redisShard) Timeout(req *model.ActionExecutionRequest, delay time.Duration) error {
-
-}
-func (r *redisShard) PollTimeout(batch int) (*model.ActionExecutionRequest, error) {
-
-}
-
-func (cq *clusterStorage) Push(queueName string, flowId string, mesage []byte) error {
-	queue := cq.parts.GetPartition(cq.ring.GetPartition(flowId)).GetQueue()
-	return queue.Push(queueName, mesage)
-}
-
-func (cq *clusterStorage) Pop(queueName string, batchSize int) ([]string, error) {
-	result := make([]string, 0)
-	partitions := cq.ring.GetPartitions()
+func (s *clusterStorage) PollRetry(batchSize int) (*api.Actions, error) {
+	var result []*api.Action
+	partitions := s.ring.GetPartitions()
 	for _, partition := range partitions {
 		if len(result) < batchSize {
 			numOfItemsToFetch := batchSize - len(result)
-			queue := cq.parts.GetPartition(partition).GetQueue()
-			items, err := queue.Pop(queueName, numOfItemsToFetch)
+			shard := s.shards.GetShard(partition)
+			items, err := shard.PollRetry(numOfItemsToFetch)
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, items...)
+			result = append(result, items.Actions...)
 		} else {
 			break
 		}
 	}
-
-	return result, nil
+	return &api.Actions{Actions: result}, nil
 }
-
-type DelayQueue interface {
-	Push(queueName string, flowId string, mesage []byte) error
-	Pop(queueName string) ([]string, error)
-	PushWithDelay(queueName string, flowId string, delay time.Duration, message []byte) error
+func (s *clusterStorage) Delay(action *api.Action, delay time.Duration) error {
+	shard := s.shards.GetShard(s.ring.GetPartition(action.FlowId))
+	return shard.Delay(action, delay)
 }
-
-type clusterDelayQueue struct {
-	parts *persistence.Partitions
-	ring  *Ring
-}
-
-var _ DelayQueue = new(clusterDelayQueue)
-
-func NewDelayQueue(parts *persistence.Partitions, ring *Ring) *clusterDelayQueue {
-	return &clusterDelayQueue{
-		parts: parts,
-		ring:  ring,
-	}
-}
-func (dq *clusterDelayQueue) Push(queueName string, flowId string, mesage []byte) error {
-	queue := dq.parts.GetPartition(dq.ring.GetPartition(flowId)).GetDelayQueue()
-	return queue.Push(queueName, mesage)
-}
-
-func (dq *clusterDelayQueue) Pop(queueName string) ([]string, error) {
-	partitions := dq.ring.GetPartitions()
-	result := make([]string, 0)
-	for _, part := range partitions {
-		queue := dq.parts.GetPartition(part).GetDelayQueue()
-		res, err := queue.Pop(queueName)
-		if err != nil {
-			return nil, err
+func (s *clusterStorage) PollDelay(batchSize int) (*api.Actions, error) {
+	var result []*api.Action
+	partitions := s.ring.GetPartitions()
+	for _, partition := range partitions {
+		if len(result) < batchSize {
+			numOfItemsToFetch := batchSize - len(result)
+			shard := s.shards.GetShard(partition)
+			items, err := shard.PollDelay(numOfItemsToFetch)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, items.Actions...)
+		} else {
+			break
 		}
-		result = append(result, res...)
 	}
-	return result, nil
+	return &api.Actions{Actions: result}, nil
 }
-
-func (dq *clusterDelayQueue) PushWithDelay(queueName string, flowId string, delay time.Duration, message []byte) error {
-	queue := dq.parts.GetPartition(dq.ring.GetPartition(flowId)).GetDelayQueue()
-	return queue.PushWithDelay(queueName, delay, message)
+func (s *clusterStorage) Timeout(action *api.Action, delay time.Duration) error {
+	shard := s.shards.GetShard(s.ring.GetPartition(action.FlowId))
+	return shard.Timeout(action, delay)
+}
+func (s *clusterStorage) PollTimeout(batchSize int) (*api.Actions, error) {
+	var result []*api.Action
+	partitions := s.ring.GetPartitions()
+	for _, partition := range partitions {
+		if len(result) < batchSize {
+			numOfItemsToFetch := batchSize - len(result)
+			shard := s.shards.GetShard(partition)
+			items, err := shard.PollTimeout(numOfItemsToFetch)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, items.Actions...)
+		} else {
+			break
+		}
+	}
+	return &api.Actions{Actions: result}, nil
 }

@@ -22,15 +22,15 @@ type Shard interface {
 	CreateAndSaveFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
 	DeleteFlowContext(wfName string, flowId string) error
-	DispatchAction(wfName string, flowId string, action *api.Action) error
-	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action *api.Action) error
-	PollAction(wfName string, flowId string, actionName string) (*api.Actions, error)
-	Retry(req *model.ActionExecutionRequest, delay time.Duration) error
-	PollRetry(batch int) (*model.ActionExecutionRequest, error)
-	Delay(req *model.ActionExecutionRequest, delay time.Duration) error
-	PollDelay(batch int) (*model.ActionExecutionRequest, error)
-	Timeout(req *model.ActionExecutionRequest, delay time.Duration) error
-	PollTimeout(batch int) (*model.ActionExecutionRequest, error)
+	DispatchAction(action *api.Action, actionType string) error
+	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action *api.Action, actionType string) error
+	PollAction(actionType string, batchSize int) (*api.Actions, error)
+	Retry(action *api.Action, delay time.Duration) error
+	PollRetry(batch int) (*api.Actions, error)
+	Delay(action *api.Action, delay time.Duration) error
+	PollDelay(batch int) (*api.Actions, error)
+	Timeout(action *api.Action, delay time.Duration) error
+	PollTimeout(batch int) (*api.Actions, error)
 }
 
 type ExternalStorage interface {
