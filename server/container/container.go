@@ -13,6 +13,7 @@ type DIContiner struct {
 	initialized                  bool
 	metadataStorage              persistence.MetadataStorage
 	clusterStorage               cluster.Storage
+	externalQueue                cluster.ExternalQueue
 	stateHandler                 *cluster.StateHandlerContainer
 	FlowContextEncDec            util.EncoderDecoder[model.FlowContext]
 	ActionExecutionRequestEncDec util.EncoderDecoder[model.ActionExecutionRequest]
@@ -72,6 +73,13 @@ func (d *DIContiner) GetClusterStorage() cluster.Storage {
 		panic("persistence not initalized")
 	}
 	return d.clusterStorage
+}
+
+func (d *DIContiner) GetExternalQueue() cluster.ExternalQueue {
+	if !d.initialized {
+		panic("persistence not initalized")
+	}
+	return d.externalQueue
 }
 
 func (d *DIContiner) GetStateHandler() *cluster.StateHandlerContainer {

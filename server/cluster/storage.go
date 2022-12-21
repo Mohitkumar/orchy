@@ -9,6 +9,11 @@ import (
 	"github.com/mohitkumar/orchy/server/persistence"
 )
 
+type ExternalQueue interface {
+	Push(action *api.Action) error
+	Poll(actionName string, batchSize int) (*api.Actions, error)
+}
+
 type Storage interface {
 	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
 	CreateAndSaveFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
@@ -61,11 +66,11 @@ func (s *clusterStorage) DeleteFlowContext(wfName string, flowId string) error {
 
 func (s *clusterStorage) DispatchAction(action *api.Action, actionType string) error {
 	shard := s.shards.GetShard(s.ring.GetPartition(action.FlowId))
-	return shard.DispatchAction(action, actionType)
+	return shard.DispatchAction(action, string(actionType))
 }
 func (s *clusterStorage) SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action *api.Action, actionType string) error {
 	shard := s.shards.GetShard(s.ring.GetPartition(flowId))
-	return shard.SaveFlowContextAndDispatchAction(wfName, flowId, flowCtx, action, actionType)
+	return shard.SaveFlowContextAndDispatchAction(wfName, flowId, flowCtx, action, string(actionType))
 }
 func (s *clusterStorage) PollAction(actionType string, batchSize int) (*api.Actions, error) {
 	var result []*api.Action
@@ -74,7 +79,7 @@ func (s *clusterStorage) PollAction(actionType string, batchSize int) (*api.Acti
 		if len(result) < batchSize {
 			numOfItemsToFetch := batchSize - len(result)
 			shard := s.shards.GetShard(partition)
-			items, err := shard.PollAction(actionType, numOfItemsToFetch)
+			items, err := shard.PollAction(string(actionType), numOfItemsToFetch)
 			if err != nil {
 				return nil, err
 			}

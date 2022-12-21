@@ -19,12 +19,12 @@ func NewWorkflowExecutionService(container *container.DIContiner) *WorkflowExecu
 
 func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) (string, error) {
 	flowMachine := flow.NewFlowStateMachine(s.container)
-	err := flowMachine.Init(name, input)
+	err := flowMachine.InitAndDispatchAction(name, input)
 	if err != nil {
 		return "", err
 	}
 	logger.Info("starting workflow", zap.String("workflow", name), zap.Any("input", input))
-	return flowMachine.FlowId, flowMachine.Execute(1, flowMachine.CurrentAction.GetId())
+	return flowMachine.FlowId, nil
 }
 
 func (s *WorkflowExecutionService) ResumeFlow(name string, flowId string) error {
@@ -50,13 +50,11 @@ func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, even
 	if err != nil {
 		return err
 	}
-	completed, err := flowMachine.MoveForward("default", nil)
+	completed, err := flowMachine.MoveForwardAndDispatch("default", nil, flowMachine.CurrentAction.GetId(), 1)
 	if completed {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	flowMachine.MarkRunning()
-	return flowMachine.Execute(1, flowMachine.CurrentAction.GetId())
 }

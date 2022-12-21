@@ -119,10 +119,10 @@ func (a *Agent) setupHttpServer() error {
 func (a *Agent) setupGrpcServer() error {
 	var err error
 	conf := &rpc.GrpcConfig{
-		TaskService:      a.actionExecutionService,
-		TaskDefService:   a.diContainer.GetTaskDao(),
-		GetServerer:      a.ring,
-		ClusterRefresher: a.membership,
+		ActionService:           a.actionExecutionService,
+		ActionDefinitionService: a.diContainer.GetMetadataStorage(),
+		GetServerer:             a.ring,
+		ClusterRefresher:        a.membership,
 	}
 	a.grpcServer, err = rpc.NewGrpcServer(conf)
 	if err != nil {

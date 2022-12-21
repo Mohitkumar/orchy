@@ -61,8 +61,8 @@ message GetServersResponse {
   repeated Server servers = 1;
 }
 
-service TaskService{
-    rpc SaveTaskDef(ActionDefinition) returns (ActionDefinitionSaveResponse){}
+service ActionService{
+    rpc SaveActionkDefinition(ActionDefinition) returns (ActionDefinitionSaveResponse){}
     rpc Poll(ActionPollRequest) returns (Actions){}
     rpc Push(ActionResult) returns (ActionResultPushResponse) {}
     rpc GetServers(GetServersRequest) returns (GetServersResponse) {}

@@ -10,7 +10,6 @@ import (
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 )
 
 type ActionExecutionService struct {
@@ -23,41 +22,24 @@ func NewActionExecutionService(container *container.DIContiner) *ActionExecution
 	}
 }
 func (ts *ActionExecutionService) Poll(actionName string, batchSize int) (*api.Actions, error) {
-	msgs, err := ts.container.GetClusterStorage().PollAction(actionName, batchSize)
-	if err != nil {
-		return nil, err
-	}
-	taskArray := make([]*api.Task, 0)
-	for _, msg := range msgs {
-		task := &api.Task{}
-		err = proto.Unmarshal([]byte(msg), task)
-		if err != nil {
-			continue
-		}
-		taskArray = append(taskArray, task)
-	}
-
-	tasks := &api.Tasks{
-		Tasks: taskArray,
-	}
-	return tasks, nil
+	return ts.container.GetExternalQueue().Poll(actionName, batchSize)
 }
 
-func (ts *ActionExecutionService) Push(res *api.TaskResult) error {
-	return ts.HandleTaskResult(res)
+func (ts *ActionExecutionService) Push(res *api.ActionResult) error {
+	return ts.HandleActionResult(res)
 }
 
-func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) error {
-	wfName := taskResult.WorkflowName
-	wfId := taskResult.FlowId
-	data := util.ConvertFromProto(taskResult.Data)
+func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResult) error {
+	wfName := actionResult.WorkflowName
+	wfId := actionResult.FlowId
+	data := util.ConvertFromProto(actionResult.Data)
 	flowMachine, err := flow.GetFlowStateMachine(wfName, wfId, s.container)
 	if err != nil {
 		return err
 	}
-	switch taskResult.Status {
-	case api.TaskResult_SUCCESS:
-		completed, err := flowMachine.MoveForward("default", data)
+	switch actionResult.Status {
+	case api.ActionResult_SUCCESS:
+		completed, err := flowMachine.MoveForwardAndDispatch("default", data, flowMachine.CurrentAction.GetId(), 1)
 		if completed {
 			return nil
 		}
@@ -65,34 +47,27 @@ func (s *ActionExecutionService) HandleTaskResult(taskResult *api.TaskResult) er
 			logger.Error("error moving forward in workflow", zap.Error(err))
 			return err
 		}
-		return flowMachine.Execute(1, flowMachine.CurrentAction.GetId())
-	case api.TaskResult_FAIL:
-		taskDef, err := s.container.GetTaskDao().GetTask(taskResult.TaskName)
+	case api.ActionResult_FAIL:
+		actionDefinition, err := s.container.GetMetadataStorage().GetActionDefinition(actionResult.ActionName)
 		if err != nil {
-			logger.Error("task definition not found ", zap.String("taskName", taskResult.TaskName), zap.Error(err))
+			logger.Error("action definition not found ", zap.String("taskName", actionResult.ActionName), zap.Error(err))
 			return err
 		}
-		if taskResult.RetryCount <= int32(taskDef.RetryCount) {
+		if actionResult.RetryCount <= int32(actionDefinition.RetryCount) {
 			var retryAfter time.Duration
-			switch taskDef.RetryPolicy {
+			switch actionDefinition.RetryPolicy {
 			case model.RETRY_POLICY_FIXED:
-				retryAfter = time.Duration(taskDef.RetryAfterSeconds) * time.Second
+				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds) * time.Second
 			case model.RETRY_POLICY_BACKOFF:
-				retryAfter = time.Duration(taskDef.RetryAfterSeconds*int(taskResult.RetryCount)) * time.Second
+				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(actionResult.RetryCount)) * time.Second
 			}
-			req := model.ActionExecutionRequest{
-				WorkflowName: wfName,
-				ActionId:     int(taskResult.ActionId),
-				FlowId:       wfId,
-				TryNumber:    int(taskResult.RetryCount) + 1,
-			}
-			data, err := s.container.ActionExecutionRequestEncDec.Encode(req)
+			err = flowMachine.RetryAction(int(actionResult.ActionId), int(actionResult.RetryCount)+1, retryAfter)
+
 			if err != nil {
 				return err
 			}
-			s.container.GetTaskRetryQueue().PushWithDelay("retry-queue", wfId, retryAfter, data)
 		} else {
-			logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", taskDef.RetryCount))
+			logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
 			flowMachine.MarkFailed()
 		}
 	}

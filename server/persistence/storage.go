@@ -33,11 +33,6 @@ type Shard interface {
 	PollTimeout(batch int) (*api.Actions, error)
 }
 
-type ExternalStorage interface {
-	Push(queueName string, mesage []byte) error
-	Pop(queuName string, batchSize int) ([]string, error)
-}
-
 type Shards struct {
 	Shards map[int]Shard
 	mu     sync.Mutex

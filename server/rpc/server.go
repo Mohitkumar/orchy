@@ -17,13 +17,13 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-type TaskService interface {
-	Poll(taskName string, batchSize int) (*api.Tasks, error)
-	Push(*api.TaskResult) error
+type ActionService interface {
+	Poll(taskName string, batchSize int) (*api.Actions, error)
+	Push(*api.ActionResult) error
 }
 
-type TaskDefService interface {
-	SaveTask(task model.TaskDef) error
+type ActionDefinitionService interface {
+	SaveActionDefinition(action model.ActionDefinition) error
 }
 
 type GetServerer interface {
@@ -35,14 +35,14 @@ type ClusterRefresher interface {
 }
 
 type GrpcConfig struct {
-	TaskService      TaskService
-	TaskDefService   TaskDefService
-	GetServerer      GetServerer
-	ClusterRefresher ClusterRefresher
+	ActionService           ActionService
+	ActionDefinitionService ActionDefinitionService
+	GetServerer             GetServerer
+	ClusterRefresher        ClusterRefresher
 }
 
 type grpcServer struct {
-	api.UnimplementedTaskServiceServer
+	api.UnimplementedActionServiceServer
 	*GrpcConfig
 }
 
@@ -86,6 +86,6 @@ func NewGrpcServer(config *GrpcConfig) (*grpc.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	api.RegisterTaskServiceServer(gsrv, srv)
+	api.RegisterActionServiceServer(gsrv, srv)
 	return gsrv, nil
 }

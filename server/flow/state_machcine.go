@@ -2,12 +2,15 @@ package flow
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/action"
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
+	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
 
@@ -68,6 +71,101 @@ func (f *FlowMachine) Init(wfName string, input map[string]any) error {
 		Data:          dataMap,
 	}
 	return f.MarkRunning()
+}
+
+func (f *FlowMachine) InitAndDispatchAction(wfName string, input map[string]any) error {
+	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
+	if err != nil {
+		return fmt.Errorf("workflow %s not found", wfName)
+	}
+	flowId := uuid.New().String()
+
+	f.WorkflowName = wfName
+	f.flow = Convert(wf, flowId, f.container)
+	f.CurrentAction = f.flow.Actions[wf.RootAction]
+	f.FlowId = flowId
+	dataMap := make(map[string]any)
+	dataMap["input"] = input
+	f.flowContext = &model.FlowContext{
+		Id:            flowId,
+		State:         model.RUNNING,
+		CurrentAction: wf.RootAction,
+		Data:          dataMap,
+	}
+	f.flowContext.State = model.RUNNING
+	return f.saveContextAndDispatchAction(wf.RootAction, 1)
+}
+
+func (f *FlowMachine) MoveForwardAndDispatch(event string, dataMap map[string]any, actionId int, tryCount int) (bool, error) {
+	currentActionId := f.CurrentAction.GetId()
+	nextActionMap := f.CurrentAction.GetNext()
+	if f.completed {
+		return true, nil
+	}
+	if nextActionMap == nil || len(nextActionMap) == 0 {
+		f.MarkComplete()
+		return true, nil
+	}
+	nextActionId := nextActionMap[event]
+	f.CurrentAction = f.flow.Actions[nextActionId]
+	f.flowContext.CurrentAction = nextActionId
+	data := f.flowContext.Data
+	if dataMap != nil || len(dataMap) > 0 {
+		output := make(map[string]any)
+		output["output"] = dataMap
+		data[fmt.Sprintf("%d", currentActionId)] = output
+	}
+	f.flowContext.Data = data
+	err := f.saveContextAndDispatchAction(actionId, tryCount)
+	if err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
+func (f *FlowMachine) saveContextAndDispatchAction(actionId int, tryCount int) error {
+	err := f.ValidateExecutionRequest(actionId)
+	if err != nil {
+		return err
+	}
+	act := &api.Action{
+		WorkflowName: f.WorkflowName,
+		FlowId:       f.FlowId,
+		Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, f.CurrentAction.GetInputParams())),
+		ActionId:     int32(f.flowContext.CurrentAction),
+		ActionName:   f.CurrentAction.GetName(),
+		RetryCount:   int32(tryCount),
+	}
+	if f.CurrentAction.GetType() == action.ACTION_TYPE_SYSTEM {
+		err = f.container.GetClusterStorage().SaveFlowContextAndDispatchAction(f.WorkflowName, f.FlowId, f.flowContext, act, "system")
+	} else {
+		err = f.container.GetClusterStorage().SaveFlowContextAndDispatchAction(f.WorkflowName, f.FlowId, f.flowContext, act, "user")
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *FlowMachine) RetryAction(actionId int, tryCount int, retryAfter time.Duration) error {
+	err := f.ValidateExecutionRequest(actionId)
+	if err != nil {
+		return err
+	}
+	act := &api.Action{
+		WorkflowName: f.WorkflowName,
+		FlowId:       f.FlowId,
+		Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, f.CurrentAction.GetInputParams())),
+		ActionId:     int32(f.flowContext.CurrentAction),
+		ActionName:   f.CurrentAction.GetName(),
+		RetryCount:   int32(tryCount),
+	}
+	err = f.container.GetClusterStorage().Retry(act, retryAfter)
+
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, error) {

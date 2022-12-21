@@ -18,194 +18,194 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// TaskServiceClient is the client API for TaskService service.
+// ActionServiceClient is the client API for ActionService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type TaskServiceClient interface {
-	SaveTaskDef(ctx context.Context, in *ActionDefinition, opts ...grpc.CallOption) (*ActionDefinitionSaveResponse, error)
+type ActionServiceClient interface {
+	SaveActionkDefinition(ctx context.Context, in *ActionDefinition, opts ...grpc.CallOption) (*ActionDefinitionSaveResponse, error)
 	Poll(ctx context.Context, in *ActionPollRequest, opts ...grpc.CallOption) (*Actions, error)
 	Push(ctx context.Context, in *ActionResult, opts ...grpc.CallOption) (*ActionResultPushResponse, error)
 	GetServers(ctx context.Context, in *GetServersRequest, opts ...grpc.CallOption) (*GetServersResponse, error)
 }
 
-type taskServiceClient struct {
+type actionServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewTaskServiceClient(cc grpc.ClientConnInterface) TaskServiceClient {
-	return &taskServiceClient{cc}
+func NewActionServiceClient(cc grpc.ClientConnInterface) ActionServiceClient {
+	return &actionServiceClient{cc}
 }
 
-func (c *taskServiceClient) SaveTaskDef(ctx context.Context, in *ActionDefinition, opts ...grpc.CallOption) (*ActionDefinitionSaveResponse, error) {
+func (c *actionServiceClient) SaveActionkDefinition(ctx context.Context, in *ActionDefinition, opts ...grpc.CallOption) (*ActionDefinitionSaveResponse, error) {
 	out := new(ActionDefinitionSaveResponse)
-	err := c.cc.Invoke(ctx, "/TaskService/SaveTaskDef", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/ActionService/SaveActionkDefinition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *taskServiceClient) Poll(ctx context.Context, in *ActionPollRequest, opts ...grpc.CallOption) (*Actions, error) {
+func (c *actionServiceClient) Poll(ctx context.Context, in *ActionPollRequest, opts ...grpc.CallOption) (*Actions, error) {
 	out := new(Actions)
-	err := c.cc.Invoke(ctx, "/TaskService/Poll", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/ActionService/Poll", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *taskServiceClient) Push(ctx context.Context, in *ActionResult, opts ...grpc.CallOption) (*ActionResultPushResponse, error) {
+func (c *actionServiceClient) Push(ctx context.Context, in *ActionResult, opts ...grpc.CallOption) (*ActionResultPushResponse, error) {
 	out := new(ActionResultPushResponse)
-	err := c.cc.Invoke(ctx, "/TaskService/Push", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/ActionService/Push", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *taskServiceClient) GetServers(ctx context.Context, in *GetServersRequest, opts ...grpc.CallOption) (*GetServersResponse, error) {
+func (c *actionServiceClient) GetServers(ctx context.Context, in *GetServersRequest, opts ...grpc.CallOption) (*GetServersResponse, error) {
 	out := new(GetServersResponse)
-	err := c.cc.Invoke(ctx, "/TaskService/GetServers", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/ActionService/GetServers", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// TaskServiceServer is the server API for TaskService service.
-// All implementations must embed UnimplementedTaskServiceServer
+// ActionServiceServer is the server API for ActionService service.
+// All implementations must embed UnimplementedActionServiceServer
 // for forward compatibility
-type TaskServiceServer interface {
-	SaveTaskDef(context.Context, *ActionDefinition) (*ActionDefinitionSaveResponse, error)
+type ActionServiceServer interface {
+	SaveActionkDefinition(context.Context, *ActionDefinition) (*ActionDefinitionSaveResponse, error)
 	Poll(context.Context, *ActionPollRequest) (*Actions, error)
 	Push(context.Context, *ActionResult) (*ActionResultPushResponse, error)
 	GetServers(context.Context, *GetServersRequest) (*GetServersResponse, error)
-	mustEmbedUnimplementedTaskServiceServer()
+	mustEmbedUnimplementedActionServiceServer()
 }
 
-// UnimplementedTaskServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedTaskServiceServer struct {
+// UnimplementedActionServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedActionServiceServer struct {
 }
 
-func (UnimplementedTaskServiceServer) SaveTaskDef(context.Context, *ActionDefinition) (*ActionDefinitionSaveResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SaveTaskDef not implemented")
+func (UnimplementedActionServiceServer) SaveActionkDefinition(context.Context, *ActionDefinition) (*ActionDefinitionSaveResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveActionkDefinition not implemented")
 }
-func (UnimplementedTaskServiceServer) Poll(context.Context, *ActionPollRequest) (*Actions, error) {
+func (UnimplementedActionServiceServer) Poll(context.Context, *ActionPollRequest) (*Actions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Poll not implemented")
 }
-func (UnimplementedTaskServiceServer) Push(context.Context, *ActionResult) (*ActionResultPushResponse, error) {
+func (UnimplementedActionServiceServer) Push(context.Context, *ActionResult) (*ActionResultPushResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Push not implemented")
 }
-func (UnimplementedTaskServiceServer) GetServers(context.Context, *GetServersRequest) (*GetServersResponse, error) {
+func (UnimplementedActionServiceServer) GetServers(context.Context, *GetServersRequest) (*GetServersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetServers not implemented")
 }
-func (UnimplementedTaskServiceServer) mustEmbedUnimplementedTaskServiceServer() {}
+func (UnimplementedActionServiceServer) mustEmbedUnimplementedActionServiceServer() {}
 
-// UnsafeTaskServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to TaskServiceServer will
+// UnsafeActionServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ActionServiceServer will
 // result in compilation errors.
-type UnsafeTaskServiceServer interface {
-	mustEmbedUnimplementedTaskServiceServer()
+type UnsafeActionServiceServer interface {
+	mustEmbedUnimplementedActionServiceServer()
 }
 
-func RegisterTaskServiceServer(s grpc.ServiceRegistrar, srv TaskServiceServer) {
-	s.RegisterService(&TaskService_ServiceDesc, srv)
+func RegisterActionServiceServer(s grpc.ServiceRegistrar, srv ActionServiceServer) {
+	s.RegisterService(&ActionService_ServiceDesc, srv)
 }
 
-func _TaskService_SaveTaskDef_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ActionService_SaveActionkDefinition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ActionDefinition)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(TaskServiceServer).SaveTaskDef(ctx, in)
+		return srv.(ActionServiceServer).SaveActionkDefinition(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/TaskService/SaveTaskDef",
+		FullMethod: "/ActionService/SaveActionkDefinition",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TaskServiceServer).SaveTaskDef(ctx, req.(*ActionDefinition))
+		return srv.(ActionServiceServer).SaveActionkDefinition(ctx, req.(*ActionDefinition))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TaskService_Poll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ActionService_Poll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ActionPollRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(TaskServiceServer).Poll(ctx, in)
+		return srv.(ActionServiceServer).Poll(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/TaskService/Poll",
+		FullMethod: "/ActionService/Poll",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TaskServiceServer).Poll(ctx, req.(*ActionPollRequest))
+		return srv.(ActionServiceServer).Poll(ctx, req.(*ActionPollRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TaskService_Push_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ActionService_Push_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ActionResult)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(TaskServiceServer).Push(ctx, in)
+		return srv.(ActionServiceServer).Push(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/TaskService/Push",
+		FullMethod: "/ActionService/Push",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TaskServiceServer).Push(ctx, req.(*ActionResult))
+		return srv.(ActionServiceServer).Push(ctx, req.(*ActionResult))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _TaskService_GetServers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ActionService_GetServers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetServersRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(TaskServiceServer).GetServers(ctx, in)
+		return srv.(ActionServiceServer).GetServers(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/TaskService/GetServers",
+		FullMethod: "/ActionService/GetServers",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TaskServiceServer).GetServers(ctx, req.(*GetServersRequest))
+		return srv.(ActionServiceServer).GetServers(ctx, req.(*GetServersRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// TaskService_ServiceDesc is the grpc.ServiceDesc for TaskService service.
+// ActionService_ServiceDesc is the grpc.ServiceDesc for ActionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var TaskService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "TaskService",
-	HandlerType: (*TaskServiceServer)(nil),
+var ActionService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "ActionService",
+	HandlerType: (*ActionServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SaveTaskDef",
-			Handler:    _TaskService_SaveTaskDef_Handler,
+			MethodName: "SaveActionkDefinition",
+			Handler:    _ActionService_SaveActionkDefinition_Handler,
 		},
 		{
 			MethodName: "Poll",
-			Handler:    _TaskService_Poll_Handler,
+			Handler:    _ActionService_Poll_Handler,
 		},
 		{
 			MethodName: "Push",
-			Handler:    _TaskService_Push_Handler,
+			Handler:    _ActionService_Push_Handler,
 		},
 		{
 			MethodName: "GetServers",
-			Handler:    _TaskService_GetServers_Handler,
+			Handler:    _ActionService_GetServers_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
