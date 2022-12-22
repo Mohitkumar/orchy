@@ -42,6 +42,7 @@ func (tw *TickWorker) Start() {
 			}
 		}
 	}()
+	logger.Info("executor started", zap.String("worker", tw.name))
 }
 
 func (tw *TickWorker) Stop() {

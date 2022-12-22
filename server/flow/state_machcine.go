@@ -51,28 +51,6 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 	return flowMachine, nil
 }
 
-func (f *FlowMachine) Init(wfName string, input map[string]any) error {
-	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
-	if err != nil {
-		return fmt.Errorf("workflow %s not found", wfName)
-	}
-	flowId := uuid.New().String()
-
-	f.WorkflowName = wfName
-	f.flow = Convert(wf, flowId, f.container)
-	f.CurrentAction = f.flow.Actions[wf.RootAction]
-	f.FlowId = flowId
-	dataMap := make(map[string]any)
-	dataMap["input"] = input
-	f.flowContext = &model.FlowContext{
-		Id:            flowId,
-		State:         model.RUNNING,
-		CurrentAction: wf.RootAction,
-		Data:          dataMap,
-	}
-	return f.MarkRunning()
-}
-
 func (f *FlowMachine) InitAndDispatchAction(wfName string, input map[string]any) error {
 	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
 	if err != nil {
@@ -168,6 +146,27 @@ func (f *FlowMachine) RetryAction(actionId int, tryCount int, retryAfter time.Du
 	return nil
 }
 
+func (f *FlowMachine) DelayAction(actionId int, tryCount int, delay time.Duration) error {
+	err := f.ValidateExecutionRequest(actionId)
+	if err != nil {
+		return err
+	}
+	act := &api.Action{
+		WorkflowName: f.WorkflowName,
+		FlowId:       f.FlowId,
+		Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, f.CurrentAction.GetInputParams())),
+		ActionId:     int32(f.flowContext.CurrentAction),
+		ActionName:   f.CurrentAction.GetName(),
+		RetryCount:   int32(tryCount),
+	}
+	err = f.container.GetClusterStorage().Delay(act, delay)
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, error) {
 	currentActionId := f.CurrentAction.GetId()
 	nextActionMap := f.CurrentAction.GetNext()
@@ -251,26 +250,8 @@ func (f *FlowMachine) GetFlowState() model.FlowState {
 }
 
 func (f *FlowMachine) Resume() error {
-	f.MarkRunning()
-	return f.Execute(1, f.CurrentAction.GetId())
-}
-
-func (f *FlowMachine) Execute(tryCount int, actionId int) error {
-	err := f.ValidateExecutionRequest(actionId)
-	if err != nil {
-		return err
-	}
-	currentAction := f.CurrentAction
-	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
-		return f.pushSystemAction(tryCount)
-	} else {
-		_, _, err := currentAction.Execute(f.WorkflowName, f.flowContext, tryCount)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	f.flowContext.State = model.RUNNING
+	return f.saveContextAndDispatchAction(f.CurrentAction.GetId(), 1)
 }
 
 func (f *FlowMachine) ExecuteSystemAction(tryCount int, actionId int) error {
@@ -288,10 +269,12 @@ func (f *FlowMachine) ExecuteSystemAction(tryCount int, actionId int) error {
 		switch currentAction.GetName() {
 		case "delay":
 			f.MarkWaitingDelay()
+			delay := f.CurrentAction.GetParams()["delay"].(time.Duration)
+			f.DelayAction(f.CurrentAction.GetId(), 1, delay)
 		case "wait":
 			f.MarkWaitingEvent()
 		default:
-			completed, err := f.MoveForward(event, dataMap)
+			completed, err := f.MoveForwardAndDispatch(event, dataMap, f.CurrentAction.GetId(), 1)
 			if completed {
 				return nil
 			}
@@ -299,7 +282,6 @@ func (f *FlowMachine) ExecuteSystemAction(tryCount int, actionId int) error {
 				logger.Error("error moving forward in workflow", zap.Error(err))
 				return err
 			}
-			return f.Execute(1, f.CurrentAction.GetId())
 		}
 	} else {
 		return fmt.Errorf("should be system action")
@@ -319,23 +301,6 @@ func (f *FlowMachine) ValidateExecutionRequest(actionId int) error {
 	}
 	if actionId != f.CurrentAction.GetId() {
 		return fmt.Errorf("action %d already executed", actionId)
-	}
-	return nil
-}
-
-func (f *FlowMachine) pushSystemAction(tryCount int) error {
-	req := model.ActionExecutionRequest{
-		WorkflowName: f.WorkflowName,
-		ActionId:     f.CurrentAction.GetId(),
-		FlowId:       f.FlowId,
-		TryNumber:    tryCount,
-		TaskName:     f.CurrentAction.GetName(),
-	}
-	data, _ := f.container.ActionExecutionRequestEncDec.Encode(req)
-
-	err := f.container.GetQueue().Push("system", f.FlowId, data)
-	if err != nil {
-		return err
 	}
 	return nil
 }
