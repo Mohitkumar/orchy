@@ -57,4 +57,5 @@ func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, even
 	if err != nil {
 		return err
 	}
+	return nil
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/mohitkumar/orchy/server/container"
-	"github.com/mohitkumar/orchy/server/executor"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/rest"
 	"github.com/mohitkumar/orchy/server/rpc"
@@ -24,10 +23,6 @@ type Agent struct {
 	diContainer              *container.DIContiner
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
-	delayExecutor            executor.Executor
-	retryExecutor            executor.Executor
-	timeoutExecutor          executor.Executor
-	systemActionExecutor     executor.Executor
 	actionExecutionService   *service.ActionExecutionService
 	workflowExecutionService *service.WorkflowExecutionService
 	shutdown                 bool
@@ -44,10 +39,6 @@ func New(config config.Config) (*Agent, error) {
 	setup := []func() error{
 		a.setupCluster,
 		a.setupDiContainer,
-		a.setupSystemActionExecutor,
-		a.setupDelayExecutor,
-		a.setupRetryExecutor,
-		a.setupTimeoutExecutor,
 		a.setupWorkflowExecutionService,
 		a.setupActionExecutorService,
 		a.setupHttpServer,
@@ -76,26 +67,6 @@ func (a *Agent) setupDiContainer() error {
 	a.diContainer = container.NewDiContainer(a.ring)
 	a.diContainer.Init(a.Config)
 	return nil
-}
-
-func (a *Agent) setupDelayExecutor() error {
-	a.delayExecutor = executor.NewDelayExecutor(a.diContainer, &a.wg)
-	return a.delayExecutor.Start()
-}
-
-func (a *Agent) setupRetryExecutor() error {
-	a.retryExecutor = executor.NewRetryExecutor(a.diContainer, &a.wg)
-	return a.retryExecutor.Start()
-}
-
-func (a *Agent) setupSystemActionExecutor() error {
-	a.systemActionExecutor = executor.NewSystemActionExecutor(a.diContainer, &a.wg)
-	return a.systemActionExecutor.Start()
-}
-
-func (a *Agent) setupTimeoutExecutor() error {
-	a.timeoutExecutor = executor.NewTimeoutExecutor(a.diContainer, &a.wg)
-	return a.timeoutExecutor.Start()
 }
 
 func (a *Agent) setupWorkflowExecutionService() error {
@@ -169,10 +140,6 @@ func (a *Agent) Shutdown() error {
 	close(a.shutdowns)
 
 	shutdown := []func() error{
-		a.systemActionExecutor.Stop,
-		a.delayExecutor.Stop,
-		a.retryExecutor.Stop,
-		a.timeoutExecutor.Stop,
 		a.httpServer.Stop,
 		func() error {
 			logger.Info("stopping grpc server")

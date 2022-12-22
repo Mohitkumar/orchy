@@ -139,6 +139,7 @@ func (r *redisShard) SaveFlowContextAndDispatchAction(wfName string, flowId stri
 		logger.Error("error in saving flow context", zap.String("flowName", wfName), zap.String("flowId", flowId), zap.Error(err))
 		return persistence.StorageLayerError{}
 	}
+	return nil
 }
 func (r *redisShard) PollAction(actionType string, batchSize int) (*api.Actions, error) {
 	queueName := r.getNamespaceKey(actionType, r.shardId)
