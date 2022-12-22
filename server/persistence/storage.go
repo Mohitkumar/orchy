@@ -1,12 +1,24 @@
 package persistence
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/model"
 )
+
+type StorageLayerError struct {
+	Message string
+}
+
+func (e StorageLayerError) Error() string {
+	return fmt.Sprintf("storage layer error %s", e.Message)
+}
+
+const WF_PREFIX string = "WF_"
+const METADATA_CF string = "METADATA_"
 
 type MetadataStorage interface {
 	SaveWorkflowDefinition(wf model.Workflow) error
