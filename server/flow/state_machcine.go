@@ -100,6 +100,29 @@ func (f *FlowMachine) MoveForwardAndDispatch(event string, dataMap map[string]an
 	}
 	return false, nil
 }
+func (f *FlowMachine) DispatchAction(actionId int, tryCount int) error {
+	err := f.ValidateExecutionRequest(actionId)
+	if err != nil {
+		return err
+	}
+	act := &api.Action{
+		WorkflowName: f.WorkflowName,
+		FlowId:       f.FlowId,
+		Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, f.CurrentAction.GetInputParams())),
+		ActionId:     int32(f.flowContext.CurrentAction),
+		ActionName:   f.CurrentAction.GetName(),
+		RetryCount:   int32(tryCount),
+	}
+	if f.CurrentAction.GetType() == action.ACTION_TYPE_SYSTEM {
+		err = f.container.GetClusterStorage().DispatchAction(act, "system")
+	} else {
+		err = f.container.GetClusterStorage().DispatchAction(act, "user")
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func (f *FlowMachine) saveContextAndDispatchAction(actionId int, tryCount int) error {
 	err := f.ValidateExecutionRequest(actionId)
