@@ -39,11 +39,11 @@ type Shard interface {
 	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action *api.Action, actionType string) error
 	PollAction(actionType string, batchSize int) (*api.Actions, error)
 	Retry(action *api.Action, delay time.Duration) error
-	PollRetry(batch int) (*api.Actions, error)
+	PollRetry() (*api.Actions, error)
 	Delay(action *api.Action, delay time.Duration) error
-	PollDelay(batch int) (*api.Actions, error)
+	PollDelay() (*api.Actions, error)
 	Timeout(action *api.Action, delay time.Duration) error
-	PollTimeout(batch int) (*api.Actions, error)
+	PollTimeout() (*api.Actions, error)
 }
 
 type Shards struct {

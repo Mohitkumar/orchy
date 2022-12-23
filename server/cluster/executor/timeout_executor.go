@@ -57,7 +57,7 @@ func (ex *timeoutExecutor) IsRunning() bool {
 }
 
 func (ex *timeoutExecutor) handle() {
-	actions, err := ex.shard.PollTimeout(10)
+	actions, err := ex.shard.PollTimeout()
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}

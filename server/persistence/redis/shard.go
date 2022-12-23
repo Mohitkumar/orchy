@@ -9,11 +9,9 @@ import (
 	"github.com/go-redis/redis/v9"
 	rd "github.com/go-redis/redis/v9"
 	api "github.com/mohitkumar/orchy/api/v1"
-	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/mohitkumar/orchy/server/util"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -72,8 +70,7 @@ func (r *redisShard) SaveFlowContext(wfName string, flowId string, flowCtx *mode
 		return err
 	}
 	if err := r.baseDao.redisClient.HSet(ctx, key, []string{flowId, string(data)}).Err(); err != nil {
-		logger.Error("error in saving flow context", zap.String("flowName", wfName), zap.String("flowId", flowId), zap.Error(err))
-		return persistence.StorageLayerError{}
+		return persistence.StorageLayerError{Message: err.Error()}
 	}
 	return nil
 }
@@ -83,8 +80,7 @@ func (r *redisShard) GetFlowContext(wfName string, flowId string) (*model.FlowCo
 	ctx := context.Background()
 	flowCtxStr, err := r.baseDao.redisClient.HGet(ctx, key, flowId).Result()
 	if err != nil {
-		logger.Error("error in getting flow context", zap.String("flowName", wfName), zap.String("flowId", flowId), zap.Error(err))
-		return nil, persistence.StorageLayerError{}
+		return nil, persistence.StorageLayerError{Message: err.Error()}
 	}
 
 	flowCtx, err := r.encoderDecoder.Decode([]byte(flowCtxStr))
@@ -99,8 +95,7 @@ func (r *redisShard) DeleteFlowContext(wfName string, flowId string) error {
 	ctx := context.Background()
 	err := r.baseDao.redisClient.HDel(ctx, key, flowId).Err()
 	if err != nil {
-		logger.Error("error in deleting flow context", zap.String("flowName", wfName), zap.String("flowId", flowId), zap.Error(err))
-		return persistence.StorageLayerError{}
+		return persistence.StorageLayerError{Message: err.Error()}
 	}
 	return nil
 }
@@ -114,8 +109,7 @@ func (r *redisShard) DispatchAction(action *api.Action, actionType string) error
 	ctx := context.Background()
 	err = r.baseDao.redisClient.LPush(ctx, queueName, message).Err()
 	if err != nil {
-		logger.Error("error while push to redis list", zap.String("queue", queueName), zap.Error(err))
-		return persistence.StorageLayerError{}
+		return persistence.StorageLayerError{Message: err.Error()}
 	}
 	return nil
 }
@@ -139,8 +133,7 @@ func (r *redisShard) SaveFlowContextAndDispatchAction(wfName string, flowId stri
 	})
 
 	if err != nil {
-		logger.Error("error in saving flow context", zap.String("flowName", wfName), zap.String("flowId", flowId), zap.Error(err))
-		return persistence.StorageLayerError{}
+		return persistence.StorageLayerError{Message: err.Error()}
 	}
 	return nil
 }
@@ -153,8 +146,7 @@ func (r *redisShard) PollAction(actionType string, batchSize int) (*api.Actions,
 		if errors.Is(err, redis.Nil) {
 			return &api.Actions{Actions: out}, nil
 		}
-		logger.Error("error while pop from redis list", zap.String("queue", queueName), zap.Error(err))
-		return nil, persistence.StorageLayerError{}
+		return nil, persistence.StorageLayerError{Message: err.Error()}
 	}
 	for _, value := range values {
 		action := &api.Action{}
@@ -172,9 +164,9 @@ func (r *redisShard) Retry(action *api.Action, delay time.Duration) error {
 	queueName := r.getNamespaceKey("retry", r.shardId)
 	return r.addToSortedSet(queueName, message, delay)
 }
-func (r *redisShard) PollRetry(batch int) (*api.Actions, error) {
+func (r *redisShard) PollRetry() (*api.Actions, error) {
 	queueName := r.getNamespaceKey("retry", r.shardId)
-	values, err := r.getExpiredFromSortedSet(queueName, batch)
+	values, err := r.getExpiredFromSortedSet(queueName)
 	if err != nil {
 		return nil, err
 	}
@@ -194,9 +186,9 @@ func (r *redisShard) Delay(action *api.Action, delay time.Duration) error {
 	queueName := r.getNamespaceKey("delay", r.shardId)
 	return r.addToSortedSet(queueName, message, delay)
 }
-func (r *redisShard) PollDelay(batch int) (*api.Actions, error) {
+func (r *redisShard) PollDelay() (*api.Actions, error) {
 	queueName := r.getNamespaceKey("delay", r.shardId)
-	values, err := r.getExpiredFromSortedSet(queueName, batch)
+	values, err := r.getExpiredFromSortedSet(queueName)
 	if err != nil {
 		return nil, err
 	}
@@ -218,9 +210,9 @@ func (r *redisShard) Timeout(action *api.Action, delay time.Duration) error {
 	return r.addToSortedSet(queueName, message, delay)
 }
 
-func (r *redisShard) PollTimeout(batch int) (*api.Actions, error) {
+func (r *redisShard) PollTimeout() (*api.Actions, error) {
 	queueName := r.getNamespaceKey("timeout", r.shardId)
-	values, err := r.getExpiredFromSortedSet(queueName, batch)
+	values, err := r.getExpiredFromSortedSet(queueName)
 	if err != nil {
 		return nil, err
 	}
@@ -242,33 +234,32 @@ func (r *redisShard) addToSortedSet(key string, message []byte, delay time.Durat
 	}
 	err := r.redisClient.ZAdd(ctx, key, member).Err()
 	if err != nil {
-		logger.Error("error while add to sorted set", zap.String("key", key), zap.Error(err))
 		return persistence.StorageLayerError{Message: err.Error()}
 	}
 	return nil
 }
 
-func (r *redisShard) getExpiredFromSortedSet(key string, batch int) ([]string, error) {
+func (r *redisShard) getExpiredFromSortedSet(key string) ([]string, error) {
 	ctx := context.Background()
 	currentTime := time.Now().UnixMilli()
 	opt := &rd.ZRangeBy{
 		Min: strconv.Itoa(0),
 		Max: strconv.FormatInt(currentTime, 10),
 	}
-	var result []string
-	_, err := r.baseDao.redisClient.TxPipelined(ctx, func(pipe rd.Pipeliner) error {
-		res, err := pipe.ZRangeByScore(ctx, key, opt).Result()
-		result = append(result, res...)
-		err = pipe.ZRemRangeByScore(ctx, key, strconv.Itoa(0), strconv.FormatInt(currentTime, 10)).Err()
-		return err
-	})
+	pipe := r.redisClient.Pipeline()
+	zr := pipe.ZRangeByScore(ctx, key, opt)
+	pipe.ZRemRangeByScore(ctx, key, strconv.Itoa(0), strconv.FormatInt(currentTime, 10))
+	_, err := pipe.Exec(ctx)
 
+	if err != nil {
+		return nil, persistence.StorageLayerError{Message: err.Error()}
+	}
+	res, err := zr.Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return []string{}, nil
 		}
-		logger.Error("error while getting from redis sorted set", zap.String("key", key), zap.Error(err))
 		return nil, persistence.StorageLayerError{Message: err.Error()}
 	}
-	return result, nil
+	return res, nil
 }

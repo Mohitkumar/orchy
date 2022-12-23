@@ -56,7 +56,7 @@ func (ex *delayExecutor) Stop() {
 }
 
 func (ex *delayExecutor) handle() {
-	actions, err := ex.shard.PollDelay(10)
+	actions, err := ex.shard.PollDelay()
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}

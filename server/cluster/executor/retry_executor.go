@@ -56,7 +56,7 @@ func (ex *retryExecutor) Stop() {
 }
 
 func (ex *retryExecutor) handle() {
-	actions, err := ex.shard.PollRetry(10)
+	actions, err := ex.shard.PollRetry()
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}

@@ -40,7 +40,7 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 	flowMachine.flow = Convert(wf, flowId, container)
 	flowCtx, err := container.GetClusterStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
-		logger.Debug("flow already completed, can not create flow machine", zap.Error(err))
+		logger.Debug("flow already completed, can not create flow machine", zap.Error(fmt.Errorf("workflow complted")))
 		return nil, err
 	}
 	flowMachine.flowContext = flowCtx
