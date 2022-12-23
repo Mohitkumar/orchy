@@ -66,7 +66,7 @@ var _ resolver.Resolver = (*Resolver)(nil)
 func (r *Resolver) ResolveNow(opt resolver.ResolveNowOptions) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	client := api.NewTaskServiceClient(r.resolverConn)
+	client := api.NewActionServiceClient(r.resolverConn)
 	ctx := context.Background()
 	res, err := client.GetServers(ctx, &api.GetServersRequest{})
 	if err != nil {

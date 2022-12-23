@@ -35,7 +35,7 @@ func NewWorkerConfigurer(conf WorkerConfiguration) *WorkerConfigurer {
 }
 
 func (wc *WorkerConfigurer) RegisterWorker(w *WorkerWrapper, name string, pollInterval time.Duration, batchSize int, numWorkers int) error {
-	taskDef := &api.TaskDef{
+	actionDef := &api.ActionDefinition{
 		Name:              name,
 		RetryCount:        int32(w.retryCount),
 		RetryAfterSeconds: int32(w.retryAfterSeconds),
@@ -43,7 +43,7 @@ func (wc *WorkerConfigurer) RegisterWorker(w *WorkerWrapper, name string, pollIn
 		TimeoutSeconds:    int32(w.timeoutSeconds),
 	}
 	ctx := context.Background()
-	_, err := wc.client.GetApiClient().SaveTaskDef(ctx, taskDef)
+	_, err := wc.client.GetApiClient().SaveActionkDefinition(ctx, actionDef)
 	if err != nil {
 		return err
 	}
