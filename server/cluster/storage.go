@@ -68,88 +68,18 @@ func (s *clusterStorage) SaveFlowContextAndDispatchAction(wfName string, flowId 
 	shard := s.shards.GetShard(s.ring.GetPartition(flowId))
 	return shard.SaveFlowContextAndDispatchAction(wfName, flowId, flowCtx, action, string(actionType))
 }
-func (s *clusterStorage) PollAction(actionType string, batchSize int) (*api.Actions, error) {
-	var result []*api.Action
-	partitions := s.ring.GetPartitions()
-	for _, partition := range partitions {
-		if len(result) < batchSize {
-			numOfItemsToFetch := batchSize - len(result)
-			shard := s.shards.GetShard(partition)
-			items, err := shard.PollAction(string(actionType), numOfItemsToFetch)
-			if err != nil {
-				return nil, err
-			}
-			result = append(result, items.Actions...)
-		} else {
-			break
-		}
-	}
-	return &api.Actions{Actions: result}, nil
-}
 
 func (s *clusterStorage) Retry(action *api.Action, delay time.Duration) error {
 	shard := s.shards.GetShard(s.ring.GetPartition(action.FlowId))
 	return shard.Retry(action, delay)
 }
-func (s *clusterStorage) PollRetry(batchSize int) (*api.Actions, error) {
-	var result []*api.Action
-	partitions := s.ring.GetPartitions()
-	for _, partition := range partitions {
-		if len(result) < batchSize {
-			numOfItemsToFetch := batchSize - len(result)
-			shard := s.shards.GetShard(partition)
-			items, err := shard.PollRetry(numOfItemsToFetch)
-			if err != nil {
-				return nil, err
-			}
-			result = append(result, items.Actions...)
-		} else {
-			break
-		}
-	}
-	return &api.Actions{Actions: result}, nil
-}
+
 func (s *clusterStorage) Delay(action *api.Action, delay time.Duration) error {
 	shard := s.shards.GetShard(s.ring.GetPartition(action.FlowId))
 	return shard.Delay(action, delay)
 }
-func (s *clusterStorage) PollDelay(batchSize int) (*api.Actions, error) {
-	var result []*api.Action
-	partitions := s.ring.GetPartitions()
-	for _, partition := range partitions {
-		if len(result) < batchSize {
-			numOfItemsToFetch := batchSize - len(result)
-			shard := s.shards.GetShard(partition)
-			items, err := shard.PollDelay(numOfItemsToFetch)
-			if err != nil {
-				return nil, err
-			}
-			result = append(result, items.Actions...)
-		} else {
-			break
-		}
-	}
-	return &api.Actions{Actions: result}, nil
-}
+
 func (s *clusterStorage) Timeout(action *api.Action, delay time.Duration) error {
 	shard := s.shards.GetShard(s.ring.GetPartition(action.FlowId))
 	return shard.Timeout(action, delay)
-}
-func (s *clusterStorage) PollTimeout(batchSize int) (*api.Actions, error) {
-	var result []*api.Action
-	partitions := s.ring.GetPartitions()
-	for _, partition := range partitions {
-		if len(result) < batchSize {
-			numOfItemsToFetch := batchSize - len(result)
-			shard := s.shards.GetShard(partition)
-			items, err := shard.PollTimeout(numOfItemsToFetch)
-			if err != nil {
-				return nil, err
-			}
-			result = append(result, items.Actions...)
-		} else {
-			break
-		}
-	}
-	return &api.Actions{Actions: result}, nil
 }

@@ -17,17 +17,20 @@ var _ Executor = new(systemActionExecutor)
 type retryExecutor struct {
 	diContainer *container.DIContiner
 	shard       persistence.Shard
+	tw          *util.TickWorker
 	wg          *sync.WaitGroup
 	stop        chan struct{}
 }
 
 func NewRetryExecutor(diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *retryExecutor {
-	return &retryExecutor{
+	ex := &retryExecutor{
 		diContainer: diContainer,
 		shard:       shard,
 		stop:        make(chan struct{}),
 		wg:          wg,
 	}
+	ex.tw = util.NewTickWorker(ex.Name(), 1*time.Second, ex.stop, ex.handle, ex.wg)
+	return ex
 }
 
 func (ex *retryExecutor) Name() string {
@@ -35,11 +38,20 @@ func (ex *retryExecutor) Name() string {
 }
 
 func (ex *retryExecutor) Start() {
-	tw := util.NewTickWorker(ex.Name(), 1*time.Second, ex.stop, ex.handle, ex.wg)
-	tw.Start()
+	if ex.IsRunning() {
+		return
+	}
+	ex.tw.Start()
+}
+
+func (ex *retryExecutor) IsRunning() bool {
+	return ex.tw.IsRunning()
 }
 
 func (ex *retryExecutor) Stop() {
+	if !ex.IsRunning() {
+		return
+	}
 	ex.stop <- struct{}{}
 }
 

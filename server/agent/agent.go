@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/mohitkumar/orchy/server/cluster"
+	"github.com/mohitkumar/orchy/server/cluster/executor"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/logger"
@@ -25,6 +26,7 @@ type Agent struct {
 	grpcServer               *grpc.Server
 	actionExecutionService   *service.ActionExecutionService
 	workflowExecutionService *service.WorkflowExecutionService
+	executors                *executor.Executors
 	shutdown                 bool
 	shutdowns                chan struct{}
 	shutdownLock             sync.Mutex
@@ -41,6 +43,7 @@ func New(config config.Config) (*Agent, error) {
 		a.setupDiContainer,
 		a.setupWorkflowExecutionService,
 		a.setupActionExecutorService,
+		a.setupExecutors,
 		a.setupHttpServer,
 		a.setupGrpcServer,
 	}
@@ -76,6 +79,12 @@ func (a *Agent) setupWorkflowExecutionService() error {
 
 func (a *Agent) setupActionExecutorService() error {
 	a.actionExecutionService = service.NewActionExecutionService(a.diContainer)
+	return nil
+}
+
+func (a *Agent) setupExecutors() error {
+	a.executors = executor.NewExecutors(a.diContainer.GetShards())
+	a.executors.InitExecutors(a.Config.RingConfig.PartitionCount, a.diContainer, &a.wg)
 	return nil
 }
 func (a *Agent) setupHttpServer() error {
@@ -140,6 +149,7 @@ func (a *Agent) Shutdown() error {
 	close(a.shutdowns)
 
 	shutdown := []func() error{
+		a.executors.StopAll,
 		a.httpServer.Stop,
 		func() error {
 			logger.Info("stopping grpc server")

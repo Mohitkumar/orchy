@@ -14,6 +14,7 @@ type TickWorker struct {
 	wg           *sync.WaitGroup
 	name         string
 	fn           func()
+	running      bool
 }
 
 func NewTickWorker(name string, interval time.Duration, stop chan struct{}, fn func(), wg *sync.WaitGroup) *TickWorker {
@@ -38,13 +39,19 @@ func (tw *TickWorker) Start() {
 			case <-tw.stop:
 				logger.Info("stopping tick worker", zap.String("worker", tw.name))
 				ticker.Stop()
+				tw.running = false
 				return
 			}
 		}
 	}()
+	tw.running = true
 	logger.Info("executor started", zap.String("worker", tw.name))
 }
 
 func (tw *TickWorker) Stop() {
 	tw.stop <- struct{}{}
+}
+
+func (tw *TickWorker) IsRunning() bool {
+	return tw.running
 }

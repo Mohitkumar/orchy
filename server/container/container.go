@@ -61,6 +61,13 @@ func (d *DIContiner) Init(conf config.Config) {
 	d.stateHandler.Init()
 }
 
+func (d *DIContiner) GetShards() *persistence.Shards {
+	if !d.initialized {
+		panic("persistence not initalized")
+	}
+	return d.shards
+}
+
 func (d *DIContiner) GetMetadataStorage() persistence.MetadataStorage {
 	if !d.initialized {
 		panic("persistence not initalized")

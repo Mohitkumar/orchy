@@ -20,6 +20,7 @@ type Executors struct {
 	retryExecutors   map[int]Executor
 	timeoutExecutors map[int]Executor
 	shards           *persistence.Shards
+	partitions       int
 	mu               sync.Mutex
 }
 
@@ -35,6 +36,7 @@ func NewExecutors(shards *persistence.Shards) *Executors {
 }
 
 func (ex *Executors) InitExecutors(partitions int, container *container.DIContiner, wg *sync.WaitGroup) {
+	ex.partitions = partitions
 	for i := 0; i < partitions; i++ {
 		ex.userExecutors[i] = NewUserActionExecutor(container, ex.shards.GetShard(i), wg)
 		ex.systemExecutors[i] = NewSystemActionExecutor(container, ex.shards.GetShard(i), wg)
@@ -62,4 +64,29 @@ func (ex *Executors) Stop(partition int) {
 	ex.delayExecutors[partition].Stop()
 	ex.retryExecutors[partition].Stop()
 	ex.timeoutExecutors[partition].Stop()
+}
+
+func (ex *Executors) StartAll() {
+	ex.mu.Lock()
+	defer ex.mu.Unlock()
+	for i := 0; i < ex.partitions; i++ {
+		ex.userExecutors[i].Start()
+		ex.systemExecutors[i].Start()
+		ex.delayExecutors[i].Start()
+		ex.retryExecutors[i].Start()
+		ex.timeoutExecutors[i].Start()
+	}
+}
+
+func (ex *Executors) StopAll() error {
+	ex.mu.Lock()
+	defer ex.mu.Unlock()
+	for i := 0; i < ex.partitions; i++ {
+		ex.userExecutors[i].Stop()
+		ex.systemExecutors[i].Stop()
+		ex.delayExecutors[i].Stop()
+		ex.retryExecutors[i].Stop()
+		ex.timeoutExecutors[i].Stop()
+	}
+	return nil
 }

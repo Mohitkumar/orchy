@@ -18,16 +18,19 @@ type delayExecutor struct {
 	diContainer *container.DIContiner
 	shard       persistence.Shard
 	wg          *sync.WaitGroup
+	tw          *util.TickWorker
 	stop        chan struct{}
 }
 
 func NewDelayExecutor(diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *delayExecutor {
-	return &delayExecutor{
+	ex := &delayExecutor{
 		diContainer: diContainer,
 		shard:       shard,
 		stop:        make(chan struct{}),
 		wg:          wg,
 	}
+	ex.tw = util.NewTickWorker(ex.Name(), 1*time.Second, ex.stop, ex.handle, ex.wg)
+	return ex
 }
 
 func (ex *delayExecutor) Name() string {
@@ -35,11 +38,20 @@ func (ex *delayExecutor) Name() string {
 }
 
 func (ex *delayExecutor) Start() {
-	tw := util.NewTickWorker(ex.Name(), 1*time.Second, ex.stop, ex.handle, ex.wg)
-	tw.Start()
+	if ex.IsRunning() {
+		return
+	}
+	ex.tw.Start()
+}
+
+func (ex *delayExecutor) IsRunning() bool {
+	return ex.tw.IsRunning()
 }
 
 func (ex *delayExecutor) Stop() {
+	if !ex.IsRunning() {
+		return
+	}
 	ex.stop <- struct{}{}
 }
 
