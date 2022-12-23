@@ -1,12 +1,12 @@
 package executor
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
@@ -15,26 +15,26 @@ var _ Executor = new(userActionExecutor)
 
 type userActionExecutor struct {
 	diContainer *container.DIContiner
-	partition   int
+	shard       persistence.Shard
 	wg          *sync.WaitGroup
 	stop        chan struct{}
 }
 
-func NewUserActionExecutor(partition int, diContainer *container.DIContiner, wg *sync.WaitGroup) *userActionExecutor {
+func NewUserActionExecutor(diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *userActionExecutor {
 	return &userActionExecutor{
 		diContainer: diContainer,
-		partition:   partition,
+		shard:       shard,
 		stop:        make(chan struct{}),
 		wg:          wg,
 	}
 }
 
 func (ex *userActionExecutor) Name() string {
-	return "user-action-executor" + fmt.Sprintf("%d", ex.partition)
+	return "user-action-executor-" + ex.shard.GetShardId()
 }
 
 func (ex *userActionExecutor) Start() {
-	tw := util.NewTickWorker(ex.Name(), 1, ex.stop, ex.handle, ex.wg)
+	tw := util.NewTickWorker(ex.Name(), 1*time.Second, ex.stop, ex.handle, ex.wg)
 	tw.Start()
 }
 
@@ -43,7 +43,7 @@ func (ex *userActionExecutor) Stop() {
 }
 
 func (ex *userActionExecutor) handle() {
-	actions, err := ex.diContainer.GetClusterStorage().PollAction("user", 10)
+	actions, err := ex.shard.PollAction("user", 10)
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}

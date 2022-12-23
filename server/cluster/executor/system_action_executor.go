@@ -1,12 +1,13 @@
 package executor
 
 import (
-	"fmt"
 	"sync"
+	"time"
 
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
@@ -15,26 +16,26 @@ var _ Executor = new(systemActionExecutor)
 
 type systemActionExecutor struct {
 	diContainer *container.DIContiner
-	partition   int
+	shard       persistence.Shard
 	wg          *sync.WaitGroup
 	stop        chan struct{}
 }
 
-func NewSystemActionExecutor(partition int, diContainer *container.DIContiner, wg *sync.WaitGroup) *systemActionExecutor {
+func NewSystemActionExecutor(diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *systemActionExecutor {
 	return &systemActionExecutor{
 		diContainer: diContainer,
-		partition:   partition,
+		shard:       shard,
 		stop:        make(chan struct{}),
 		wg:          wg,
 	}
 }
 
 func (ex *systemActionExecutor) Name() string {
-	return "system-action-executor" + fmt.Sprintf("%d", ex.partition)
+	return "system-action-executor-" + ex.shard.GetShardId()
 }
 
 func (ex *systemActionExecutor) Start() {
-	tw := util.NewTickWorker(ex.Name(), 1, ex.stop, ex.handle, ex.wg)
+	tw := util.NewTickWorker(ex.Name(), 1*time.Second, ex.stop, ex.handle, ex.wg)
 	tw.Start()
 }
 
@@ -43,7 +44,7 @@ func (ex *systemActionExecutor) Stop() {
 }
 
 func (ex *systemActionExecutor) handle() {
-	actions, err := ex.diContainer.GetClusterStorage().PollAction("system", 10)
+	actions, err := ex.shard.PollAction("system", 10)
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}

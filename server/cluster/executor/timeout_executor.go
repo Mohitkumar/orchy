@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -9,6 +8,7 @@ import (
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
+	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
@@ -17,26 +17,26 @@ var _ Executor = new(systemActionExecutor)
 
 type timeoutExecutor struct {
 	diContainer *container.DIContiner
-	partition   int
+	shard       persistence.Shard
 	wg          *sync.WaitGroup
 	stop        chan struct{}
 }
 
-func NewTimeoutExecutor(partition int, diContainer *container.DIContiner, wg *sync.WaitGroup) *timeoutExecutor {
+func NewTimeoutExecutor(diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *timeoutExecutor {
 	return &timeoutExecutor{
 		diContainer: diContainer,
-		partition:   partition,
+		shard:       shard,
 		stop:        make(chan struct{}),
 		wg:          wg,
 	}
 }
 
 func (ex *timeoutExecutor) Name() string {
-	return "timeout-executor" + fmt.Sprintf("%d", ex.partition)
+	return "timeout-executor-" + ex.shard.GetShardId()
 }
 
 func (ex *timeoutExecutor) Start() {
-	tw := util.NewTickWorker(ex.Name(), 1, ex.stop, ex.handle, ex.wg)
+	tw := util.NewTickWorker(ex.Name(), 1*time.Second, ex.stop, ex.handle, ex.wg)
 	tw.Start()
 }
 
@@ -45,7 +45,7 @@ func (ex *timeoutExecutor) Stop() {
 }
 
 func (ex *timeoutExecutor) handle() {
-	actions, err := ex.diContainer.GetClusterStorage().PollTimeout(10)
+	actions, err := ex.shard.PollTimeout(10)
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}

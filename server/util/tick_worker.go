@@ -10,13 +10,13 @@ import (
 
 type TickWorker struct {
 	stop         chan struct{}
-	tickInterval int
+	tickInterval time.Duration
 	wg           *sync.WaitGroup
 	name         string
 	fn           func()
 }
 
-func NewTickWorker(name string, interval int, stop chan struct{}, fn func(), wg *sync.WaitGroup) *TickWorker {
+func NewTickWorker(name string, interval time.Duration, stop chan struct{}, fn func(), wg *sync.WaitGroup) *TickWorker {
 	return &TickWorker{
 		stop:         stop,
 		tickInterval: interval,
@@ -27,7 +27,7 @@ func NewTickWorker(name string, interval int, stop chan struct{}, fn func(), wg 
 }
 
 func (tw *TickWorker) Start() {
-	ticker := time.NewTicker(time.Duration(tw.tickInterval) * time.Second)
+	ticker := time.NewTicker(tw.tickInterval)
 	tw.wg.Add(1)
 	go func() {
 		defer tw.wg.Done()

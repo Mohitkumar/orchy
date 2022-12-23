@@ -21,13 +21,9 @@ type Storage interface {
 	DeleteFlowContext(wfName string, flowId string) error
 	DispatchAction(action *api.Action, actionType string) error
 	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action *api.Action, actionType string) error
-	PollAction(actionType string, batchSize int) (*api.Actions, error)
 	Retry(action *api.Action, delay time.Duration) error
-	PollRetry(batch int) (*api.Actions, error)
 	Delay(action *api.Action, delay time.Duration) error
-	PollDelay(batch int) (*api.Actions, error)
 	Timeout(action *api.Action, delay time.Duration) error
-	PollTimeout(batch int) (*api.Actions, error)
 }
 
 var _ Storage = new(clusterStorage)

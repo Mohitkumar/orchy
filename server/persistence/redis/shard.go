@@ -45,6 +45,9 @@ func NewRedisShard(conf Config, encoderDecoder util.EncoderDecoder[model.FlowCon
 	}
 }
 
+func (r *redisShard) GetShardId() string {
+	return r.shardId
+}
 func (r *redisShard) CreateAndSaveFlowContext(wFname string, flowId string, action int, input map[string]any) (*model.FlowContext, error) {
 	dataMap := make(map[string]any)
 	dataMap["input"] = input

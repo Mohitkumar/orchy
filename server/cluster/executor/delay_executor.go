@@ -1,12 +1,13 @@
 package executor
 
 import (
-	"fmt"
 	"sync"
+	"time"
 
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
@@ -15,26 +16,26 @@ var _ Executor = new(systemActionExecutor)
 
 type delayExecutor struct {
 	diContainer *container.DIContiner
-	partition   int
+	shard       persistence.Shard
 	wg          *sync.WaitGroup
 	stop        chan struct{}
 }
 
-func NewDelayExecutor(partition int, diContainer *container.DIContiner, wg *sync.WaitGroup) *delayExecutor {
+func NewDelayExecutor(diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *delayExecutor {
 	return &delayExecutor{
 		diContainer: diContainer,
-		partition:   partition,
+		shard:       shard,
 		stop:        make(chan struct{}),
 		wg:          wg,
 	}
 }
 
 func (ex *delayExecutor) Name() string {
-	return "delay-executor" + fmt.Sprintf("%d", ex.partition)
+	return "delay-executor-" + ex.shard.GetShardId()
 }
 
 func (ex *delayExecutor) Start() {
-	tw := util.NewTickWorker(ex.Name(), 1, ex.stop, ex.handle, ex.wg)
+	tw := util.NewTickWorker(ex.Name(), 1*time.Second, ex.stop, ex.handle, ex.wg)
 	tw.Start()
 }
 
@@ -43,7 +44,7 @@ func (ex *delayExecutor) Stop() {
 }
 
 func (ex *delayExecutor) handle() {
-	actions, err := ex.diContainer.GetClusterStorage().PollDelay(10)
+	actions, err := ex.shard.PollDelay(10)
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}

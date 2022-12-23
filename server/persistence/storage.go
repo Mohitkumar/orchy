@@ -30,6 +30,7 @@ type MetadataStorage interface {
 }
 
 type Shard interface {
+	GetShardId() string
 	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
 	CreateAndSaveFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
