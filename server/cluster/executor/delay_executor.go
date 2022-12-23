@@ -66,7 +66,7 @@ func (ex *delayExecutor) handle() {
 			logger.Error("error in executing workflow", zap.String("wfName", action.WorkflowName), zap.String("flowId", action.FlowId), zap.Error(err))
 			continue
 		}
-		completed, err := flowMachine.MoveForwardAndDispatch("default", nil, int(action.ActionId), 1)
+		completed, err := flowMachine.MoveForwardAndDispatch("default", nil)
 		if completed {
 			continue
 		}

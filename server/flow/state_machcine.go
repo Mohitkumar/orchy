@@ -74,7 +74,7 @@ func (f *FlowMachine) InitAndDispatchAction(wfName string, input map[string]any)
 	return f.saveContextAndDispatchAction(wf.RootAction, 1)
 }
 
-func (f *FlowMachine) MoveForwardAndDispatch(event string, dataMap map[string]any, actionId int, tryCount int) (bool, error) {
+func (f *FlowMachine) MoveForwardAndDispatch(event string, dataMap map[string]any) (bool, error) {
 	currentActionId := f.CurrentAction.GetId()
 	nextActionMap := f.CurrentAction.GetNext()
 	if f.completed {
@@ -94,7 +94,7 @@ func (f *FlowMachine) MoveForwardAndDispatch(event string, dataMap map[string]an
 		data[fmt.Sprintf("%d", currentActionId)] = output
 	}
 	f.flowContext.Data = data
-	err := f.saveContextAndDispatchAction(actionId, tryCount)
+	err := f.saveContextAndDispatchAction(f.CurrentAction.GetId(), 1)
 	if err != nil {
 		return false, err
 	}
@@ -297,7 +297,7 @@ func (f *FlowMachine) ExecuteSystemAction(tryCount int, actionId int) error {
 		case "wait":
 			f.MarkWaitingEvent()
 		default:
-			completed, err := f.MoveForwardAndDispatch(event, dataMap, f.CurrentAction.GetId(), 1)
+			completed, err := f.MoveForwardAndDispatch(event, dataMap)
 			if completed {
 				return nil
 			}

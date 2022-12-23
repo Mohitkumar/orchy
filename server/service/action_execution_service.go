@@ -39,7 +39,7 @@ func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResu
 	}
 	switch actionResult.Status {
 	case api.ActionResult_SUCCESS:
-		completed, err := flowMachine.MoveForwardAndDispatch("default", data, flowMachine.CurrentAction.GetId(), 1)
+		completed, err := flowMachine.MoveForwardAndDispatch("default", data)
 		if completed {
 			return nil
 		}

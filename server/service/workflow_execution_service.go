@@ -50,7 +50,7 @@ func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, even
 	if err != nil {
 		return err
 	}
-	completed, err := flowMachine.MoveForwardAndDispatch("default", nil, flowMachine.CurrentAction.GetId(), 1)
+	completed, err := flowMachine.MoveForwardAndDispatch("default", nil)
 	if completed {
 		return nil
 	}
