@@ -157,7 +157,7 @@ func (r *redisShard) PollAction(actionType string, batchSize int) (*api.Actions,
 		return nil, persistence.StorageLayerError{}
 	}
 	for _, value := range values {
-		var action *api.Action
+		action := &api.Action{}
 		proto.Unmarshal([]byte(value), action)
 		out = append(out, action)
 	}
@@ -180,7 +180,7 @@ func (r *redisShard) PollRetry(batch int) (*api.Actions, error) {
 	}
 	var out []*api.Action
 	for _, value := range values {
-		var action *api.Action
+		action := &api.Action{}
 		proto.Unmarshal([]byte(value), action)
 		out = append(out, action)
 	}
@@ -202,7 +202,7 @@ func (r *redisShard) PollDelay(batch int) (*api.Actions, error) {
 	}
 	var out []*api.Action
 	for _, value := range values {
-		var action *api.Action
+		action := &api.Action{}
 		proto.Unmarshal([]byte(value), action)
 		out = append(out, action)
 	}
@@ -226,7 +226,7 @@ func (r *redisShard) PollTimeout(batch int) (*api.Actions, error) {
 	}
 	var out []*api.Action
 	for _, value := range values {
-		var action *api.Action
+		action := &api.Action{}
 		proto.Unmarshal([]byte(value), action)
 		out = append(out, action)
 	}

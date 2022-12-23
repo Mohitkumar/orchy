@@ -14,14 +14,14 @@ import (
 )
 
 type redisQueue struct {
-	baseDao
+	*baseDao
 	queueName string
 	mu        sync.Mutex
 }
 
-func NewRedisQueue(baseDao baseDao) *redisQueue {
+func NewRedisQueue(config Config) *redisQueue {
 	return &redisQueue{
-		baseDao: baseDao,
+		baseDao: newBaseDao(config),
 	}
 }
 func (rq *redisQueue) Push(action *api.Action) error {
@@ -53,7 +53,7 @@ func (rq *redisQueue) Poll(actionName string, batchSize int) (*api.Actions, erro
 		return nil, persistence.StorageLayerError{}
 	}
 	for _, value := range values {
-		var action *api.Action
+		action := &api.Action{}
 		proto.Unmarshal([]byte(value), action)
 		out = append(out, action)
 	}

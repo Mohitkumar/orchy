@@ -57,6 +57,14 @@ func (d *DIContiner) Init(conf config.Config) {
 		d.clusterStorage = cluster.NewClusterStorage(d.shards, d.ring)
 	case config.STORAGE_TYPE_INMEM:
 	}
+	switch conf.QueueType {
+	case config.QUEUE_TYPE_REDIS:
+		rdConf := rd.Config{
+			Addrs:     conf.RedisConfig.Addrs,
+			Namespace: conf.RedisConfig.Namespace,
+		}
+		d.externalQueue = rd.NewRedisQueue(rdConf)
+	}
 	d.stateHandler = cluster.NewStateHandlerContainer(d.clusterStorage)
 	d.stateHandler.Init()
 }

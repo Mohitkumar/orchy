@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/mohitkumar/orchy/server/container"
+	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/persistence"
 )
 
@@ -69,6 +70,7 @@ func (ex *Executors) Stop(partition int) {
 func (ex *Executors) StartAll() {
 	ex.mu.Lock()
 	defer ex.mu.Unlock()
+	logger.Info("starting all executors")
 	for i := 0; i < ex.partitions; i++ {
 		ex.userExecutors[i].Start()
 		ex.systemExecutors[i].Start()
@@ -81,6 +83,7 @@ func (ex *Executors) StartAll() {
 func (ex *Executors) StopAll() error {
 	ex.mu.Lock()
 	defer ex.mu.Unlock()
+	logger.Info("stoping all executors")
 	for i := 0; i < ex.partitions; i++ {
 		ex.userExecutors[i].Stop()
 		ex.systemExecutors[i].Stop()

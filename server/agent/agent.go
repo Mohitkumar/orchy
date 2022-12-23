@@ -85,6 +85,7 @@ func (a *Agent) setupActionExecutorService() error {
 func (a *Agent) setupExecutors() error {
 	a.executors = executor.NewExecutors(a.diContainer.GetShards())
 	a.executors.InitExecutors(a.Config.RingConfig.PartitionCount, a.diContainer, &a.wg)
+	a.executors.StartAll()
 	return nil
 }
 func (a *Agent) setupHttpServer() error {

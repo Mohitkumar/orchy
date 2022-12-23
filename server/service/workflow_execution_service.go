@@ -23,7 +23,7 @@ func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) 
 	if err != nil {
 		return "", err
 	}
-	logger.Info("starting workflow", zap.String("workflow", name), zap.Any("input", input))
+	logger.Info("started workflow", zap.String("workflow", name), zap.Any("input", input))
 	return flowMachine.FlowId, nil
 }
 
