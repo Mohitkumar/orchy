@@ -59,7 +59,7 @@ func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResu
 			case model.RETRY_POLICY_FIXED:
 				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds) * time.Second
 			case model.RETRY_POLICY_BACKOFF:
-				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(actionResult.RetryCount)) * time.Second
+				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(actionResult.RetryCount+1)) * time.Second
 			}
 			err = flowMachine.RetryAction(int(actionResult.ActionId), int(actionResult.RetryCount)+1, retryAfter)
 

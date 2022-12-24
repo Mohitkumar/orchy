@@ -66,7 +66,7 @@ func (ex *retryExecutor) handle() {
 			logger.Error("error in executing workflow", zap.String("wfName", action.WorkflowName), zap.String("flowId", action.FlowId), zap.Error(err))
 			continue
 		}
-		err = flowMachine.DispatchAction(int(action.ActionId), int(action.RetryCount)+1)
+		err = flowMachine.DispatchAction(int(action.ActionId), int(action.RetryCount))
 		if err != nil {
 			logger.Error("error in retrying workflow", zap.String("wfName", action.WorkflowName), zap.String("flowId", action.FlowId), zap.Error(err))
 		}

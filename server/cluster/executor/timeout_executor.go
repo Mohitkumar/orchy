@@ -67,14 +67,14 @@ func (ex *timeoutExecutor) handle() {
 			logger.Error("action definition not found ", zap.String("action", action.ActionName), zap.Error(err))
 			continue
 		}
-		if int(action.RetryCount) <= actionDefinition.RetryCount {
+		if int(action.RetryCount) < actionDefinition.RetryCount {
 			logger.Info("action timedout retrying", zap.String("action", action.ActionName), zap.Int("retry", int(action.RetryCount)))
 			var retryAfter time.Duration
 			switch actionDefinition.RetryPolicy {
 			case model.RETRY_POLICY_FIXED:
 				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds) * time.Second
 			case model.RETRY_POLICY_BACKOFF:
-				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(action.RetryCount)) * time.Second
+				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(action.RetryCount+1)) * time.Second
 			}
 			action.RetryCount = action.RetryCount + 1
 			ex.diContainer.GetClusterStorage().Retry(action, retryAfter)
