@@ -18,7 +18,7 @@ import (
 )
 
 type ActionService interface {
-	Poll(taskName string, batchSize int) (*api.Actions, error)
+	Poll(action string, batchSize int) (*api.Actions, error)
 	Push(*api.ActionResult) error
 }
 

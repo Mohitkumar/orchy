@@ -42,7 +42,7 @@ message ActionDefinitionSaveResponse{
 }
 
 message ActionPollRequest{
-    string taskType = 1;
+    string actionType = 1;
     int32 batchSize = 2;
 }
 

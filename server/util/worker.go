@@ -7,15 +7,15 @@ import (
 	"go.uber.org/zap"
 )
 
-type Task any
+type Action any
 
 type Worker struct {
-	name     string
-	capacity int
-	stop     chan struct{}
-	wg       *sync.WaitGroup
-	handler  func(Task) error
-	taskChan chan Task
+	name       string
+	capacity   int
+	stop       chan struct{}
+	wg         *sync.WaitGroup
+	handler    func(Action) error
+	actionChan chan Action
 }
 
 func (w *Worker) Start() {
@@ -25,10 +25,10 @@ func (w *Worker) Start() {
 
 		for {
 			select {
-			case task := <-w.taskChan:
-				err := w.handler(task)
+			case action := <-w.actionChan:
+				err := w.handler(action)
 				if err != nil {
-					logger.Error("error in executing task in worker", zap.String("worker", w.name), zap.Any("task", task), zap.Error(err))
+					logger.Error("error in executing action in worker", zap.String("worker", w.name), zap.Any("action", action), zap.Error(err))
 				}
 			case <-w.stop:
 				logger.Info("stopping worker", zap.String("worker", w.name))
@@ -38,22 +38,22 @@ func (w *Worker) Start() {
 	}()
 }
 
-func (w *Worker) Sender() chan<- Task {
-	return w.taskChan
+func (w *Worker) Sender() chan<- Action {
+	return w.actionChan
 }
 
 func (w *Worker) Stop() {
 	w.stop <- struct{}{}
 }
 
-func NewWorker(name string, wg *sync.WaitGroup, handler func(Task) error, capacity int) *Worker {
-	ch := make(chan Task, capacity)
+func NewWorker(name string, wg *sync.WaitGroup, handler func(Action) error, capacity int) *Worker {
+	ch := make(chan Action, capacity)
 	stop := make(chan struct{})
 	return &Worker{
-		taskChan: ch,
-		name:     name,
-		wg:       wg,
-		stop:     stop,
-		handler:  handler,
+		actionChan: ch,
+		name:       name,
+		wg:         wg,
+		stop:       stop,
+		handler:    handler,
 	}
 }

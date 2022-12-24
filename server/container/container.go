@@ -10,17 +10,16 @@ import (
 )
 
 type DIContiner struct {
-	initialized                  bool
-	metadataStorage              persistence.MetadataStorage
-	clusterStorage               cluster.Storage
-	externalQueue                cluster.ExternalQueue
-	stateHandler                 *cluster.StateHandlerContainer
-	FlowContextEncDec            util.EncoderDecoder[model.FlowContext]
-	ActionExecutionRequestEncDec util.EncoderDecoder[model.ActionExecutionRequest]
-	TaskEncDec                   util.EncoderDecoder[model.TaskDef]
-	ring                         *cluster.Ring
-	memebership                  *cluster.Membership
-	shards                       *persistence.Shards
+	initialized       bool
+	metadataStorage   persistence.MetadataStorage
+	clusterStorage    cluster.Storage
+	externalQueue     cluster.ExternalQueue
+	stateHandler      *cluster.StateHandlerContainer
+	FlowContextEncDec util.EncoderDecoder[model.FlowContext]
+	ActionEncDec      util.EncoderDecoder[model.ActionDefinition]
+	ring              *cluster.Ring
+	memebership       *cluster.Membership
+	shards            *persistence.Shards
 }
 
 func (p *DIContiner) setInitialized() {
@@ -42,8 +41,7 @@ func (d *DIContiner) Init(conf config.Config) {
 		//proto
 	default:
 		d.FlowContextEncDec = util.NewJsonEncoderDecoder[model.FlowContext]()
-		d.ActionExecutionRequestEncDec = util.NewJsonEncoderDecoder[model.ActionExecutionRequest]()
-		d.TaskEncDec = util.NewJsonEncoderDecoder[model.TaskDef]()
+		d.ActionEncDec = util.NewJsonEncoderDecoder[model.ActionDefinition]()
 	}
 
 	switch conf.StorageType {

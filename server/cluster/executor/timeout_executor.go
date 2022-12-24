@@ -62,26 +62,27 @@ func (ex *timeoutExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions.Actions {
-		taskDef, err := ex.diContainer.GetMetadataStorage().GetActionDefinition(action.ActionName)
+		actionDefinition, err := ex.diContainer.GetMetadataStorage().GetActionDefinition(action.ActionName)
 		if err != nil {
-			logger.Error("task definition not found ", zap.String("taskName", action.ActionName), zap.Error(err))
+			logger.Error("action definition not found ", zap.String("action", action.ActionName), zap.Error(err))
 			continue
 		}
-		if int(action.RetryCount) <= taskDef.RetryCount {
+		if int(action.RetryCount) <= actionDefinition.RetryCount {
+			logger.Info("action timedout retrying", zap.String("action", action.ActionName), zap.Int("retry", int(action.RetryCount)))
 			var retryAfter time.Duration
-			switch taskDef.RetryPolicy {
+			switch actionDefinition.RetryPolicy {
 			case model.RETRY_POLICY_FIXED:
-				retryAfter = time.Duration(taskDef.RetryAfterSeconds) * time.Second
+				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds) * time.Second
 			case model.RETRY_POLICY_BACKOFF:
-				retryAfter = time.Duration(taskDef.RetryAfterSeconds*int(action.RetryCount)) * time.Second
+				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(action.RetryCount)) * time.Second
 			}
 			action.RetryCount = action.RetryCount + 1
 			ex.diContainer.GetClusterStorage().Retry(action, retryAfter)
 		} else {
-			logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", taskDef.RetryCount))
+			logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
 			flowMachine, err := flow.GetFlowStateMachine(action.WorkflowName, action.FlowId, ex.diContainer)
 			if err != nil {
-				logger.Error("task definition not found ", zap.String("taskName", action.ActionName), zap.Error(err))
+				logger.Error("action definition not found ", zap.String("action", action.ActionName), zap.Error(err))
 				continue
 			}
 			flowMachine.MarkFailed()

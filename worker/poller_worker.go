@@ -26,26 +26,26 @@ type pollerWorker struct {
 	wg                       *sync.WaitGroup
 }
 
-func (pw *pollerWorker) execute(task *api_v1.Action) *api_v1.ActionResult {
-	result, err := pw.worker.Execute(util.ConvertFromProto(task.Data))
+func (pw *pollerWorker) execute(action *api_v1.Action) *api_v1.ActionResult {
+	result, err := pw.worker.Execute(util.ConvertFromProto(action.Data))
 	var actionResult *api_v1.ActionResult
 	if err != nil {
 		actionResult = &api_v1.ActionResult{
-			WorkflowName: task.WorkflowName,
-			FlowId:       task.FlowId,
-			ActionId:     task.ActionId,
-			ActionName:   task.ActionName,
+			WorkflowName: action.WorkflowName,
+			FlowId:       action.FlowId,
+			ActionId:     action.ActionId,
+			ActionName:   action.ActionName,
 			Status:       api_v1.ActionResult_FAIL,
-			RetryCount:   task.RetryCount,
+			RetryCount:   action.RetryCount,
 		}
 	} else {
 		actionResult = &api_v1.ActionResult{
-			WorkflowName: task.WorkflowName,
-			FlowId:       task.FlowId,
-			ActionId:     task.ActionId,
+			WorkflowName: action.WorkflowName,
+			FlowId:       action.FlowId,
+			ActionId:     action.ActionId,
 			Data:         util.ConvertToProto(result),
 			Status:       api_v1.ActionResult_SUCCESS,
-			RetryCount:   task.RetryCount,
+			RetryCount:   action.RetryCount,
 		}
 	}
 	return actionResult
@@ -61,7 +61,7 @@ func (pw *pollerWorker) sendResponse(ctx context.Context, actionResult *api_v1.A
 		}
 		logger.Debug("send result to server", zap.Bool("status", res.Status))
 		if !res.Status {
-			return fmt.Errorf("push task execution result failed")
+			return fmt.Errorf("push action execution result failed")
 		}
 		return nil
 	}, b)
@@ -74,8 +74,8 @@ func (pw *pollerWorker) sendResponse(ctx context.Context, actionResult *api_v1.A
 func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 	ctx := context.WithValue(context.Background(), "worker", pw.worker.GetName())
 	req := &api_v1.ActionPollRequest{
-		TaskType:  pw.worker.GetName(),
-		BatchSize: int32(pw.worker.BatchSize()),
+		ActionType: pw.worker.GetName(),
+		BatchSize:  int32(pw.worker.BatchSize()),
 	}
 	defer pw.wg.Done()
 	for {
@@ -99,11 +99,11 @@ func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 				}
 			} else {
 				for _, action := range actions.Actions {
-					logger.Info("executing task", zap.String("flowId", action.FlowId), zap.String("task", action.ActionName))
+					logger.Info("executing action", zap.String("flowId", action.FlowId), zap.String("action", action.ActionName))
 					result := pw.execute(action)
 					err = pw.sendResponse(ctx, result)
 					if err != nil {
-						logger.Error("error sending task execution response to server", zap.String("taskType", pw.worker.GetName()))
+						logger.Error("error sending action execution response to server", zap.String("actionType", pw.worker.GetName()))
 					}
 				}
 			}

@@ -50,7 +50,7 @@ func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResu
 	case api.ActionResult_FAIL:
 		actionDefinition, err := s.container.GetMetadataStorage().GetActionDefinition(actionResult.ActionName)
 		if err != nil {
-			logger.Error("action definition not found ", zap.String("taskName", actionResult.ActionName), zap.Error(err))
+			logger.Error("action definition not found ", zap.String("action", actionResult.ActionName), zap.Error(err))
 			return err
 		}
 		if actionResult.RetryCount <= int32(actionDefinition.RetryCount) {
@@ -67,7 +67,7 @@ func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResu
 				return err
 			}
 		} else {
-			logger.Error("task max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
+			logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
 			flowMachine.MarkFailed()
 		}
 	}

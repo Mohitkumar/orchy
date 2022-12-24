@@ -13,10 +13,10 @@ import (
 )
 
 type WorkerConfigurer struct {
-	config     WorkerConfiguration
-	taskPoller *taskPoller
-	client     *client.RpcClient
-	wg         sync.WaitGroup
+	config       WorkerConfiguration
+	actionPoller *actionPoller
+	client       *client.RpcClient
+	wg           sync.WaitGroup
 }
 
 func NewWorkerConfigurer(conf WorkerConfiguration) *WorkerConfigurer {
@@ -24,12 +24,12 @@ func NewWorkerConfigurer(conf WorkerConfiguration) *WorkerConfigurer {
 	if err != nil {
 		panic(err)
 	}
-	taskPoller := newTaskPoller(conf)
+	actionPoller := newActionPoller(conf)
 
 	wc := &WorkerConfigurer{
-		config:     conf,
-		taskPoller: taskPoller,
-		client:     client,
+		config:       conf,
+		actionPoller: actionPoller,
+		client:       client,
 	}
 	return wc
 }
@@ -47,12 +47,12 @@ func (wc *WorkerConfigurer) RegisterWorker(w *WorkerWrapper, name string, pollIn
 	if err != nil {
 		return err
 	}
-	wc.taskPoller.registerWorker(newWorker(w.worker, name, pollInterval, batchSize), numWorkers)
+	wc.actionPoller.registerWorker(newWorker(w.worker, name, pollInterval, batchSize), numWorkers)
 	return nil
 }
 
 func (wc *WorkerConfigurer) Start() {
-	wc.taskPoller.start(&wc.wg)
+	wc.actionPoller.start(&wc.wg)
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sigc
@@ -60,5 +60,5 @@ func (wc *WorkerConfigurer) Start() {
 }
 
 func (wc *WorkerConfigurer) Stop() {
-	wc.taskPoller.stop()
+	wc.actionPoller.stop()
 }

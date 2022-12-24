@@ -76,7 +76,7 @@ func (td *redisMetadataStorage) SaveActionDefinition(action model.ActionDefiniti
 	key := td.baseDao.getNamespaceKey(ACTION_DEF)
 	ctx := context.Background()
 	if err := td.baseDao.redisClient.HSet(ctx, key, []string{action.Name, string(data)}).Err(); err != nil {
-		logger.Error("error in saving task definition", zap.String("taskName", action.Name), zap.Error(err))
+		logger.Error("error in saving action definition", zap.String("action", action.Name), zap.Error(err))
 		return persistence.StorageLayerError{}
 	}
 	return nil
@@ -86,19 +86,19 @@ func (td *redisMetadataStorage) DeleteActionDefinition(action string) error {
 	key := td.baseDao.getNamespaceKey(ACTION_DEF)
 	ctx := context.Background()
 	if err := td.baseDao.redisClient.HDel(ctx, key, action).Err(); err != nil {
-		logger.Error("error in deleting task definition", zap.String("taskName", action), zap.Error(err))
+		logger.Error("error in deleting action definition", zap.String("action", action), zap.Error(err))
 		return persistence.StorageLayerError{}
 	}
 	return nil
 }
 
-func (td *redisMetadataStorage) GetActionDefinition(task string) (*model.ActionDefinition, error) {
+func (td *redisMetadataStorage) GetActionDefinition(action string) (*model.ActionDefinition, error) {
 	key := td.baseDao.getNamespaceKey(ACTION_DEF)
 	ctx := context.Background()
-	taskStr, err := td.baseDao.redisClient.HGet(ctx, key, task).Result()
+	actionStr, err := td.baseDao.redisClient.HGet(ctx, key, action).Result()
 	if err != nil {
-		logger.Error("error in getting task definition", zap.String("taskName", task), zap.Error(err))
+		logger.Error("error in getting action definition", zap.String("action", action), zap.Error(err))
 		return nil, persistence.StorageLayerError{}
 	}
-	return td.actionEencoderDecoder.Decode([]byte(taskStr))
+	return td.actionEencoderDecoder.Decode([]byte(actionStr))
 }

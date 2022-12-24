@@ -11,14 +11,14 @@ import (
 var _ api.ActionServiceServer = (*grpcServer)(nil)
 
 func (srv *grpcServer) SaveActionkDefinition(ctx context.Context, req *api.ActionDefinition) (*api.ActionDefinitionSaveResponse, error) {
-	task := &model.ActionDefinition{
+	action := &model.ActionDefinition{
 		Name:              req.Name,
 		RetryCount:        int(req.RetryCount),
 		RetryAfterSeconds: int(req.RetryAfterSeconds),
 		RetryPolicy:       model.RetryPolicy(req.RetryPolicy),
 		TimeoutSeconds:    int(req.TimeoutSeconds),
 	}
-	err := srv.ActionDefinitionService.SaveActionDefinition(*task)
+	err := srv.ActionDefinitionService.SaveActionDefinition(*action)
 	if err != nil {
 		return &api.ActionDefinitionSaveResponse{
 			Status: false,
@@ -28,14 +28,14 @@ func (srv *grpcServer) SaveActionkDefinition(ctx context.Context, req *api.Actio
 }
 
 func (srv *grpcServer) Poll(ctx context.Context, req *api.ActionPollRequest) (*api.Actions, error) {
-	task, err := srv.ActionService.Poll(req.TaskType, int(req.BatchSize))
+	action, err := srv.ActionService.Poll(req.ActionType, int(req.BatchSize))
 	if err != nil {
 		switch err.(type) {
 		case persistence.StorageLayerError:
 			return nil, &api.StorageLayerError{}
 		}
 	}
-	return task, nil
+	return action, nil
 }
 
 func (srv *grpcServer) Push(ctx context.Context, req *api.ActionResult) (*api.ActionResultPushResponse, error) {
