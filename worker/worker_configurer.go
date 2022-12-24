@@ -43,7 +43,7 @@ func (wc *WorkerConfigurer) RegisterWorker(w *WorkerWrapper, name string, pollIn
 		TimeoutSeconds:    int32(w.timeoutSeconds),
 	}
 	ctx := context.Background()
-	_, err := wc.client.GetApiClient().SaveActionkDefinition(ctx, actionDef)
+	_, err := wc.client.GetApiClient().SaveActionDefinition(ctx, actionDef)
 	if err != nil {
 		return err
 	}

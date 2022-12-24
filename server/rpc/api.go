@@ -10,7 +10,7 @@ import (
 
 var _ api.ActionServiceServer = (*grpcServer)(nil)
 
-func (srv *grpcServer) SaveActionkDefinition(ctx context.Context, req *api.ActionDefinition) (*api.ActionDefinitionSaveResponse, error) {
+func (srv *grpcServer) SaveActionDefinition(ctx context.Context, req *api.ActionDefinition) (*api.ActionDefinitionSaveResponse, error) {
 	action := &model.ActionDefinition{
 		Name:              req.Name,
 		RetryCount:        int(req.RetryCount),

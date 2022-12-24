@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ActionServiceClient interface {
-	SaveActionkDefinition(ctx context.Context, in *ActionDefinition, opts ...grpc.CallOption) (*ActionDefinitionSaveResponse, error)
+	SaveActionDefinition(ctx context.Context, in *ActionDefinition, opts ...grpc.CallOption) (*ActionDefinitionSaveResponse, error)
 	Poll(ctx context.Context, in *ActionPollRequest, opts ...grpc.CallOption) (*Actions, error)
 	Push(ctx context.Context, in *ActionResult, opts ...grpc.CallOption) (*ActionResultPushResponse, error)
 	GetServers(ctx context.Context, in *GetServersRequest, opts ...grpc.CallOption) (*GetServersResponse, error)
@@ -36,9 +36,9 @@ func NewActionServiceClient(cc grpc.ClientConnInterface) ActionServiceClient {
 	return &actionServiceClient{cc}
 }
 
-func (c *actionServiceClient) SaveActionkDefinition(ctx context.Context, in *ActionDefinition, opts ...grpc.CallOption) (*ActionDefinitionSaveResponse, error) {
+func (c *actionServiceClient) SaveActionDefinition(ctx context.Context, in *ActionDefinition, opts ...grpc.CallOption) (*ActionDefinitionSaveResponse, error) {
 	out := new(ActionDefinitionSaveResponse)
-	err := c.cc.Invoke(ctx, "/ActionService/SaveActionkDefinition", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/ActionService/SaveActionDefinition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (c *actionServiceClient) GetServers(ctx context.Context, in *GetServersRequ
 // All implementations must embed UnimplementedActionServiceServer
 // for forward compatibility
 type ActionServiceServer interface {
-	SaveActionkDefinition(context.Context, *ActionDefinition) (*ActionDefinitionSaveResponse, error)
+	SaveActionDefinition(context.Context, *ActionDefinition) (*ActionDefinitionSaveResponse, error)
 	Poll(context.Context, *ActionPollRequest) (*Actions, error)
 	Push(context.Context, *ActionResult) (*ActionResultPushResponse, error)
 	GetServers(context.Context, *GetServersRequest) (*GetServersResponse, error)
@@ -87,8 +87,8 @@ type ActionServiceServer interface {
 type UnimplementedActionServiceServer struct {
 }
 
-func (UnimplementedActionServiceServer) SaveActionkDefinition(context.Context, *ActionDefinition) (*ActionDefinitionSaveResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SaveActionkDefinition not implemented")
+func (UnimplementedActionServiceServer) SaveActionDefinition(context.Context, *ActionDefinition) (*ActionDefinitionSaveResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveActionDefinition not implemented")
 }
 func (UnimplementedActionServiceServer) Poll(context.Context, *ActionPollRequest) (*Actions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Poll not implemented")
@@ -112,20 +112,20 @@ func RegisterActionServiceServer(s grpc.ServiceRegistrar, srv ActionServiceServe
 	s.RegisterService(&ActionService_ServiceDesc, srv)
 }
 
-func _ActionService_SaveActionkDefinition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ActionService_SaveActionDefinition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ActionDefinition)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ActionServiceServer).SaveActionkDefinition(ctx, in)
+		return srv.(ActionServiceServer).SaveActionDefinition(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ActionService/SaveActionkDefinition",
+		FullMethod: "/ActionService/SaveActionDefinition",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ActionServiceServer).SaveActionkDefinition(ctx, req.(*ActionDefinition))
+		return srv.(ActionServiceServer).SaveActionDefinition(ctx, req.(*ActionDefinition))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -192,8 +192,8 @@ var ActionService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ActionServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SaveActionkDefinition",
-			Handler:    _ActionService_SaveActionkDefinition_Handler,
+			MethodName: "SaveActionDefinition",
+			Handler:    _ActionService_SaveActionDefinition_Handler,
 		},
 		{
 			MethodName: "Poll",
