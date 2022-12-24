@@ -77,7 +77,7 @@ func (ex *timeoutExecutor) handle() {
 				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(action.RetryCount+1)) * time.Second
 			}
 			action.RetryCount = action.RetryCount + 1
-			ex.diContainer.GetClusterStorage().Retry(action, retryAfter)
+			ex.diContainer.GetClusterStorage().Timeout(action, retryAfter)
 		} else {
 			logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
 			flowMachine, err := flow.GetFlowStateMachine(action.WorkflowName, action.FlowId, ex.diContainer)
