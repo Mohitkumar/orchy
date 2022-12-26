@@ -8,44 +8,44 @@ import (
 	"github.com/mohitkumar/orchy/server/persistence"
 )
 
-var _ api.TaskServiceServer = (*grpcServer)(nil)
+var _ api.ActionServiceServer = (*grpcServer)(nil)
 
-func (srv *grpcServer) SaveTaskDef(ctx context.Context, req *api.TaskDef) (*api.TaskDefSaveResponse, error) {
-	task := &model.TaskDef{
+func (srv *grpcServer) SaveActionDefinition(ctx context.Context, req *api.ActionDefinition) (*api.ActionDefinitionSaveResponse, error) {
+	action := &model.ActionDefinition{
 		Name:              req.Name,
 		RetryCount:        int(req.RetryCount),
 		RetryAfterSeconds: int(req.RetryAfterSeconds),
 		RetryPolicy:       model.RetryPolicy(req.RetryPolicy),
 		TimeoutSeconds:    int(req.TimeoutSeconds),
 	}
-	err := srv.TaskDefService.SaveTask(*task)
+	err := srv.ActionDefinitionService.SaveActionDefinition(*action)
 	if err != nil {
-		return &api.TaskDefSaveResponse{
+		return &api.ActionDefinitionSaveResponse{
 			Status: false,
 		}, err
 	}
-	return &api.TaskDefSaveResponse{Status: true}, nil
+	return &api.ActionDefinitionSaveResponse{Status: true}, nil
 }
 
-func (srv *grpcServer) Poll(ctx context.Context, req *api.TaskPollRequest) (*api.Tasks, error) {
-	task, err := srv.TaskService.Poll(req.TaskType, int(req.BatchSize))
+func (srv *grpcServer) Poll(ctx context.Context, req *api.ActionPollRequest) (*api.Actions, error) {
+	action, err := srv.ActionService.Poll(req.ActionType, int(req.BatchSize))
 	if err != nil {
 		switch err.(type) {
 		case persistence.StorageLayerError:
 			return nil, &api.StorageLayerError{}
 		}
 	}
-	return task, nil
+	return action, nil
 }
 
-func (srv *grpcServer) Push(ctx context.Context, req *api.TaskResult) (*api.TaskResultPushResponse, error) {
-	err := srv.TaskService.Push(req)
+func (srv *grpcServer) Push(ctx context.Context, req *api.ActionResult) (*api.ActionResultPushResponse, error) {
+	err := srv.ActionService.Push(req)
 	if err != nil {
-		return &api.TaskResultPushResponse{
+		return &api.ActionResultPushResponse{
 			Status: false,
 		}, err
 	}
-	return &api.TaskResultPushResponse{Status: true}, nil
+	return &api.ActionResultPushResponse{Status: true}, nil
 }
 
 func (s *grpcServer) GetServers(ctx context.Context, req *api.GetServersRequest) (*api.GetServersResponse, error) {

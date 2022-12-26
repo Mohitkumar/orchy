@@ -35,6 +35,7 @@ type Action interface {
 	GetName() string
 	GetType() ActionType
 	GetInputParams() map[string]any
+	GetParams() map[string]any
 	GetNext() map[string]int
 	Validate() error
 	Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error)
@@ -48,6 +49,7 @@ type baseAction struct {
 	name        string
 	inputParams map[string]any
 	nextMap     map[string]int
+	params      map[string]any
 	container   *container.DIContiner
 }
 
@@ -56,6 +58,7 @@ func NewBaseAction(id int, Type ActionType, name string, inputParams map[string]
 		id:          id,
 		name:        name,
 		inputParams: inputParams,
+		params:      make(map[string]any),
 		actType:     Type,
 		nextMap:     nextMap,
 		container:   container,
@@ -73,6 +76,10 @@ func (ba *baseAction) GetType() ActionType {
 }
 func (ba *baseAction) GetInputParams() map[string]any {
 	return ba.inputParams
+}
+
+func (ba *baseAction) GetParams() map[string]any {
+	return ba.params
 }
 
 func (ba *baseAction) GetNext() map[string]int {

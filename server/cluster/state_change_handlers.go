@@ -22,12 +22,12 @@ func ValidateStateHandler(st string) error {
 
 type StateHandlerContainer struct {
 	handlers map[Statehandler]func(wfName string, wfId string) error
-	flowDao  FlowDao
+	storage  Storage
 }
 
-func NewStateHandlerContainer(flowDao FlowDao) *StateHandlerContainer {
+func NewStateHandlerContainer(storage Storage) *StateHandlerContainer {
 	hd := &StateHandlerContainer{
-		flowDao:  flowDao,
+		storage:  storage,
 		handlers: make(map[Statehandler]func(wfName string, wfId string) error, 1),
 	}
 	return hd
@@ -45,7 +45,7 @@ func (s *StateHandlerContainer) GetHandler(st Statehandler) func(wfName string, 
 	return s.noop
 }
 func (s *StateHandlerContainer) delete(wfName string, wfId string) error {
-	return s.flowDao.DeleteFlowContext(wfName, wfId)
+	return s.storage.DeleteFlowContext(wfName, wfId)
 }
 
 func (s *StateHandlerContainer) noop(wfName string, wfId string) error {

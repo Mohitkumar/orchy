@@ -3,21 +3,21 @@ import "google/protobuf/struct.proto";
 option go_package="github.com/mohitkumar/api_v1";
 
 
-message Task{
+message Action{
     string workflowName = 1;
     string flowId = 2;
     map<string,google.protobuf.Value> data = 3;
     int32 actionId  = 4;
-    string taskName = 5;
+    string actionName = 5;
     int32 retryCount = 6;
 }
 
-message Tasks {
-    repeated Task tasks = 1;
+message Actions {
+    repeated Action actions = 1;
 }
-message TaskResult{
+message ActionResult{
     string workflowName = 1;
-    string taskName = 2;
+    string actionName = 2;
     string flowId = 3;
     int32 actionId = 4;
     map<string,google.protobuf.Value> data = 5;
@@ -29,7 +29,7 @@ message TaskResult{
     int32 retryCount = 7;
 }
 
-message TaskDef{
+message ActionDefinition{
     string name = 1;
     int32 retryCount  = 2;
     int32 retryAfterSeconds = 3;
@@ -37,16 +37,16 @@ message TaskDef{
     int32 timeoutSeconds = 5;
 }
 
-message TaskDefSaveResponse{
+message ActionDefinitionSaveResponse{
     bool status = 1;
 }
 
-message TaskPollRequest{
-    string taskType = 1;
+message ActionPollRequest{
+    string actionType = 1;
     int32 batchSize = 2;
 }
 
-message TaskResultPushResponse{
+message ActionResultPushResponse{
     bool status = 1;
 }
 
@@ -61,9 +61,9 @@ message GetServersResponse {
   repeated Server servers = 1;
 }
 
-service TaskService{
-    rpc SaveTaskDef(TaskDef) returns (TaskDefSaveResponse){}
-    rpc Poll(TaskPollRequest) returns (Tasks){}
-    rpc Push(TaskResult) returns (TaskResultPushResponse) {}
+service ActionService{
+    rpc SaveActionDefinition(ActionDefinition) returns (ActionDefinitionSaveResponse){}
+    rpc Poll(ActionPollRequest) returns (Actions){}
+    rpc Push(ActionResult) returns (ActionResultPushResponse) {}
     rpc GetServers(GetServersRequest) returns (GetServersResponse) {}
 }

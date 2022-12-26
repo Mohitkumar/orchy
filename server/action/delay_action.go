@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
-	"go.uber.org/zap"
 )
 
 var _ Action = new(delayAction)
@@ -17,10 +15,12 @@ type delayAction struct {
 }
 
 func NewDelayAction(delaySeconds int, bAction baseAction) *delayAction {
-	return &delayAction{
+	act := &delayAction{
 		baseAction: bAction,
 		delay:      time.Duration(delaySeconds) * time.Second,
 	}
+	act.baseAction.params["delay"] = act.delay
+	return act
 }
 
 func (d *delayAction) GetNext() map[string]int {
@@ -38,16 +38,5 @@ func (d *delayAction) Validate() error {
 }
 
 func (d *delayAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
-	logger.Info("running action", zap.String("name", d.name), zap.String("workflow", wfName), zap.String("id", flowContext.Id))
-	msg := model.ActionExecutionRequest{
-		WorkflowName: wfName,
-		FlowId:       flowContext.Id,
-		ActionId:     d.nextMap["default"],
-	}
-	data, err := d.container.ActionExecutionRequestEncDec.Encode(msg)
-	err = d.container.GetDelayQueue().PushWithDelay("delay_action", flowContext.Id, d.delay, data)
-	if err != nil {
-		return "", nil, err
-	}
 	return "default", nil, nil
 }

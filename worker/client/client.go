@@ -12,9 +12,9 @@ import (
 )
 
 type RpcClient struct {
-	serverUrl         string
-	conn              *grpc.ClientConn
-	taskServiceClient api.TaskServiceClient
+	serverUrl           string
+	conn                *grpc.ClientConn
+	actionServiceClient api.ActionServiceClient
 }
 
 func NewRpcClient(serverAddress string) (*RpcClient, error) {
@@ -23,9 +23,9 @@ func NewRpcClient(serverAddress string) (*RpcClient, error) {
 		return nil, err
 	}
 	return &RpcClient{
-		serverUrl:         serverAddress,
-		conn:              conn,
-		taskServiceClient: api.NewTaskServiceClient(conn),
+		serverUrl:           serverAddress,
+		conn:                conn,
+		actionServiceClient: api.NewActionServiceClient(conn),
 	}, nil
 }
 
@@ -41,11 +41,11 @@ func (c *RpcClient) Refresh() error {
 		return err
 	}
 	c.conn = conn
-	c.taskServiceClient = api.NewTaskServiceClient(conn)
+	c.actionServiceClient = api.NewActionServiceClient(conn)
 	oldConn.Close()
 	return nil
 }
 
-func (c *RpcClient) GetApiClient() api.TaskServiceClient {
-	return c.taskServiceClient
+func (c *RpcClient) GetApiClient() api.ActionServiceClient {
+	return c.actionServiceClient
 }

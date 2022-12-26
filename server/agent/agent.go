@@ -6,9 +6,9 @@ import (
 	"sync"
 
 	"github.com/mohitkumar/orchy/server/cluster"
+	"github.com/mohitkumar/orchy/server/cluster/executor"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/mohitkumar/orchy/server/container"
-	"github.com/mohitkumar/orchy/server/executor"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/rest"
 	"github.com/mohitkumar/orchy/server/rpc"
@@ -24,11 +24,9 @@ type Agent struct {
 	diContainer              *container.DIContiner
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
-	delayExecutor            executor.Executor
-	retryExecutor            executor.Executor
-	timeoutExecutor          executor.Executor
 	actionExecutionService   *service.ActionExecutionService
 	workflowExecutionService *service.WorkflowExecutionService
+	executors                *executor.Executors
 	shutdown                 bool
 	shutdowns                chan struct{}
 	shutdownLock             sync.Mutex
@@ -43,11 +41,9 @@ func New(config config.Config) (*Agent, error) {
 	setup := []func() error{
 		a.setupCluster,
 		a.setupDiContainer,
-		a.setupDelayExecutor,
-		a.setupRetryExecutor,
-		a.setupTimeoutExecutor,
 		a.setupWorkflowExecutionService,
 		a.setupActionExecutorService,
+		a.setupExecutors,
 		a.setupHttpServer,
 		a.setupGrpcServer,
 	}
@@ -76,21 +72,6 @@ func (a *Agent) setupDiContainer() error {
 	return nil
 }
 
-func (a *Agent) setupDelayExecutor() error {
-	a.delayExecutor = executor.NewDelayExecutor(a.diContainer, &a.wg)
-	return a.delayExecutor.Start()
-}
-
-func (a *Agent) setupRetryExecutor() error {
-	a.retryExecutor = executor.NewRetryExecutor(a.diContainer, &a.wg)
-	return a.retryExecutor.Start()
-}
-
-func (a *Agent) setupTimeoutExecutor() error {
-	a.timeoutExecutor = executor.NewTimeoutExecutor(a.diContainer, &a.wg)
-	return a.timeoutExecutor.Start()
-}
-
 func (a *Agent) setupWorkflowExecutionService() error {
 	a.workflowExecutionService = service.NewWorkflowExecutionService(a.diContainer)
 	return nil
@@ -98,6 +79,13 @@ func (a *Agent) setupWorkflowExecutionService() error {
 
 func (a *Agent) setupActionExecutorService() error {
 	a.actionExecutionService = service.NewActionExecutionService(a.diContainer)
+	return nil
+}
+
+func (a *Agent) setupExecutors() error {
+	a.executors = executor.NewExecutors(a.diContainer.GetShards())
+	a.executors.InitExecutors(a.Config.RingConfig.PartitionCount, a.diContainer, &a.wg)
+	a.executors.StartAll()
 	return nil
 }
 func (a *Agent) setupHttpServer() error {
@@ -112,10 +100,10 @@ func (a *Agent) setupHttpServer() error {
 func (a *Agent) setupGrpcServer() error {
 	var err error
 	conf := &rpc.GrpcConfig{
-		TaskService:      a.actionExecutionService,
-		TaskDefService:   a.diContainer.GetTaskDao(),
-		GetServerer:      a.ring,
-		ClusterRefresher: a.membership,
+		ActionService:           a.actionExecutionService,
+		ActionDefinitionService: a.diContainer.GetMetadataStorage(),
+		GetServerer:             a.ring,
+		ClusterRefresher:        a.membership,
 	}
 	a.grpcServer, err = rpc.NewGrpcServer(conf)
 	if err != nil {
@@ -162,9 +150,7 @@ func (a *Agent) Shutdown() error {
 	close(a.shutdowns)
 
 	shutdown := []func() error{
-		a.delayExecutor.Stop,
-		a.retryExecutor.Stop,
-		a.timeoutExecutor.Stop,
+		a.executors.StopAll,
 		a.httpServer.Stop,
 		func() error {
 			logger.Info("stopping grpc server")

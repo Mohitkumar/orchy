@@ -26,42 +26,42 @@ type pollerWorker struct {
 	wg                       *sync.WaitGroup
 }
 
-func (pw *pollerWorker) execute(task *api_v1.Task) *api_v1.TaskResult {
-	result, err := pw.worker.Execute(util.ConvertFromProto(task.Data))
-	var taskResult *api_v1.TaskResult
+func (pw *pollerWorker) execute(action *api_v1.Action) *api_v1.ActionResult {
+	result, err := pw.worker.Execute(util.ConvertFromProto(action.Data))
+	var actionResult *api_v1.ActionResult
 	if err != nil {
-		taskResult = &api_v1.TaskResult{
-			WorkflowName: task.WorkflowName,
-			FlowId:       task.FlowId,
-			ActionId:     task.ActionId,
-			TaskName:     task.TaskName,
-			Status:       api_v1.TaskResult_FAIL,
-			RetryCount:   task.RetryCount,
+		actionResult = &api_v1.ActionResult{
+			WorkflowName: action.WorkflowName,
+			FlowId:       action.FlowId,
+			ActionId:     action.ActionId,
+			ActionName:   action.ActionName,
+			Status:       api_v1.ActionResult_FAIL,
+			RetryCount:   action.RetryCount,
 		}
 	} else {
-		taskResult = &api_v1.TaskResult{
-			WorkflowName: task.WorkflowName,
-			FlowId:       task.FlowId,
-			ActionId:     task.ActionId,
+		actionResult = &api_v1.ActionResult{
+			WorkflowName: action.WorkflowName,
+			FlowId:       action.FlowId,
+			ActionId:     action.ActionId,
 			Data:         util.ConvertToProto(result),
-			Status:       api_v1.TaskResult_SUCCESS,
-			RetryCount:   task.RetryCount,
+			Status:       api_v1.ActionResult_SUCCESS,
+			RetryCount:   action.RetryCount,
 		}
 	}
-	return taskResult
+	return actionResult
 
 }
 
-func (pw *pollerWorker) sendResponse(ctx context.Context, taskResult *api_v1.TaskResult) error {
+func (pw *pollerWorker) sendResponse(ctx context.Context, actionResult *api_v1.ActionResult) error {
 	b := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(pw.retryIntervalSecond)*time.Second), uint64(pw.maxRetryBeforeResultPush))
 	err := backoff.Retry(func() error {
-		res, err := pw.client.GetApiClient().Push(ctx, taskResult)
+		res, err := pw.client.GetApiClient().Push(ctx, actionResult)
 		if err != nil {
 			return err
 		}
 		logger.Debug("send result to server", zap.Bool("status", res.Status))
 		if !res.Status {
-			return fmt.Errorf("push task execution result failed")
+			return fmt.Errorf("push action execution result failed")
 		}
 		return nil
 	}, b)
@@ -73,9 +73,9 @@ func (pw *pollerWorker) sendResponse(ctx context.Context, taskResult *api_v1.Tas
 
 func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 	ctx := context.WithValue(context.Background(), "worker", pw.worker.GetName())
-	req := &api_v1.TaskPollRequest{
-		TaskType:  pw.worker.GetName(),
-		BatchSize: int32(pw.worker.BatchSize()),
+	req := &api_v1.ActionPollRequest{
+		ActionType: pw.worker.GetName(),
+		BatchSize:  int32(pw.worker.BatchSize()),
 	}
 	defer pw.wg.Done()
 	for {
@@ -85,25 +85,25 @@ func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			tasks, err := pw.client.GetApiClient().Poll(ctx, req)
+			actions, err := pw.client.GetApiClient().Poll(ctx, req)
 			if err != nil {
 				if e, ok := status.FromError(err); ok {
 					switch e.Code() {
 					case codes.Unavailable:
 						logger.Error("server unavialable trying reconnect...")
 					case codes.NotFound:
-						logger.Debug("not task available", zap.Error(err))
+						logger.Debug("no action available", zap.Error(err))
 					default:
 						logger.Error("unexpected error", zap.Error(err))
 					}
 				}
 			} else {
-				for _, task := range tasks.Tasks {
-					logger.Info("executing task", zap.String("flowId", task.FlowId), zap.String("task", task.TaskName))
-					result := pw.execute(task)
+				for _, action := range actions.Actions {
+					logger.Info("executing action", zap.String("flowId", action.FlowId), zap.String("action", action.ActionName))
+					result := pw.execute(action)
 					err = pw.sendResponse(ctx, result)
 					if err != nil {
-						logger.Error("error sending task execution response to server", zap.String("taskType", pw.worker.GetName()))
+						logger.Error("error sending action execution response to server", zap.String("actionType", pw.worker.GetName()))
 					}
 				}
 			}
