@@ -15,7 +15,6 @@ var _ Action = new(switchAction)
 type switchAction struct {
 	baseAction
 	expression string
-	cases      map[string]int
 }
 
 func NewSwitchAction(expression string, bAction baseAction) *switchAction {
@@ -26,7 +25,7 @@ func NewSwitchAction(expression string, bAction baseAction) *switchAction {
 }
 
 func (d *switchAction) Validate() error {
-	if len(d.expression) < 0 {
+	if len(d.expression) == 0 {
 		return fmt.Errorf("actionId=%d, expression can not be empty", d.id)
 	}
 	_, err := jsonpath.Compile(d.expression)
