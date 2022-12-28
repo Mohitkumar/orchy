@@ -89,9 +89,17 @@ func (f *FlowMachine) MoveForwardAndDispatch(event string, actionId int, dataMap
 	if f.completed {
 		return true, nil
 	}
-	if nextActionMap == nil || len(nextActionMap) == 0 {
-		f.MarkComplete()
-		return true, nil
+
+	if len(nextActionMap) == 0 {
+		delete(f.CurrentActions, currentActionId)
+		delete(f.flowContext.CurrentActionIds, currentActionId)
+		if len(f.flowContext.CurrentActionIds) == 0 {
+			f.MarkComplete()
+			return true, nil
+		} else {
+			f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+			return false, nil
+		}
 	}
 	delete(f.CurrentActions, currentActionId)
 	delete(f.flowContext.CurrentActionIds, currentActionId)
