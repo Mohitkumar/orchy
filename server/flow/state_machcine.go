@@ -47,7 +47,7 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 		return nil, err
 	}
 	flowMachine.flowContext = flowCtx
-	for actionId, _ := range flowMachine.flowContext.CurrentActionIds {
+	for actionId := range flowMachine.flowContext.CurrentActionIds {
 		flowMachine.CurrentActions[actionId] = flowMachine.flow.Actions[actionId]
 	}
 	if flowMachine.flowContext.State == model.COMPLETED {
