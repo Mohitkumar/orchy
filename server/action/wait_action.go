@@ -3,7 +3,9 @@ package action
 import (
 	"fmt"
 
+	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
+	"go.uber.org/zap"
 )
 
 var _ Action = new(delayAction)
@@ -35,5 +37,6 @@ func (w *waitAction) Validate() error {
 }
 
 func (d *waitAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
+	logger.Info("running action", zap.String("name", d.name), zap.String("workflow", wfName), zap.String("id", flowContext.Id))
 	return "default", nil, nil
 }

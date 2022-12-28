@@ -2,7 +2,6 @@ package flow
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,7 +22,6 @@ type FlowMachine struct {
 	container      *container.DIContiner
 	CurrentActions map[int]action.Action
 	completed      bool
-	mu             sync.Mutex
 }
 
 func NewFlowStateMachine(container *container.DIContiner) *FlowMachine {
@@ -35,9 +33,10 @@ func NewFlowStateMachine(container *container.DIContiner) *FlowMachine {
 
 func GetFlowStateMachine(wfName string, flowId string, container *container.DIContiner) (*FlowMachine, error) {
 	flowMachine := &FlowMachine{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		container:    container,
+		WorkflowName:   wfName,
+		FlowId:         flowId,
+		container:      container,
+		CurrentActions: make(map[int]action.Action),
 	}
 	wf, _ := container.GetMetadataStorage().GetWorkflowDefinition(wfName)
 	flowMachine.flow = Convert(wf, flowId, container)
@@ -57,8 +56,6 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 }
 
 func (f *FlowMachine) InitAndDispatchAction(wfName string, input map[string]any) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
 	if err != nil {
 		return fmt.Errorf("workflow %s not found", wfName)
@@ -82,8 +79,6 @@ func (f *FlowMachine) InitAndDispatchAction(wfName string, input map[string]any)
 }
 
 func (f *FlowMachine) MoveForwardAndDispatch(event string, actionId int, dataMap map[string]any) (bool, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	currentActionId := f.CurrentActions[actionId].GetId()
 	nextActionMap := f.CurrentActions[actionId].GetNext()
 	if f.completed {
@@ -126,8 +121,6 @@ func (f *FlowMachine) MoveForwardAndDispatch(event string, actionId int, dataMap
 	return false, nil
 }
 func (f *FlowMachine) DispatchAction(actionId int, tryCount int) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	err := f.ValidateExecutionRequest([]int{actionId})
 	if err != nil {
 		return err
@@ -233,8 +226,6 @@ func (f *FlowMachine) DelayAction(actionId int, tryCount int, delay time.Duratio
 }
 
 func (f *FlowMachine) MarkComplete() {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.flowContext.State = model.COMPLETED
 	f.completed = true
 	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
@@ -247,8 +238,6 @@ func (f *FlowMachine) MarkComplete() {
 }
 
 func (f *FlowMachine) MarkFailed() {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.flowContext.State = model.FAILED
 	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	failureHandler := f.container.GetStateHandler().GetHandler(f.flow.FailureHandler)
@@ -260,24 +249,18 @@ func (f *FlowMachine) MarkFailed() {
 }
 
 func (f *FlowMachine) MarkWaitingDelay() {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.flowContext.State = model.WAITING_DELAY
 	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	logger.Info("workflow waiting delay", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
 func (f *FlowMachine) MarkWaitingEvent() {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.flowContext.State = model.WAITING_EVENT
 	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	logger.Info("workflow waiting for event", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
 }
 
 func (f *FlowMachine) MarkPaused() error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.flowContext.State = model.PAUSED
 	err := f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	if err != nil {
@@ -288,8 +271,6 @@ func (f *FlowMachine) MarkPaused() error {
 }
 
 func (f *FlowMachine) MarkRunning() error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.flowContext.State = model.RUNNING
 	err := f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	if err != nil {
@@ -304,8 +285,6 @@ func (f *FlowMachine) GetFlowState() model.FlowState {
 }
 
 func (f *FlowMachine) Resume() error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.flowContext.State = model.RUNNING
 	keys := make([]int, 0, len(f.CurrentActions))
 	for k := range f.CurrentActions {
@@ -316,8 +295,6 @@ func (f *FlowMachine) Resume() error {
 }
 
 func (f *FlowMachine) ExecuteSystemAction(tryCount int, actionId int) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	err := f.ValidateExecutionRequest([]int{actionId})
 	if err != nil {
 		return err
@@ -353,8 +330,6 @@ func (f *FlowMachine) ExecuteSystemAction(tryCount int, actionId int) error {
 }
 
 func (f *FlowMachine) ValidateExecutionRequest(actionIds []int) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	if f.GetFlowState() == model.COMPLETED {
 		return fmt.Errorf("can not run completed flow")
 	}
