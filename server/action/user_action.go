@@ -26,7 +26,7 @@ func (ua *UserAction) Validate() error {
 
 	return nil
 }
-func (ua *UserAction) GetNext() map[string]int {
+func (ua *UserAction) GetNext() map[string][]int {
 	return ua.baseAction.nextMap
 }
 

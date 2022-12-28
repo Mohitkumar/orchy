@@ -50,8 +50,16 @@ func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, even
 	if err != nil {
 		return err
 	}
-	completed, err := flowMachine.MoveForwardAndDispatch("default", nil)
-	if completed {
+	comp := true
+	for actionId := range flowMachine.CurrentActions {
+		completed, err := flowMachine.MoveForwardAndDispatch("default", actionId, nil)
+		if err != nil {
+			return err
+		}
+		comp = comp && completed
+	}
+
+	if comp {
 		return nil
 	}
 	if err != nil {

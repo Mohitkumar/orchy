@@ -10,10 +10,9 @@ const WAITING_EVENT FlowState = "WE"
 const PAUSED FlowState = "P"
 
 type FlowContext struct {
-	Id            string         `json:"id"`
-	CurrentAction int            `json:"currentAction"`
-	Data          map[string]any `json:"data"`
-	State         FlowState      `json:"flowState"`
-	TTL           uint64         `json:"ttl"`
-	Event         string         `json:"event"`
+	Id               string         `json:"id"`
+	CurrentActionIds map[int]bool   `json:"currentActionIds"`
+	Data             map[string]any `json:"data"`
+	State            FlowState      `json:"flowState"`
+	Event            string         `json:"event"`
 }

@@ -39,7 +39,7 @@ func (d *switchAction) Validate() error {
 	return nil
 }
 
-func (d *switchAction) GetNext() map[string]int {
+func (d *switchAction) GetNext() map[string][]int {
 	return d.baseAction.nextMap
 }
 func (d *switchAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {

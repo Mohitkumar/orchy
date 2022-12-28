@@ -33,7 +33,7 @@ func (d *jsAction) Validate() error {
 	return nil
 }
 
-func (d *jsAction) GetNext() map[string]int {
+func (d *jsAction) GetNext() map[string][]int {
 	return d.baseAction.nextMap
 }
 

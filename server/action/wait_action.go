@@ -20,7 +20,7 @@ func NewWaitAction(eventName string, bAction baseAction) *waitAction {
 	}
 }
 
-func (w *waitAction) GetNext() map[string]int {
+func (w *waitAction) GetNext() map[string][]int {
 	return w.baseAction.nextMap
 }
 

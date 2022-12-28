@@ -23,7 +23,7 @@ func NewDelayAction(delaySeconds int, bAction baseAction) *delayAction {
 	return act
 }
 
-func (d *delayAction) GetNext() map[string]int {
+func (d *delayAction) GetNext() map[string][]int {
 	return d.baseAction.nextMap
 }
 
