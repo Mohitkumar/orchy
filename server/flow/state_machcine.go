@@ -98,9 +98,11 @@ func (f *FlowMachine) MoveForwardAndDispatch(event string, actionId int, dataMap
 	}
 	delete(f.CurrentActions, currentActionId)
 	delete(f.flowContext.CurrentActionIds, currentActionId)
+	var actionIds []int
 	for _, actId := range nextActionMap[event] {
 		f.CurrentActions[actId] = f.flow.Actions[actId]
 		f.flowContext.CurrentActionIds[actId] = true
+		actionIds = append(actionIds, actId)
 	}
 	data := f.flowContext.Data
 	if dataMap != nil || len(dataMap) > 0 {
@@ -109,11 +111,6 @@ func (f *FlowMachine) MoveForwardAndDispatch(event string, actionId int, dataMap
 		data[fmt.Sprintf("%d", currentActionId)] = output
 	}
 	f.flowContext.Data = data
-	actionIds := make([]int, 0, len(f.CurrentActions))
-	for k := range f.CurrentActions {
-		actionIds = append(actionIds, k)
-	}
-
 	err := f.saveContextAndDispatchAction(actionIds, 1)
 	if err != nil {
 		return false, err
