@@ -21,6 +21,52 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type Action_Type int32
+
+const (
+	Action_SYSTEM Action_Type = 0
+	Action_USER   Action_Type = 1
+)
+
+// Enum value maps for Action_Type.
+var (
+	Action_Type_name = map[int32]string{
+		0: "SYSTEM",
+		1: "USER",
+	}
+	Action_Type_value = map[string]int32{
+		"SYSTEM": 0,
+		"USER":   1,
+	}
+)
+
+func (x Action_Type) Enum() *Action_Type {
+	p := new(Action_Type)
+	*p = x
+	return p
+}
+
+func (x Action_Type) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Action_Type) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_v1_flow_proto_enumTypes[0].Descriptor()
+}
+
+func (Action_Type) Type() protoreflect.EnumType {
+	return &file_api_v1_flow_proto_enumTypes[0]
+}
+
+func (x Action_Type) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Action_Type.Descriptor instead.
+func (Action_Type) EnumDescriptor() ([]byte, []int) {
+	return file_api_v1_flow_proto_rawDescGZIP(), []int{0, 0}
+}
+
 type ActionResult_Status int32
 
 const (
@@ -51,11 +97,11 @@ func (x ActionResult_Status) String() string {
 }
 
 func (ActionResult_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_v1_flow_proto_enumTypes[0].Descriptor()
+	return file_api_v1_flow_proto_enumTypes[1].Descriptor()
 }
 
 func (ActionResult_Status) Type() protoreflect.EnumType {
-	return &file_api_v1_flow_proto_enumTypes[0]
+	return &file_api_v1_flow_proto_enumTypes[1]
 }
 
 func (x ActionResult_Status) Number() protoreflect.EnumNumber {
@@ -78,6 +124,7 @@ type Action struct {
 	ActionId     int32                      `protobuf:"varint,4,opt,name=actionId,proto3" json:"actionId,omitempty"`
 	ActionName   string                     `protobuf:"bytes,5,opt,name=actionName,proto3" json:"actionName,omitempty"`
 	RetryCount   int32                      `protobuf:"varint,6,opt,name=retryCount,proto3" json:"retryCount,omitempty"`
+	Type         Action_Type                `protobuf:"varint,7,opt,name=type,proto3,enum=Action_Type" json:"type,omitempty"`
 }
 
 func (x *Action) Reset() {
@@ -152,6 +199,13 @@ func (x *Action) GetRetryCount() int32 {
 		return x.RetryCount
 	}
 	return 0
+}
+
+func (x *Action) GetType() Action_Type {
+	if x != nil {
+		return x.Type
+	}
+	return Action_SYSTEM
 }
 
 type Actions struct {
@@ -670,7 +724,7 @@ var file_api_v1_flow_proto_rawDesc = []byte{
 	0x0a, 0x11, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x66, 0x6c, 0x6f, 0x77, 0x2e, 0x70, 0x72,
 	0x6f, 0x74, 0x6f, 0x1a, 0x1c, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x62, 0x75, 0x66, 0x2f, 0x73, 0x74, 0x72, 0x75, 0x63, 0x74, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x22, 0x98, 0x02, 0x0a, 0x06, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x22, 0x0a, 0x0c,
+	0x6f, 0x22, 0xd8, 0x02, 0x0a, 0x06, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x22, 0x0a, 0x0c,
 	0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x4e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01,
 	0x28, 0x09, 0x52, 0x0c, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x4e, 0x61, 0x6d, 0x65,
 	0x12, 0x16, 0x0a, 0x06, 0x66, 0x6c, 0x6f, 0x77, 0x49, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
@@ -682,12 +736,16 @@ var file_api_v1_flow_proto_rawDesc = []byte{
 	0x63, 0x74, 0x69, 0x6f, 0x6e, 0x4e, 0x61, 0x6d, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52,
 	0x0a, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x1e, 0x0a, 0x0a, 0x72,
 	0x65, 0x74, 0x72, 0x79, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x06, 0x20, 0x01, 0x28, 0x05, 0x52,
-	0x0a, 0x72, 0x65, 0x74, 0x72, 0x79, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x1a, 0x4f, 0x0a, 0x09, 0x44,
-	0x61, 0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x2c, 0x0a, 0x05, 0x76, 0x61,
-	0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67,
-	0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x56, 0x61, 0x6c, 0x75,
-	0x65, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x2c, 0x0a, 0x07,
+	0x0a, 0x72, 0x65, 0x74, 0x72, 0x79, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x20, 0x0a, 0x04, 0x74,
+	0x79, 0x70, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x0c, 0x2e, 0x41, 0x63, 0x74, 0x69,
+	0x6f, 0x6e, 0x2e, 0x54, 0x79, 0x70, 0x65, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x1a, 0x4f, 0x0a,
+	0x09, 0x44, 0x61, 0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65,
+	0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x2c, 0x0a, 0x05,
+	0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x67, 0x6f,
+	0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x56, 0x61,
+	0x6c, 0x75, 0x65, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x1c,
+	0x0a, 0x04, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0a, 0x0a, 0x06, 0x53, 0x59, 0x53, 0x54, 0x45, 0x4d,
+	0x10, 0x00, 0x12, 0x08, 0x0a, 0x04, 0x55, 0x53, 0x45, 0x52, 0x10, 0x01, 0x22, 0x2c, 0x0a, 0x07,
 	0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x21, 0x0a, 0x07, 0x61, 0x63, 0x74, 0x69, 0x6f,
 	0x6e, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x07, 0x2e, 0x41, 0x63, 0x74, 0x69, 0x6f,
 	0x6e, 0x52, 0x07, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0xf3, 0x02, 0x0a, 0x0c, 0x41,
@@ -778,45 +836,47 @@ func file_api_v1_flow_proto_rawDescGZIP() []byte {
 	return file_api_v1_flow_proto_rawDescData
 }
 
-var file_api_v1_flow_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_api_v1_flow_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_api_v1_flow_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_api_v1_flow_proto_goTypes = []interface{}{
-	(ActionResult_Status)(0),             // 0: ActionResult.Status
-	(*Action)(nil),                       // 1: Action
-	(*Actions)(nil),                      // 2: Actions
-	(*ActionResult)(nil),                 // 3: ActionResult
-	(*ActionDefinition)(nil),             // 4: ActionDefinition
-	(*ActionDefinitionSaveResponse)(nil), // 5: ActionDefinitionSaveResponse
-	(*ActionPollRequest)(nil),            // 6: ActionPollRequest
-	(*ActionResultPushResponse)(nil),     // 7: ActionResultPushResponse
-	(*Server)(nil),                       // 8: Server
-	(*GetServersRequest)(nil),            // 9: GetServersRequest
-	(*GetServersResponse)(nil),           // 10: GetServersResponse
-	nil,                                  // 11: Action.DataEntry
-	nil,                                  // 12: ActionResult.DataEntry
-	(*structpb.Value)(nil),               // 13: google.protobuf.Value
+	(Action_Type)(0),                     // 0: Action.Type
+	(ActionResult_Status)(0),             // 1: ActionResult.Status
+	(*Action)(nil),                       // 2: Action
+	(*Actions)(nil),                      // 3: Actions
+	(*ActionResult)(nil),                 // 4: ActionResult
+	(*ActionDefinition)(nil),             // 5: ActionDefinition
+	(*ActionDefinitionSaveResponse)(nil), // 6: ActionDefinitionSaveResponse
+	(*ActionPollRequest)(nil),            // 7: ActionPollRequest
+	(*ActionResultPushResponse)(nil),     // 8: ActionResultPushResponse
+	(*Server)(nil),                       // 9: Server
+	(*GetServersRequest)(nil),            // 10: GetServersRequest
+	(*GetServersResponse)(nil),           // 11: GetServersResponse
+	nil,                                  // 12: Action.DataEntry
+	nil,                                  // 13: ActionResult.DataEntry
+	(*structpb.Value)(nil),               // 14: google.protobuf.Value
 }
 var file_api_v1_flow_proto_depIdxs = []int32{
-	11, // 0: Action.data:type_name -> Action.DataEntry
-	1,  // 1: Actions.actions:type_name -> Action
-	12, // 2: ActionResult.data:type_name -> ActionResult.DataEntry
-	0,  // 3: ActionResult.status:type_name -> ActionResult.Status
-	8,  // 4: GetServersResponse.servers:type_name -> Server
-	13, // 5: Action.DataEntry.value:type_name -> google.protobuf.Value
-	13, // 6: ActionResult.DataEntry.value:type_name -> google.protobuf.Value
-	4,  // 7: ActionService.SaveActionDefinition:input_type -> ActionDefinition
-	6,  // 8: ActionService.Poll:input_type -> ActionPollRequest
-	3,  // 9: ActionService.Push:input_type -> ActionResult
-	9,  // 10: ActionService.GetServers:input_type -> GetServersRequest
-	5,  // 11: ActionService.SaveActionDefinition:output_type -> ActionDefinitionSaveResponse
-	2,  // 12: ActionService.Poll:output_type -> Actions
-	7,  // 13: ActionService.Push:output_type -> ActionResultPushResponse
-	10, // 14: ActionService.GetServers:output_type -> GetServersResponse
-	11, // [11:15] is the sub-list for method output_type
-	7,  // [7:11] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	12, // 0: Action.data:type_name -> Action.DataEntry
+	0,  // 1: Action.type:type_name -> Action.Type
+	2,  // 2: Actions.actions:type_name -> Action
+	13, // 3: ActionResult.data:type_name -> ActionResult.DataEntry
+	1,  // 4: ActionResult.status:type_name -> ActionResult.Status
+	9,  // 5: GetServersResponse.servers:type_name -> Server
+	14, // 6: Action.DataEntry.value:type_name -> google.protobuf.Value
+	14, // 7: ActionResult.DataEntry.value:type_name -> google.protobuf.Value
+	5,  // 8: ActionService.SaveActionDefinition:input_type -> ActionDefinition
+	7,  // 9: ActionService.Poll:input_type -> ActionPollRequest
+	4,  // 10: ActionService.Push:input_type -> ActionResult
+	10, // 11: ActionService.GetServers:input_type -> GetServersRequest
+	6,  // 12: ActionService.SaveActionDefinition:output_type -> ActionDefinitionSaveResponse
+	3,  // 13: ActionService.Poll:output_type -> Actions
+	8,  // 14: ActionService.Push:output_type -> ActionResultPushResponse
+	11, // 15: ActionService.GetServers:output_type -> GetServersResponse
+	12, // [12:16] is the sub-list for method output_type
+	8,  // [8:12] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_flow_proto_init() }
@@ -951,7 +1011,7 @@ func file_api_v1_flow_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_api_v1_flow_proto_rawDesc,
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,

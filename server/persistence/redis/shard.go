@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-redis/redis/v9"
 	rd "github.com/go-redis/redis/v9"
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/model"
@@ -46,14 +45,14 @@ func NewRedisShard(conf Config, encoderDecoder util.EncoderDecoder[model.FlowCon
 func (r *redisShard) GetShardId() string {
 	return r.shardId
 }
-func (r *redisShard) CreateAndSaveFlowContext(wFname string, flowId string, action int, input map[string]any) (*model.FlowContext, error) {
+func (r *redisShard) CreateAndSaveFlowContext(wFname string, flowId string, actionIds map[int]bool, input map[string]any) (*model.FlowContext, error) {
 	dataMap := make(map[string]any)
 	dataMap["input"] = input
 	flowCtx := &model.FlowContext{
-		Id:            flowId,
-		State:         model.RUNNING,
-		CurrentAction: action,
-		Data:          dataMap,
+		Id:               flowId,
+		State:            model.RUNNING,
+		CurrentActionIds: actionIds,
+		Data:             dataMap,
 	}
 	if err := r.SaveFlowContext(wFname, flowId, flowCtx); err != nil {
 		return nil, err
@@ -100,35 +99,66 @@ func (r *redisShard) DeleteFlowContext(wfName string, flowId string) error {
 	return nil
 }
 
-func (r *redisShard) DispatchAction(action *api.Action, actionType string) error {
-	message, err := proto.Marshal(action)
-	if err != nil {
-		return err
+func (r *redisShard) DispatchAction(actions []*api.Action) error {
+	var messagesUser []string
+	var messagesSystem []string
+	for _, action := range actions {
+		message, err := proto.Marshal(action)
+		if err != nil {
+			continue
+		}
+		if action.Type == api.Action_SYSTEM {
+			messagesSystem = append(messagesSystem, string(message))
+		} else {
+			messagesUser = append(messagesUser, string(message))
+		}
 	}
-	queueName := r.getNamespaceKey(actionType, r.shardId)
+	queueNameSystem := r.getNamespaceKey("system", r.shardId)
+	queueNameUser := r.getNamespaceKey("user", r.shardId)
 	ctx := context.Background()
-	err = r.baseDao.redisClient.LPush(ctx, queueName, message).Err()
+	_, err := r.baseDao.redisClient.TxPipelined(ctx, func(pipe rd.Pipeliner) error {
+		var err error
+		if len(messagesUser) != 0 {
+			err = pipe.LPush(ctx, queueNameUser, messagesUser).Err()
+		}
+		if len(messagesSystem) != 0 {
+			err = pipe.LPush(ctx, queueNameSystem, messagesSystem).Err()
+		}
+		return err
+	})
 	if err != nil {
 		return persistence.StorageLayerError{Message: err.Error()}
 	}
 	return nil
 }
 
-func (r *redisShard) SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action *api.Action, actionType string) error {
-	message, err := proto.Marshal(action)
-	if err != nil {
-		return err
+func (r *redisShard) SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []*api.Action) error {
+	var messagesUser []string
+	var messagesSystem []string
+	for _, action := range actions {
+		message, err := proto.Marshal(action)
+		if err != nil {
+			continue
+		}
+		if action.Type == api.Action_SYSTEM {
+			messagesSystem = append(messagesSystem, string(message))
+		} else {
+			messagesUser = append(messagesUser, string(message))
+		}
 	}
 	key := r.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName, r.shardId)
-	queueName := r.getNamespaceKey(actionType, r.shardId)
+	queueNameSystem := r.getNamespaceKey("system", r.shardId)
+	queueNameUser := r.getNamespaceKey("user", r.shardId)
 	ctx := context.Background()
-	data, err := r.encoderDecoder.Encode(*flowCtx)
-	if err != nil {
-		return err
-	}
-	_, err = r.baseDao.redisClient.TxPipelined(ctx, func(pipe rd.Pipeliner) error {
+	data, _ := r.encoderDecoder.Encode(*flowCtx)
+	_, err := r.baseDao.redisClient.TxPipelined(ctx, func(pipe rd.Pipeliner) error {
 		err := pipe.HSet(ctx, key, []string{flowId, string(data)}).Err()
-		err = pipe.LPush(ctx, queueName, message).Err()
+		if len(messagesUser) != 0 {
+			err = pipe.LPush(ctx, queueNameUser, messagesUser).Err()
+		}
+		if len(messagesSystem) != 0 {
+			err = pipe.LPush(ctx, queueNameSystem, messagesSystem).Err()
+		}
 		return err
 	})
 
@@ -143,7 +173,7 @@ func (r *redisShard) PollAction(actionType string, batchSize int) (*api.Actions,
 	var out []*api.Action
 	values, err := r.redisClient.LPopCount(ctx, queueName, batchSize).Result()
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
+		if errors.Is(err, rd.Nil) {
 			return &api.Actions{Actions: out}, nil
 		}
 		return nil, persistence.StorageLayerError{Message: err.Error()}
@@ -256,7 +286,7 @@ func (r *redisShard) getExpiredFromSortedSet(key string) ([]string, error) {
 	}
 	res, err := zr.Result()
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
+		if errors.Is(err, rd.Nil) {
 			return []string{}, nil
 		}
 		return nil, persistence.StorageLayerError{Message: err.Error()}

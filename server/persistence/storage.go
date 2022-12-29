@@ -32,11 +32,11 @@ type MetadataStorage interface {
 type Shard interface {
 	GetShardId() string
 	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
-	CreateAndSaveFlowContext(wFname string, flowId string, action int, dataMap map[string]any) (*model.FlowContext, error)
+	CreateAndSaveFlowContext(wFname string, flowId string, actionIds map[int]bool, dataMap map[string]any) (*model.FlowContext, error)
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
 	DeleteFlowContext(wfName string, flowId string) error
-	DispatchAction(action *api.Action, actionType string) error
-	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action *api.Action, actionType string) error
+	DispatchAction(action []*api.Action) error
+	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action []*api.Action) error
 	PollAction(actionType string, batchSize int) (*api.Actions, error)
 	Retry(action *api.Action, delay time.Duration) error
 	PollRetry() (*api.Actions, error)

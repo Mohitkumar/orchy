@@ -35,7 +35,8 @@ func main() {
 	addParamWorker := worker.NewDefaultWorker(addParamActionFn).WithRetryCount(1).WithTimeoutSeconds(20)
 	logWorker := worker.NewDefaultWorker(logActionFn)
 
-	tp.RegisterWorker(addParamWorker, "add-params-action", 1*time.Second, 2, 1)
+	err := tp.RegisterWorker(addParamWorker, "add-data-worker", 1*time.Second, 2, 1)
+	fmt.Print(err)
 	tp.RegisterWorker(logWorker, "print-worker", 1*time.Second, 2, 1)
 	tp.Start()
 }

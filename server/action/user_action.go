@@ -3,7 +3,9 @@ package action
 import (
 	"fmt"
 
+	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
+	"go.uber.org/zap"
 )
 
 var _ Action = new(UserAction)
@@ -26,10 +28,11 @@ func (ua *UserAction) Validate() error {
 
 	return nil
 }
-func (ua *UserAction) GetNext() map[string]int {
+func (ua *UserAction) GetNext() map[string][]int {
 	return ua.baseAction.nextMap
 }
 
 func (ua *UserAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
+	logger.Info("running action", zap.String("name", ua.name), zap.String("workflow", wfName), zap.String("id", flowContext.Id))
 	return "default", nil, nil
 }

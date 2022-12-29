@@ -2,25 +2,25 @@
 A workflow is a DAG of connected actions.
 ```
 {
-	"name" :"wf2",
+	"name" :"test_workflow",
 	"rootAction":1,
 	"actions":[
 		{
 			"id":1,
 			"type":"user",
-			"name":"add-data-worker",
+			"name":"add-params-action",
 			"parameters":{
                 "key1" : "200",
                 "key2" :39
             },
-			"next":{"default":6}
+			"next":{"default":[6]}
 		},
         {
 			"id":6,
 			"type":"system",
 			"name":"javascript",
             "expression":"if($['1'].output.key1 == '200') {$['x']='nesX'};",
-			"next":{"default":7}
+			"next":{"default":[7]}
 		},
         {
 			"id":7,
@@ -28,7 +28,7 @@ A workflow is a DAG of connected actions.
 			"name":"delay",
 			"delaySeconds":10,
 			"next":{
-				"default": 2
+				"default": [2]
 			}
 		},
 		{
@@ -37,7 +37,7 @@ A workflow is a DAG of connected actions.
 			"name":"switch",
 			"expression":"$.1.output.key1",
 			"next":{
-				"200": 3
+				"200": [3]
 			}
 		},
         {
@@ -46,17 +46,28 @@ A workflow is a DAG of connected actions.
 			"name":"wait",
 			"event":"test",
 			"next":{
-				"default": 4
+				"default": [4,9]
 			}
 		},
 		{
 			"id":4,
 			"type":"user",
-			"name":"print-worker",
+			"name":"log-action",
             "parameters" :{
                 "k1" :23,
                 "k2" : "$1.output.key1",
                 "k3" :"$6.output.x"
+            }
+		},
+		{
+			"id":9,
+			"type":"user",
+			"name":"log-action",
+            "parameters" :{
+                "k1" :24,
+                "k2" : "$1.output.key2",
+                "k3" :"$6.output.x",
+				"k4" :"$.input.age"
             }
 		}
 	]

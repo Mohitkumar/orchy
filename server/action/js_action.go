@@ -27,13 +27,13 @@ func NewJsAction(expression string, bAction baseAction) *jsAction {
 }
 
 func (d *jsAction) Validate() error {
-	if len(d.expression) < 0 {
+	if len(d.expression) == 0 {
 		return fmt.Errorf("actionId=%d, expression can not be empty", d.id)
 	}
 	return nil
 }
 
-func (d *jsAction) GetNext() map[string]int {
+func (d *jsAction) GetNext() map[string][]int {
 	return d.baseAction.nextMap
 }
 

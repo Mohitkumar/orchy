@@ -15,26 +15,28 @@ import (
 )
 
 type FlowMachine struct {
-	WorkflowName  string
-	FlowId        string
-	flow          *Flow
-	flowContext   *model.FlowContext
-	container     *container.DIContiner
-	CurrentAction action.Action
-	completed     bool
+	WorkflowName   string
+	FlowId         string
+	flow           *Flow
+	flowContext    *model.FlowContext
+	container      *container.DIContiner
+	CurrentActions map[int]action.Action
+	completed      bool
 }
 
 func NewFlowStateMachine(container *container.DIContiner) *FlowMachine {
 	return &FlowMachine{
-		container: container,
+		container:      container,
+		CurrentActions: make(map[int]action.Action),
 	}
 }
 
 func GetFlowStateMachine(wfName string, flowId string, container *container.DIContiner) (*FlowMachine, error) {
 	flowMachine := &FlowMachine{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		container:    container,
+		WorkflowName:   wfName,
+		FlowId:         flowId,
+		container:      container,
+		CurrentActions: make(map[int]action.Action),
 	}
 	wf, _ := container.GetMetadataStorage().GetWorkflowDefinition(wfName)
 	flowMachine.flow = Convert(wf, flowId, container)
@@ -44,8 +46,10 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 		return nil, err
 	}
 	flowMachine.flowContext = flowCtx
-	flowMachine.CurrentAction = flowMachine.flow.Actions[flowMachine.flowContext.CurrentAction]
-	if flowMachine.flowContext.State == model.COMPLETED {
+	for actionId := range flowMachine.flowContext.CurrentActionIds {
+		flowMachine.CurrentActions[actionId] = flowMachine.flow.Actions[actionId]
+	}
+	if flowMachine.flowContext.State == model.COMPLETED || flowMachine.flowContext.State == model.FAILED {
 		flowMachine.completed = true
 	}
 	return flowMachine, nil
@@ -60,33 +64,46 @@ func (f *FlowMachine) InitAndDispatchAction(wfName string, input map[string]any)
 
 	f.WorkflowName = wfName
 	f.flow = Convert(wf, flowId, f.container)
-	f.CurrentAction = f.flow.Actions[wf.RootAction]
+	f.CurrentActions[wf.RootAction] = f.flow.Actions[wf.RootAction]
 	f.FlowId = flowId
 	dataMap := make(map[string]any)
 	dataMap["input"] = input
 	f.flowContext = &model.FlowContext{
-		Id:            flowId,
-		State:         model.RUNNING,
-		CurrentAction: wf.RootAction,
-		Data:          dataMap,
+		Id:               flowId,
+		State:            model.RUNNING,
+		CurrentActionIds: map[int]bool{wf.RootAction: true},
+		Data:             dataMap,
 	}
 	f.flowContext.State = model.RUNNING
-	return f.saveContextAndDispatchAction(wf.RootAction, 1)
+	return f.saveContextAndDispatchAction([]int{wf.RootAction}, 1)
 }
 
-func (f *FlowMachine) MoveForwardAndDispatch(event string, dataMap map[string]any) (bool, error) {
-	currentActionId := f.CurrentAction.GetId()
-	nextActionMap := f.CurrentAction.GetNext()
+func (f *FlowMachine) MoveForwardAndDispatch(event string, actionId int, dataMap map[string]any) (bool, error) {
+	currentActionId := f.CurrentActions[actionId].GetId()
+	nextActionMap := f.CurrentActions[actionId].GetNext()
 	if f.completed {
 		return true, nil
 	}
-	if nextActionMap == nil || len(nextActionMap) == 0 {
-		f.MarkComplete()
-		return true, nil
+
+	if len(nextActionMap) == 0 {
+		delete(f.CurrentActions, currentActionId)
+		delete(f.flowContext.CurrentActionIds, currentActionId)
+		if len(f.flowContext.CurrentActionIds) == 0 {
+			f.MarkComplete()
+			return true, nil
+		} else {
+			f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
+			return false, nil
+		}
 	}
-	nextActionId := nextActionMap[event]
-	f.CurrentAction = f.flow.Actions[nextActionId]
-	f.flowContext.CurrentAction = nextActionId
+	delete(f.CurrentActions, currentActionId)
+	delete(f.flowContext.CurrentActionIds, currentActionId)
+	var actionIds []int
+	for _, actId := range nextActionMap[event] {
+		f.CurrentActions[actId] = f.flow.Actions[actId]
+		f.flowContext.CurrentActionIds[actId] = true
+		actionIds = append(actionIds, actId)
+	}
 	data := f.flowContext.Data
 	if dataMap != nil || len(dataMap) > 0 {
 		output := make(map[string]any)
@@ -94,54 +111,67 @@ func (f *FlowMachine) MoveForwardAndDispatch(event string, dataMap map[string]an
 		data[fmt.Sprintf("%d", currentActionId)] = output
 	}
 	f.flowContext.Data = data
-	err := f.saveContextAndDispatchAction(f.CurrentAction.GetId(), 1)
+	err := f.saveContextAndDispatchAction(actionIds, 1)
 	if err != nil {
 		return false, err
 	}
 	return false, nil
 }
 func (f *FlowMachine) DispatchAction(actionId int, tryCount int) error {
-	err := f.ValidateExecutionRequest(actionId)
+	err := f.ValidateExecutionRequest([]int{actionId})
 	if err != nil {
 		return err
+	}
+	currentAction := f.CurrentActions[actionId]
+	var actionType api.Action_Type
+	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
+		actionType = api.Action_SYSTEM
+	} else {
+		actionType = api.Action_USER
 	}
 	act := &api.Action{
 		WorkflowName: f.WorkflowName,
 		FlowId:       f.FlowId,
-		Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, f.CurrentAction.GetInputParams())),
-		ActionId:     int32(f.flowContext.CurrentAction),
-		ActionName:   f.CurrentAction.GetName(),
+		Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, currentAction.GetInputParams())),
+		ActionId:     int32(currentAction.GetId()),
+		ActionName:   currentAction.GetName(),
 		RetryCount:   int32(tryCount),
+		Type:         actionType,
 	}
-	if f.CurrentAction.GetType() == action.ACTION_TYPE_SYSTEM {
-		err = f.container.GetClusterStorage().DispatchAction(act, "system")
-	} else {
-		err = f.container.GetClusterStorage().DispatchAction(act, "user")
-	}
+
+	err = f.container.GetClusterStorage().DispatchAction(f.FlowId, []*api.Action{act})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (f *FlowMachine) saveContextAndDispatchAction(actionId int, tryCount int) error {
-	err := f.ValidateExecutionRequest(actionId)
+func (f *FlowMachine) saveContextAndDispatchAction(actionIds []int, tryCount int) error {
+	err := f.ValidateExecutionRequest(actionIds)
 	if err != nil {
 		return err
 	}
-	act := &api.Action{
-		WorkflowName: f.WorkflowName,
-		FlowId:       f.FlowId,
-		Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, f.CurrentAction.GetInputParams())),
-		ActionId:     int32(f.flowContext.CurrentAction),
-		ActionName:   f.CurrentAction.GetName(),
-		RetryCount:   int32(tryCount),
+	var actions []*api.Action
+	for _, actionId := range actionIds {
+		currentAction := f.CurrentActions[actionId]
+		var actionType api.Action_Type
+		if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
+			actionType = api.Action_SYSTEM
+		} else {
+			actionType = api.Action_USER
+		}
+		act := &api.Action{
+			WorkflowName: f.WorkflowName,
+			FlowId:       f.FlowId,
+			Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, currentAction.GetInputParams())),
+			ActionId:     int32(actionId),
+			ActionName:   currentAction.GetName(),
+			RetryCount:   int32(tryCount),
+			Type:         actionType,
+		}
+		actions = append(actions, act)
 	}
-	if f.CurrentAction.GetType() == action.ACTION_TYPE_SYSTEM {
-		err = f.container.GetClusterStorage().SaveFlowContextAndDispatchAction(f.WorkflowName, f.FlowId, f.flowContext, act, "system")
-	} else {
-		err = f.container.GetClusterStorage().SaveFlowContextAndDispatchAction(f.WorkflowName, f.FlowId, f.flowContext, act, "user")
-	}
+	err = f.container.GetClusterStorage().SaveFlowContextAndDispatchAction(f.WorkflowName, f.FlowId, f.flowContext, actions)
 	if err != nil {
 		return err
 	}
@@ -149,16 +179,17 @@ func (f *FlowMachine) saveContextAndDispatchAction(actionId int, tryCount int) e
 }
 
 func (f *FlowMachine) RetryAction(actionId int, tryCount int, retryAfter time.Duration) error {
-	err := f.ValidateExecutionRequest(actionId)
+	err := f.ValidateExecutionRequest([]int{actionId})
 	if err != nil {
 		return err
 	}
+	currentAction := f.CurrentActions[actionId]
 	act := &api.Action{
 		WorkflowName: f.WorkflowName,
 		FlowId:       f.FlowId,
-		Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, f.CurrentAction.GetInputParams())),
-		ActionId:     int32(f.flowContext.CurrentAction),
-		ActionName:   f.CurrentAction.GetName(),
+		Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, currentAction.GetInputParams())),
+		ActionId:     int32(currentAction.GetId()),
+		ActionName:   currentAction.GetName(),
 		RetryCount:   int32(tryCount),
 	}
 	err = f.container.GetClusterStorage().Retry(act, retryAfter)
@@ -170,16 +201,17 @@ func (f *FlowMachine) RetryAction(actionId int, tryCount int, retryAfter time.Du
 }
 
 func (f *FlowMachine) DelayAction(actionId int, tryCount int, delay time.Duration) error {
-	err := f.ValidateExecutionRequest(actionId)
+	err := f.ValidateExecutionRequest([]int{actionId})
 	if err != nil {
 		return err
 	}
+	currentAction := f.CurrentActions[actionId]
 	act := &api.Action{
 		WorkflowName: f.WorkflowName,
 		FlowId:       f.FlowId,
-		Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, f.CurrentAction.GetInputParams())),
-		ActionId:     int32(f.flowContext.CurrentAction),
-		ActionName:   f.CurrentAction.GetName(),
+		Data:         util.ConvertToProto(util.ResolveInputParams(f.flowContext, currentAction.GetInputParams())),
+		ActionId:     int32(currentAction.GetId()),
+		ActionName:   currentAction.GetName(),
 		RetryCount:   int32(tryCount),
 	}
 	err = f.container.GetClusterStorage().Delay(act, delay)
@@ -188,29 +220,6 @@ func (f *FlowMachine) DelayAction(actionId int, tryCount int, delay time.Duratio
 		return err
 	}
 	return nil
-}
-
-func (f *FlowMachine) MoveForward(event string, dataMap map[string]any) (bool, error) {
-	currentActionId := f.CurrentAction.GetId()
-	nextActionMap := f.CurrentAction.GetNext()
-	if f.completed {
-		return true, nil
-	}
-	if nextActionMap == nil || len(nextActionMap) == 0 {
-		f.MarkComplete()
-		return true, nil
-	}
-	nextActionId := nextActionMap[event]
-	f.CurrentAction = f.flow.Actions[nextActionId]
-	f.flowContext.CurrentAction = nextActionId
-	data := f.flowContext.Data
-	if dataMap != nil || len(dataMap) > 0 {
-		output := make(map[string]any)
-		output["output"] = dataMap
-		data[fmt.Sprintf("%d", currentActionId)] = output
-	}
-	f.flowContext.Data = data
-	return false, f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 }
 
 func (f *FlowMachine) MarkComplete() {
@@ -227,6 +236,7 @@ func (f *FlowMachine) MarkComplete() {
 
 func (f *FlowMachine) MarkFailed() {
 	f.flowContext.State = model.FAILED
+	f.completed = true
 	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	failureHandler := f.container.GetStateHandler().GetHandler(f.flow.FailureHandler)
 	err := failureHandler(f.WorkflowName, f.FlowId)
@@ -274,15 +284,20 @@ func (f *FlowMachine) GetFlowState() model.FlowState {
 
 func (f *FlowMachine) Resume() error {
 	f.flowContext.State = model.RUNNING
-	return f.saveContextAndDispatchAction(f.CurrentAction.GetId(), 1)
+	keys := make([]int, 0, len(f.CurrentActions))
+	for k := range f.CurrentActions {
+		keys = append(keys, k)
+	}
+
+	return f.saveContextAndDispatchAction(keys, 1)
 }
 
 func (f *FlowMachine) ExecuteSystemAction(tryCount int, actionId int) error {
-	err := f.ValidateExecutionRequest(actionId)
+	err := f.ValidateExecutionRequest([]int{actionId})
 	if err != nil {
 		return err
 	}
-	currentAction := f.CurrentAction
+	currentAction := f.CurrentActions[actionId]
 	event, dataMap, err := currentAction.Execute(f.WorkflowName, f.flowContext, tryCount)
 	if err != nil {
 		return err
@@ -292,12 +307,12 @@ func (f *FlowMachine) ExecuteSystemAction(tryCount int, actionId int) error {
 		switch currentAction.GetName() {
 		case "delay":
 			f.MarkWaitingDelay()
-			delay := f.CurrentAction.GetParams()["delay"].(time.Duration)
-			f.DelayAction(f.CurrentAction.GetId(), 1, delay)
+			delay := currentAction.GetParams()["delay"].(time.Duration)
+			f.DelayAction(currentAction.GetId(), 1, delay)
 		case "wait":
 			f.MarkWaitingEvent()
 		default:
-			completed, err := f.MoveForwardAndDispatch(event, dataMap)
+			completed, err := f.MoveForwardAndDispatch(event, actionId, dataMap)
 			if completed {
 				return nil
 			}
@@ -312,7 +327,7 @@ func (f *FlowMachine) ExecuteSystemAction(tryCount int, actionId int) error {
 	return nil
 }
 
-func (f *FlowMachine) ValidateExecutionRequest(actionId int) error {
+func (f *FlowMachine) ValidateExecutionRequest(actionIds []int) error {
 	if f.GetFlowState() == model.COMPLETED {
 		return fmt.Errorf("can not run completed flow")
 	}
@@ -322,8 +337,14 @@ func (f *FlowMachine) ValidateExecutionRequest(actionId int) error {
 	if f.GetFlowState() == model.PAUSED {
 		return fmt.Errorf("can not run paused flow")
 	}
-	if actionId != f.CurrentAction.GetId() {
-		return fmt.Errorf("action %d already executed", actionId)
+	for _, actionId := range actionIds {
+		if _, ok := f.CurrentActions[actionId]; !ok {
+			return fmt.Errorf("action %d already executed", actionId)
+		}
 	}
 	return nil
+}
+
+func (f *FlowMachine) IsCompleted() bool {
+	return f.completed
 }
