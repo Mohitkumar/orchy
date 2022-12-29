@@ -68,7 +68,7 @@ func (ex *timeoutExecutor) handle() {
 			continue
 		}
 		if int(action.RetryCount) < actionDefinition.RetryCount {
-			logger.Info("action timedout retrying", zap.String("action", action.ActionName), zap.Int("retry", int(action.RetryCount)))
+			logger.Debug("action timedout retrying", zap.String("action", action.ActionName), zap.Int("retry", int(action.RetryCount)))
 			var retryAfter time.Duration
 			switch actionDefinition.RetryPolicy {
 			case model.RETRY_POLICY_FIXED:

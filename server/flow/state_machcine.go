@@ -49,7 +49,7 @@ func GetFlowStateMachine(wfName string, flowId string, container *container.DICo
 	for actionId := range flowMachine.flowContext.CurrentActionIds {
 		flowMachine.CurrentActions[actionId] = flowMachine.flow.Actions[actionId]
 	}
-	if flowMachine.flowContext.State == model.COMPLETED {
+	if flowMachine.flowContext.State == model.COMPLETED || flowMachine.flowContext.State == model.FAILED {
 		flowMachine.completed = true
 	}
 	return flowMachine, nil
@@ -239,6 +239,7 @@ func (f *FlowMachine) MarkComplete() {
 
 func (f *FlowMachine) MarkFailed() {
 	f.flowContext.State = model.FAILED
+	f.completed = true
 	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
 	failureHandler := f.container.GetStateHandler().GetHandler(f.flow.FailureHandler)
 	err := failureHandler(f.WorkflowName, f.FlowId)
@@ -345,4 +346,8 @@ func (f *FlowMachine) ValidateExecutionRequest(actionIds []int) error {
 		}
 	}
 	return nil
+}
+
+func (f *FlowMachine) IsCompleted() bool {
+	return f.completed
 }

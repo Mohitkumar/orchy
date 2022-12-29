@@ -63,7 +63,11 @@ func (ex *retryExecutor) handle() {
 	for _, action := range actions.Actions {
 		flowMachine, err := flow.GetFlowStateMachine(action.WorkflowName, action.FlowId, ex.diContainer)
 		if err != nil {
-			logger.Error("error in executing workflow", zap.String("wfName", action.WorkflowName), zap.String("flowId", action.FlowId), zap.Error(err))
+			logger.Debug("error in executing workflow", zap.String("wfName", action.WorkflowName), zap.String("flowId", action.FlowId), zap.Error(err))
+			continue
+		}
+		if flowMachine.IsCompleted() {
+			logger.Debug("flow already complted", zap.String("wfName", action.WorkflowName), zap.String("flowId", action.FlowId))
 			continue
 		}
 		err = flowMachine.DispatchAction(int(action.ActionId), int(action.RetryCount))
