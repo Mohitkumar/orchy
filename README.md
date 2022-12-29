@@ -41,14 +41,14 @@ Example Workflow Definiton-
                 "key1" : "200",
                 "key2" :39
             },
-			"next":{"default":6}
+			"next":{"default":[6]}
 		},
         {
 			"id":6,
 			"type":"system",
 			"name":"javascript",
             "expression":"if($['1'].output.key1 == '200') {$['x']='nesX'};",
-			"next":{"default":7}
+			"next":{"default":[7]}
 		},
         {
 			"id":7,
@@ -56,7 +56,7 @@ Example Workflow Definiton-
 			"name":"delay",
 			"delaySeconds":10,
 			"next":{
-				"default": 2
+				"default": [2]
 			}
 		},
 		{
@@ -65,7 +65,7 @@ Example Workflow Definiton-
 			"name":"switch",
 			"expression":"$.1.output.key1",
 			"next":{
-				"200": 3
+				"200": [3]
 			}
 		},
         {
@@ -74,7 +74,7 @@ Example Workflow Definiton-
 			"name":"wait",
 			"event":"test",
 			"next":{
-				"default": 4
+				"default": [4,9]
 			}
 		},
 		{
@@ -85,6 +85,17 @@ Example Workflow Definiton-
                 "k1" :23,
                 "k2" : "$1.output.key1",
                 "k3" :"$6.output.x"
+            }
+		},
+		{
+			"id":9,
+			"type":"user",
+			"name":"log-action",
+            "parameters" :{
+                "k1" :24,
+                "k2" : "$1.output.key2",
+                "k3" :"$6.output.x",
+				"k4" :"$.input.age"
             }
 		}
 	]
@@ -110,7 +121,7 @@ There could be two types of actions in a workflow user defined action or system 
 ### System Action- 
 System actions are type of action which runs inside the server itself instead of worker. Currently supported system actions are- ```wait```,```delay```,```switch``` and ```javascript```.
 
-### User Action- 
+### User Defined Action- 
 User actions are defined in the worker liberary which runs as a independent process/system and access the orchy server using grpc for available actions to execute.<br />
 Any number of actions can be defined in the worker and their definition is registerd on server by the worker itself.
 
