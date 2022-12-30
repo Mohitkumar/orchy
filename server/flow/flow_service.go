@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/action"
 	"github.com/mohitkumar/orchy/server/container"
@@ -43,8 +44,9 @@ func (f *FlowService) ExecuteAction(wfName string, wfId string, event string, ac
 	f.executionChannel <- req
 }
 
-func (f *FlowService) Stop() {
+func (f *FlowService) Stop() error {
 	f.stop <- struct{}{}
+	return nil
 }
 
 func (f *FlowService) Start() {
@@ -54,13 +56,9 @@ func (f *FlowService) Start() {
 		for {
 			select {
 			case req := <-f.executionChannel:
-				if req.FirstAction {
-					f.init(req)
-				} else {
-					f.execute(req)
-				}
+				f.execute(req)
 			case req := <-f.stateChangeChannel:
-
+				f.changeState(req.WorkflowName, req.FlowId, req.State)
 			case <-f.stop:
 				logger.Info("stopping flow execution service")
 				return
@@ -69,25 +67,28 @@ func (f *FlowService) Start() {
 	}()
 }
 
-func (f *FlowService) init(req model.FlowExecutionRequest) {
-	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(req.WorkflowName)
+func (f *FlowService) Init(wfName string, input map[string]any) (string, error) {
+	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
 	if err != nil {
 		logger.Error("Workflow Definition not found", zap.Error(err))
-		return
+		return "", err
 	}
-	flow := Convert(wf, req.FlowId, f.container)
+	flowId := uuid.New().String()
+	flow := Convert(wf, flowId, f.container)
 	dataMap := make(map[string]any)
-	dataMap["input"] = req.DataMap
+	dataMap["input"] = input
 	flowCtx := &model.FlowContext{
-		Id:              req.FlowId,
+		Id:              flowId,
 		State:           model.RUNNING,
 		Data:            dataMap,
 		ExecutedActions: map[int]bool{wf.RootAction: true},
 	}
-	f.saveContextAndDispatchAction(req.WorkflowName, req.FlowId, []int{wf.RootAction}, 1, flow, flowCtx)
+	f.saveContextAndDispatchAction(wfName, flowId, []int{wf.RootAction}, 1, flow, flowCtx)
 	if err != nil {
-		logger.Error("error executiong flow", zap.Any("flowRequest", req), zap.Error(err))
+		logger.Error("error executiong flow", zap.String("workflowName", wfName), zap.String("flowId", flowId), zap.Error(err))
+		return flowId, err
 	}
+	return flowId, nil
 }
 
 func (f *FlowService) execute(req model.FlowExecutionRequest) {
@@ -212,11 +213,11 @@ func (f *FlowService) ExecuteSystemAction(wfName string, flowId string, tryCount
 	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
 		switch currentAction.GetName() {
 		case "delay":
-			f.MarkWaitingDelay()
+			f.MarkWaitingDelay(wfName, flowId)
 			delay := currentAction.GetParams()["delay"].(time.Duration)
-			f.DelayAction(currentAction.GetId(), 1, delay)
+			f.DelayAction(wfName, flowId, currentAction.GetId(), 1, delay)
 		case "wait":
-			f.MarkWaitingEvent()
+			f.MarkWaitingEvent(wfName, flowId)
 		default:
 			f.ExecuteAction(wfName, flowId, event, actionId, 1, dataMap)
 		}
@@ -339,56 +340,74 @@ func (f *FlowService) DispatchAction(wfName string, flowId string, actionId int,
 	}
 }
 
-func (f *FlowMachine) MarkFailed() {
-	f.flowContext.State = model.FAILED
-	f.completed = true
-	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
-	failureHandler := f.container.GetStateHandler().GetHandler(f.flow.FailureHandler)
-	err := failureHandler(f.WorkflowName, f.FlowId)
+func (f *FlowService) MarkFailed(wfName string, flowId string) {
+	f.stateChangeChannel <- model.FlowStateChangeRequest{
+		WorkflowName: wfName,
+		FlowId:       flowId,
+		State:        model.FAILED,
+	}
+}
+
+func (f *FlowService) MarkWaitingDelay(wfName string, flowId string) {
+	f.stateChangeChannel <- model.FlowStateChangeRequest{
+		WorkflowName: wfName,
+		FlowId:       flowId,
+		State:        model.FAILED,
+	}
+	logger.Info("workflow waiting delay", zap.String("workflow", wfName), zap.String("id", flowId))
+}
+
+func (f *FlowService) MarkWaitingEvent(wfName string, flowId string) {
+	f.stateChangeChannel <- model.FlowStateChangeRequest{
+		WorkflowName: wfName,
+		FlowId:       flowId,
+		State:        model.FAILED,
+	}
+	logger.Info("workflow waiting for event", zap.String("workflow", wfName), zap.String("id", flowId))
+}
+
+func (f *FlowService) MarkRunning(wfName string, flowId string) {
+	f.stateChangeChannel <- model.FlowStateChangeRequest{
+		WorkflowName: wfName,
+		FlowId:       flowId,
+		State:        model.FAILED,
+	}
+	logger.Info("workflow running", zap.String("workflow", wfName), zap.String("id", flowId))
+}
+
+func (f *FlowService) changeState(wfName string, flowId string, state model.FlowState) {
+	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
-		logger.Error("error in running failure handler", zap.Error(err))
+		logger.Debug("flow already completed, can not create flow machine", zap.Error(fmt.Errorf("workflow complted")))
+		return
 	}
-	logger.Info("workflow failed", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
-}
-
-func (f *FlowMachine) MarkWaitingDelay() {
-	f.flowContext.State = model.WAITING_DELAY
-	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
-	logger.Info("workflow waiting delay", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
-}
-
-func (f *FlowMachine) MarkWaitingEvent() {
-	f.flowContext.State = model.WAITING_EVENT
-	f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
-	logger.Info("workflow waiting for event", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
-}
-
-func (f *FlowMachine) MarkPaused() error {
-	f.flowContext.State = model.PAUSED
-	err := f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
-	if err != nil {
-		return err
+	flowCtx.State = state
+	f.container.GetClusterStorage().SaveFlowContext(wfName, flowId, flowCtx)
+	if state == model.FAILED {
+		wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
+		if err != nil {
+			logger.Error("Workflow Definition not found", zap.Error(err))
+			return
+		}
+		flow := Convert(wf, flowId, f.container)
+		failureHandler := f.container.GetStateHandler().GetHandler(flow.FailureHandler)
+		err = failureHandler(wfName, flowId)
+		if err != nil {
+			logger.Error("error in running failure handler", zap.Error(err))
+		}
+		logger.Info("workflow failed", zap.String("workflow", wfName), zap.String("id", flowId))
+	} else if state == model.COMPLETED {
+		wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
+		if err != nil {
+			logger.Error("Workflow Definition not found", zap.Error(err))
+			return
+		}
+		flow := Convert(wf, flowId, f.container)
+		successHandler := f.container.GetStateHandler().GetHandler(flow.SuccessHandler)
+		err = successHandler(wfName, flowId)
+		if err != nil {
+			logger.Error("error in running success handler", zap.Error(err))
+		}
+		logger.Info("workflow completed", zap.String("workflow", wfName), zap.String("id", flowId))
 	}
-	logger.Info("workflow paused", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
-	return nil
-}
-
-func (f *FlowMachine) MarkRunning() error {
-	f.flowContext.State = model.RUNNING
-	err := f.container.GetClusterStorage().SaveFlowContext(f.WorkflowName, f.FlowId, f.flowContext)
-	if err != nil {
-		return err
-	}
-	logger.Info("workflow running", zap.String("workflow", f.WorkflowName), zap.String("id", f.FlowId))
-	return nil
-}
-
-func (f *FlowMachine) Resume() error {
-	f.flowContext.State = model.RUNNING
-	keys := make([]int, 0, len(f.CurrentActions))
-	for k := range f.CurrentActions {
-		keys = append(keys, k)
-	}
-
-	return f.saveContextAndDispatchAction(keys, 1)
 }

@@ -6,7 +6,6 @@ type FlowExecutionRequest struct {
 	Event        string
 	ActionId     int
 	DataMap      map[string]any
-	FirstAction  bool
 }
 
 type FlowStateChangeRequest struct {

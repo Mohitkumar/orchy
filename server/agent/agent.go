@@ -9,6 +9,7 @@ import (
 	"github.com/mohitkumar/orchy/server/cluster/executor"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/mohitkumar/orchy/server/container"
+	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/rest"
 	"github.com/mohitkumar/orchy/server/rpc"
@@ -22,6 +23,7 @@ type Agent struct {
 	ring                     *cluster.Ring
 	membership               *cluster.Membership
 	diContainer              *container.DIContiner
+	flowService              *flow.FlowService
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
 	actionExecutionService   *service.ActionExecutionService
@@ -41,6 +43,7 @@ func New(config config.Config) (*Agent, error) {
 	setup := []func() error{
 		a.setupCluster,
 		a.setupDiContainer,
+		a.setupFlowService,
 		a.setupWorkflowExecutionService,
 		a.setupActionExecutorService,
 		a.setupExecutors,
@@ -69,6 +72,12 @@ func (a *Agent) setupCluster() error {
 func (a *Agent) setupDiContainer() error {
 	a.diContainer = container.NewDiContainer(a.ring)
 	a.diContainer.Init(a.Config)
+	return nil
+}
+
+func (a *Agent) setupFlowService() error {
+	a.flowService = flow.NewFlowService(a.diContainer, &a.wg)
+	a.flowService.Start()
 	return nil
 }
 
@@ -151,6 +160,7 @@ func (a *Agent) Shutdown() error {
 
 	shutdown := []func() error{
 		a.executors.StopAll,
+		a.flowService.Stop,
 		a.httpServer.Stop,
 		func() error {
 			logger.Info("stopping grpc server")
