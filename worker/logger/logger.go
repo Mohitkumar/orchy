@@ -36,3 +36,6 @@ func Error(message string, fields ...zap.Field) {
 func Fatal(message string, fields ...zap.Field) {
 	zapLog.Fatal(message, fields...)
 }
+func Warn(message string, fields ...zap.Field) {
+	zapLog.Warn(message, fields...)
+}

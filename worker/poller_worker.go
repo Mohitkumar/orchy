@@ -99,7 +99,7 @@ func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 				}
 			} else {
 				for _, action := range actions.Actions {
-					logger.Info("executing action", zap.String("flowId", action.FlowId), zap.String("action", action.ActionName))
+					logger.Debug("executing action", zap.String("flowId", action.FlowId), zap.String("action", action.ActionName))
 					result := pw.execute(action)
 					err = pw.sendResponse(ctx, result)
 					if err != nil {
