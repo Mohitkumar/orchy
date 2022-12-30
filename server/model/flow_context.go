@@ -15,4 +15,5 @@ type FlowContext struct {
 	Data             map[string]any `json:"data"`
 	State            FlowState      `json:"flowState"`
 	Event            string         `json:"event"`
+	ExecutedActions  map[int]bool   `json:"executedActions"`
 }
