@@ -6,4 +6,11 @@ type FlowExecutionRequest struct {
 	Event        string
 	ActionId     int
 	DataMap      map[string]any
+	FirstAction  bool
+}
+
+type FlowStateChangeRequest struct {
+	WorkflowName string
+	FlowId       string
+	State        FlowState
 }
