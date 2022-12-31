@@ -62,6 +62,5 @@ func (ex *userActionExecutor) handle() {
 	for _, action := range actions.Actions {
 		logger.Info("running action", zap.String("name", action.ActionName), zap.String("workflow", action.WorkflowName), zap.String("id", action.FlowId))
 		ex.diContainer.GetExternalQueue().Push(action)
-
 	}
 }
