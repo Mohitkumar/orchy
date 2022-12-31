@@ -36,6 +36,6 @@ func (s *WorkflowExecutionService) PauseFlow(name string, flowId string) error {
 }
 
 func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, event string) error {
-
+	s.flowService.ExecuteResume(name, flowId, event)
 	return nil
 }

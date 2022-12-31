@@ -60,6 +60,6 @@ func (ex *retryExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions.Actions {
-		ex.flowService.DispatchAction(action.WorkflowName, action.FlowId, int(action.ActionId), int(action.RetryCount))
+		ex.flowService.ExecuteRetry(action.WorkflowName, action.FlowId, int(action.ActionId), int(action.RetryCount))
 	}
 }
