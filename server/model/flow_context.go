@@ -11,7 +11,7 @@ const PAUSED FlowState = "P"
 
 type FlowContext struct {
 	Id               string         `json:"id"`
-	CurrentActionIds map[int]bool   `json:"currentActionIds"`
+	CurrentActionIds map[int]int    `json:"currentActionIds"`
 	Data             map[string]any `json:"data"`
 	State            FlowState      `json:"flowState"`
 	Event            string         `json:"event"`

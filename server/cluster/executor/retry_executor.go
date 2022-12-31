@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/persistence"
@@ -15,16 +14,16 @@ import (
 var _ Executor = new(systemActionExecutor)
 
 type retryExecutor struct {
-	diContainer *container.DIContiner
+	flowService *flow.FlowService
 	shard       persistence.Shard
 	tw          *util.TickWorker
 	wg          *sync.WaitGroup
 	stop        chan struct{}
 }
 
-func NewRetryExecutor(diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *retryExecutor {
+func NewRetryExecutor(flowService *flow.FlowService, shard persistence.Shard, wg *sync.WaitGroup) *retryExecutor {
 	ex := &retryExecutor{
-		diContainer: diContainer,
+		flowService: flowService,
 		shard:       shard,
 		stop:        make(chan struct{}),
 		wg:          wg,
@@ -61,18 +60,6 @@ func (ex *retryExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions.Actions {
-		flowMachine, err := flow.GetFlowStateMachine(action.WorkflowName, action.FlowId, ex.diContainer)
-		if err != nil {
-			logger.Debug("error in executing workflow", zap.String("wfName", action.WorkflowName), zap.String("flowId", action.FlowId), zap.Error(err))
-			continue
-		}
-		if flowMachine.IsCompleted() {
-			logger.Debug("flow already complted", zap.String("wfName", action.WorkflowName), zap.String("flowId", action.FlowId))
-			continue
-		}
-		err = flowMachine.DispatchAction(int(action.ActionId), int(action.RetryCount))
-		if err != nil {
-			logger.Error("error in retrying workflow", zap.String("wfName", action.WorkflowName), zap.String("flowId", action.FlowId), zap.Error(err))
-		}
+		ex.flowService.DispatchAction(action.WorkflowName, action.FlowId, int(action.ActionId), int(action.RetryCount))
 	}
 }

@@ -60,13 +60,8 @@ func (ex *userActionExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions.Actions {
-		actionDef, err := ex.diContainer.GetMetadataStorage().GetActionDefinition(action.ActionName)
-		if err != nil {
-			logger.Error("error getting action definition", zap.String("action", action.ActionName))
-			continue
-		}
 		logger.Info("running action", zap.String("name", action.ActionName), zap.String("workflow", action.WorkflowName), zap.String("id", action.FlowId))
 		ex.diContainer.GetExternalQueue().Push(action)
-		ex.diContainer.GetClusterStorage().Timeout(action, time.Duration(actionDef.TimeoutSeconds)*time.Second)
+
 	}
 }

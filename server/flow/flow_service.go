@@ -40,6 +40,7 @@ func (f *FlowService) ExecuteAction(wfName string, wfId string, event string, ac
 		ActionId:     actionId,
 		Event:        event,
 		DataMap:      data,
+		TryCount:     tryCount,
 	}
 	f.executionChannel <- req
 }
@@ -78,10 +79,11 @@ func (f *FlowService) Init(wfName string, input map[string]any) (string, error) 
 	dataMap := make(map[string]any)
 	dataMap["input"] = input
 	flowCtx := &model.FlowContext{
-		Id:              flowId,
-		State:           model.RUNNING,
-		Data:            dataMap,
-		ExecutedActions: map[int]bool{wf.RootAction: true},
+		Id:               flowId,
+		State:            model.RUNNING,
+		Data:             dataMap,
+		ExecutedActions:  map[int]bool{wf.RootAction: true},
+		CurrentActionIds: map[int]int{wf.RootAction: 1},
 	}
 	f.saveContextAndDispatchAction(wfName, flowId, []int{wf.RootAction}, 1, flow, flowCtx)
 	if err != nil {
@@ -114,10 +116,14 @@ func (f *FlowService) execute(req model.FlowExecutionRequest) {
 	currentAction := flow.Actions[req.ActionId]
 	nextActionMap := currentAction.GetNext()
 	flowCtx.ExecutedActions[req.ActionId] = true
+	delete(flowCtx.CurrentActionIds, req.ActionId)
 	if f.isComplete(flow, flowCtx) {
 		f.markComplete(req.WorkflowName, req.FlowId, flow, flowCtx)
 	}
 	actionIdsToDispatch := nextActionMap[req.Event]
+	for _, actionId := range actionIdsToDispatch {
+		flowCtx.CurrentActionIds[actionId] = 1
+	}
 	data := flowCtx.Data
 	if req.DataMap != nil || len(req.DataMap) > 0 {
 		output := make(map[string]any)

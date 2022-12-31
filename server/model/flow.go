@@ -6,6 +6,7 @@ type FlowExecutionRequest struct {
 	Event        string
 	ActionId     int
 	DataMap      map[string]any
+	TryCount     int
 }
 
 type FlowStateChangeRequest struct {

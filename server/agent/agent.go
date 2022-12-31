@@ -82,18 +82,18 @@ func (a *Agent) setupFlowService() error {
 }
 
 func (a *Agent) setupWorkflowExecutionService() error {
-	a.workflowExecutionService = service.NewWorkflowExecutionService(a.diContainer)
+	a.workflowExecutionService = service.NewWorkflowExecutionService(a.flowService)
 	return nil
 }
 
 func (a *Agent) setupActionExecutorService() error {
-	a.actionExecutionService = service.NewActionExecutionService(a.diContainer)
+	a.actionExecutionService = service.NewActionExecutionService(a.diContainer, a.flowService)
 	return nil
 }
 
 func (a *Agent) setupExecutors() error {
 	a.executors = executor.NewExecutors(a.diContainer.GetShards())
-	a.executors.InitExecutors(a.Config.RingConfig.PartitionCount, a.diContainer, &a.wg)
+	a.executors.InitExecutors(a.Config.RingConfig.PartitionCount, a.diContainer, a.flowService, &a.wg)
 	a.executors.StartAll()
 	return nil
 }

@@ -45,21 +45,6 @@ func NewRedisShard(conf Config, encoderDecoder util.EncoderDecoder[model.FlowCon
 func (r *redisShard) GetShardId() string {
 	return r.shardId
 }
-func (r *redisShard) CreateAndSaveFlowContext(wFname string, flowId string, actionIds map[int]bool, input map[string]any) (*model.FlowContext, error) {
-	dataMap := make(map[string]any)
-	dataMap["input"] = input
-	flowCtx := &model.FlowContext{
-		Id:               flowId,
-		State:            model.RUNNING,
-		CurrentActionIds: actionIds,
-		Data:             dataMap,
-	}
-	if err := r.SaveFlowContext(wFname, flowId, flowCtx); err != nil {
-		return nil, err
-	}
-
-	return flowCtx, nil
-}
 
 func (r *redisShard) SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error {
 	key := r.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName, r.shardId)
@@ -93,39 +78,6 @@ func (r *redisShard) DeleteFlowContext(wfName string, flowId string) error {
 	key := r.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName, r.shardId)
 	ctx := context.Background()
 	err := r.baseDao.redisClient.HDel(ctx, key, flowId).Err()
-	if err != nil {
-		return persistence.StorageLayerError{Message: err.Error()}
-	}
-	return nil
-}
-
-func (r *redisShard) DispatchAction(actions []*api.Action) error {
-	var messagesUser []string
-	var messagesSystem []string
-	for _, action := range actions {
-		message, err := proto.Marshal(action)
-		if err != nil {
-			continue
-		}
-		if action.Type == api.Action_SYSTEM {
-			messagesSystem = append(messagesSystem, string(message))
-		} else {
-			messagesUser = append(messagesUser, string(message))
-		}
-	}
-	queueNameSystem := r.getNamespaceKey("system", r.shardId)
-	queueNameUser := r.getNamespaceKey("user", r.shardId)
-	ctx := context.Background()
-	_, err := r.baseDao.redisClient.TxPipelined(ctx, func(pipe rd.Pipeliner) error {
-		var err error
-		if len(messagesUser) != 0 {
-			err = pipe.LPush(ctx, queueNameUser, messagesUser).Err()
-		}
-		if len(messagesSystem) != 0 {
-			err = pipe.LPush(ctx, queueNameSystem, messagesSystem).Err()
-		}
-		return err
-	})
 	if err != nil {
 		return persistence.StorageLayerError{Message: err.Error()}
 	}
