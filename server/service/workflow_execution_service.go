@@ -36,24 +36,6 @@ func (s *WorkflowExecutionService) PauseFlow(name string, flowId string) error {
 }
 
 func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, event string) error {
-	flowMachine, err := flow.GetFlowStateMachine(name, flowId, s.container)
-	if err != nil {
-		return err
-	}
-	comp := true
-	for actionId := range flowMachine.CurrentActions {
-		completed, err := flowMachine.MoveForwardAndDispatch("default", actionId, nil)
-		if err != nil {
-			return err
-		}
-		comp = comp && completed
-	}
 
-	if comp {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
 	return nil
 }

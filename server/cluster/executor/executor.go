@@ -44,7 +44,7 @@ func (ex *Executors) InitExecutors(partitions int, container *container.DIContin
 		ex.systemExecutors[i] = NewSystemActionExecutor(flowService, ex.shards.GetShard(i), wg)
 		ex.delayExecutors[i] = NewDelayExecutor(flowService, ex.shards.GetShard(i), wg)
 		ex.retryExecutors[i] = NewRetryExecutor(flowService, ex.shards.GetShard(i), wg)
-		ex.timeoutExecutors[i] = NewTimeoutExecutor(container, ex.shards.GetShard(i), wg)
+		ex.timeoutExecutors[i] = NewTimeoutExecutor(flowService, container, ex.shards.GetShard(i), wg)
 	}
 }
 

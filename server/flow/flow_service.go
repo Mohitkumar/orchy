@@ -303,6 +303,23 @@ func (f *FlowService) DelayAction(wfName string, flowId string, actionId int, tr
 	}
 }
 
+func (f *FlowService) IsValid(wfName string, flowId string, actionId int) bool {
+	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
+	if err != nil {
+		logger.Debug("flow already completed, can not create flow machine", zap.Error(fmt.Errorf("workflow complted")))
+		return false
+	}
+	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
+		logger.Debug("flow already completed, can not create flow machine", zap.Error(fmt.Errorf("workflow complted")))
+		return false
+	}
+	if _, ok := flowCtx.ExecutedActions[actionId]; ok {
+		logger.Error("Action already executed", zap.String("Workflow", wfName), zap.String("Id", flowId), zap.Int("action", actionId))
+		return false
+	}
+	return true
+}
+
 func (f *FlowService) DispatchAction(wfName string, flowId string, actionId int, tryCount int) {
 	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
 	if err != nil {
@@ -323,24 +340,9 @@ func (f *FlowService) DispatchAction(wfName string, flowId string, actionId int,
 		logger.Error("Action already executed", zap.String("Workflow", wfName), zap.String("Id", flowId), zap.Int("action", actionId))
 		return
 	}
-	currentAction := flow.Actions[actionId]
-	var actionType api.Action_Type
-	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
-		actionType = api.Action_SYSTEM
-	} else {
-		actionType = api.Action_USER
-	}
-	act := &api.Action{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		Data:         util.ConvertToProto(util.ResolveInputParams(flowCtx, currentAction.GetInputParams())),
-		ActionId:     int32(currentAction.GetId()),
-		ActionName:   currentAction.GetName(),
-		RetryCount:   int32(tryCount),
-		Type:         actionType,
-	}
 
-	err = f.container.GetClusterStorage().DispatchAction(flowId, []*api.Action{act})
+	flowCtx.CurrentActionIds[actionId] = tryCount
+	err = f.saveContextAndDispatchAction(wfName, flowId, []int{actionId}, tryCount, flow, flowCtx)
 	if err != nil {
 		logger.Error("error dispatching action", zap.String("Workflow", wfName), zap.String("Id", flowId), zap.Int("action", actionId))
 	}

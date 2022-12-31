@@ -16,6 +16,7 @@ import (
 var _ Executor = new(systemActionExecutor)
 
 type timeoutExecutor struct {
+	flowService *flow.FlowService
 	diContainer *container.DIContiner
 	shard       persistence.Shard
 	wg          *sync.WaitGroup
@@ -23,8 +24,9 @@ type timeoutExecutor struct {
 	stop        chan struct{}
 }
 
-func NewTimeoutExecutor(diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *timeoutExecutor {
+func NewTimeoutExecutor(flowService *flow.FlowService, diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *timeoutExecutor {
 	ex := &timeoutExecutor{
+		flowService: flowService,
 		diContainer: diContainer,
 		shard:       shard,
 		stop:        make(chan struct{}),
@@ -76,16 +78,10 @@ func (ex *timeoutExecutor) handle() {
 			case model.RETRY_POLICY_BACKOFF:
 				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(action.RetryCount+1)) * time.Second
 			}
-			action.RetryCount = action.RetryCount + 1
-			ex.diContainer.GetClusterStorage().Retry(action, retryAfter)
+			ex.flowService.RetryAction(action.WorkflowName, action.FlowId, int(action.ActionId), int(action.RetryCount)+1, retryAfter)
 		} else {
 			logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
-			flowMachine, err := flow.GetFlowStateMachine(action.WorkflowName, action.FlowId, ex.diContainer)
-			if err != nil {
-				logger.Error("action definition not found ", zap.String("action", action.ActionName), zap.Error(err))
-				continue
-			}
-			flowMachine.MarkFailed()
+			ex.flowService.MarkFailed(action.WorkflowName, action.FlowId)
 		}
 	}
 }
