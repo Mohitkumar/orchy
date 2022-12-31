@@ -5,11 +5,11 @@ import (
 	"errors"
 
 	"github.com/go-redis/redis/v9"
-	"github.com/golang/protobuf/proto"
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/persistence"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 type redisQueue struct {

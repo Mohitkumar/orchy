@@ -5,7 +5,6 @@ go 1.18
 require (
 	github.com/buraksezer/consistent v0.9.0
 	github.com/go-redis/redis/v9 v9.0.0-beta.1
-	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
@@ -29,6 +28,7 @@ require (
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect

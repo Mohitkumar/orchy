@@ -30,7 +30,9 @@ func (ts *ActionExecutionService) Poll(actionName string, batchSize int) (*api.A
 	}
 	for _, action := range actions.Actions {
 		actionDef, _ := ts.container.GetMetadataStorage().GetActionDefinition(action.ActionName)
-		ts.container.GetClusterStorage().Timeout(action, time.Duration(actionDef.TimeoutSeconds)*time.Second)
+		if actionDef.RetryCount > 1 {
+			ts.container.GetClusterStorage().Timeout(action, time.Duration(actionDef.TimeoutSeconds)*time.Second)
+		}
 	}
 	return actions, nil
 }
