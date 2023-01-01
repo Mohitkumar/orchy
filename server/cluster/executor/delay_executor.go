@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/persistence"
@@ -15,16 +14,16 @@ import (
 var _ Executor = new(systemActionExecutor)
 
 type delayExecutor struct {
-	diContainer *container.DIContiner
+	flowService *flow.FlowService
 	shard       persistence.Shard
 	wg          *sync.WaitGroup
 	tw          *util.TickWorker
 	stop        chan struct{}
 }
 
-func NewDelayExecutor(diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *delayExecutor {
+func NewDelayExecutor(flowService *flow.FlowService, shard persistence.Shard, wg *sync.WaitGroup) *delayExecutor {
 	ex := &delayExecutor{
-		diContainer: diContainer,
+		flowService: flowService,
 		shard:       shard,
 		stop:        make(chan struct{}),
 		wg:          wg,
@@ -61,18 +60,6 @@ func (ex *delayExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions.Actions {
-		flowMachine, err := flow.GetFlowStateMachine(action.WorkflowName, action.FlowId, ex.diContainer)
-		if err != nil {
-			logger.Error("error in executing workflow", zap.String("wfName", action.WorkflowName), zap.String("flowId", action.FlowId), zap.Error(err))
-			continue
-		}
-		completed, err := flowMachine.MoveForwardAndDispatch("default", int(action.ActionId), nil)
-		if completed {
-			continue
-		}
-
-		if err != nil {
-			logger.Error("error in executing workflow", zap.String("wfName", action.WorkflowName), zap.String("flowId", action.FlowId), zap.Error(err))
-		}
+		ex.flowService.ExecuteAction(action.WorkflowName, action.FlowId, "default", int(action.ActionId), 1, nil)
 	}
 }

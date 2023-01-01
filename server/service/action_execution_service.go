@@ -13,16 +13,28 @@ import (
 )
 
 type ActionExecutionService struct {
-	container *container.DIContiner
+	container   *container.DIContiner
+	flowService *flow.FlowService
 }
 
-func NewActionExecutionService(container *container.DIContiner) *ActionExecutionService {
+func NewActionExecutionService(container *container.DIContiner, flowService *flow.FlowService) *ActionExecutionService {
 	return &ActionExecutionService{
-		container: container,
+		container:   container,
+		flowService: flowService,
 	}
 }
 func (ts *ActionExecutionService) Poll(actionName string, batchSize int) (*api.Actions, error) {
-	return ts.container.GetExternalQueue().Poll(actionName, batchSize)
+	actions, err := ts.container.GetExternalQueue().Poll(actionName, batchSize)
+	if err != nil {
+		return nil, err
+	}
+	for _, action := range actions.Actions {
+		actionDef, _ := ts.container.GetMetadataStorage().GetActionDefinition(action.ActionName)
+		if actionDef.RetryCount > 1 {
+			ts.container.GetClusterStorage().Timeout(action, time.Duration(actionDef.TimeoutSeconds)*time.Second)
+		}
+	}
+	return actions, nil
 }
 
 func (ts *ActionExecutionService) Push(res *api.ActionResult) error {
@@ -33,27 +45,17 @@ func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResu
 	wfName := actionResult.WorkflowName
 	wfId := actionResult.FlowId
 	data := util.ConvertFromProto(actionResult.Data)
-	flowMachine, err := flow.GetFlowStateMachine(wfName, wfId, s.container)
-	if err != nil {
-		return err
-	}
+
 	switch actionResult.Status {
 	case api.ActionResult_SUCCESS:
-		completed, err := flowMachine.MoveForwardAndDispatch("default", int(actionResult.ActionId), data)
-		if completed {
-			return nil
-		}
-		if err != nil {
-			logger.Error("error moving forward in workflow", zap.Error(err))
-			return err
-		}
+		s.flowService.ExecuteAction(wfName, wfId, "default", int(actionResult.ActionId), 1, data)
 	case api.ActionResult_FAIL:
 		actionDefinition, err := s.container.GetMetadataStorage().GetActionDefinition(actionResult.ActionName)
 		if err != nil {
 			logger.Error("action definition not found ", zap.String("action", actionResult.ActionName), zap.Error(err))
 			return err
 		}
-		if actionResult.RetryCount <= int32(actionDefinition.RetryCount) {
+		if actionResult.RetryCount < int32(actionDefinition.RetryCount) {
 			var retryAfter time.Duration
 			switch actionDefinition.RetryPolicy {
 			case model.RETRY_POLICY_FIXED:
@@ -61,14 +63,10 @@ func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResu
 			case model.RETRY_POLICY_BACKOFF:
 				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(actionResult.RetryCount+1)) * time.Second
 			}
-			err = flowMachine.RetryAction(int(actionResult.ActionId), int(actionResult.RetryCount)+1, retryAfter)
-
-			if err != nil {
-				return err
-			}
+			s.flowService.RetryAction(wfName, wfId, int(actionResult.ActionId), int(actionResult.RetryCount)+1, retryAfter, "failed")
 		} else {
 			logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
-			flowMachine.MarkFailed()
+			s.flowService.MarkFailed(wfName, wfId)
 		}
 	}
 	return nil

@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"sync"
 	"time"
 
 	api "github.com/mohitkumar/orchy/api/v1"
@@ -16,10 +15,8 @@ type ExternalQueue interface {
 
 type Storage interface {
 	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
-	CreateAndSaveFlowContext(wFname string, flowId string, actions map[int]bool, dataMap map[string]any) (*model.FlowContext, error)
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
 	DeleteFlowContext(wfName string, flowId string) error
-	DispatchAction(flowId string, actions []*api.Action) error
 	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []*api.Action) error
 	Retry(action *api.Action, delay time.Duration) error
 	Delay(action *api.Action, delay time.Duration) error
@@ -31,7 +28,6 @@ var _ Storage = new(clusterStorage)
 type clusterStorage struct {
 	shards *persistence.Shards
 	ring   *Ring
-	mu     sync.Mutex
 }
 
 func NewClusterStorage(shards *persistence.Shards, ring *Ring) *clusterStorage {
@@ -46,11 +42,6 @@ func (s *clusterStorage) SaveFlowContext(wfName string, flowId string, flowCtx *
 	return shard.SaveFlowContext(wfName, flowId, flowCtx)
 }
 
-func (s *clusterStorage) CreateAndSaveFlowContext(wFname string, flowId string, actions map[int]bool, dataMap map[string]any) (*model.FlowContext, error) {
-	shard := s.shards.GetShard(s.ring.GetPartition(flowId))
-	return shard.CreateAndSaveFlowContext(wFname, flowId, actions, dataMap)
-}
-
 func (s *clusterStorage) GetFlowContext(wfName string, flowId string) (*model.FlowContext, error) {
 	shard := s.shards.GetShard(s.ring.GetPartition(flowId))
 	return shard.GetFlowContext(wfName, flowId)
@@ -60,10 +51,6 @@ func (s *clusterStorage) DeleteFlowContext(wfName string, flowId string) error {
 	return shard.DeleteFlowContext(wfName, flowId)
 }
 
-func (s *clusterStorage) DispatchAction(flowId string, actions []*api.Action) error {
-	shard := s.shards.GetShard(s.ring.GetPartition(flowId))
-	return shard.DispatchAction(actions)
-}
 func (s *clusterStorage) SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []*api.Action) error {
 	shard := s.shards.GetShard(s.ring.GetPartition(flowId))
 	return shard.SaveFlowContextAndDispatchAction(wfName, flowId, flowCtx, actions)

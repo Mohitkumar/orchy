@@ -7,7 +7,6 @@ import (
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
-	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
@@ -16,6 +15,7 @@ import (
 var _ Executor = new(systemActionExecutor)
 
 type timeoutExecutor struct {
+	flowService *flow.FlowService
 	diContainer *container.DIContiner
 	shard       persistence.Shard
 	wg          *sync.WaitGroup
@@ -23,8 +23,9 @@ type timeoutExecutor struct {
 	stop        chan struct{}
 }
 
-func NewTimeoutExecutor(diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *timeoutExecutor {
+func NewTimeoutExecutor(flowService *flow.FlowService, diContainer *container.DIContiner, shard persistence.Shard, wg *sync.WaitGroup) *timeoutExecutor {
 	ex := &timeoutExecutor{
+		flowService: flowService,
 		diContainer: diContainer,
 		shard:       shard,
 		stop:        make(chan struct{}),
@@ -68,24 +69,10 @@ func (ex *timeoutExecutor) handle() {
 			continue
 		}
 		if int(action.RetryCount) < actionDefinition.RetryCount {
-			logger.Debug("action timedout retrying", zap.String("action", action.ActionName), zap.Int("retry", int(action.RetryCount)))
-			var retryAfter time.Duration
-			switch actionDefinition.RetryPolicy {
-			case model.RETRY_POLICY_FIXED:
-				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds) * time.Second
-			case model.RETRY_POLICY_BACKOFF:
-				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(action.RetryCount+1)) * time.Second
-			}
-			action.RetryCount = action.RetryCount + 1
-			ex.diContainer.GetClusterStorage().Retry(action, retryAfter)
+			ex.flowService.RetryAction(action.WorkflowName, action.FlowId, int(action.ActionId), int(action.RetryCount)+1, 1*time.Second, "timeout")
 		} else {
 			logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
-			flowMachine, err := flow.GetFlowStateMachine(action.WorkflowName, action.FlowId, ex.diContainer)
-			if err != nil {
-				logger.Error("action definition not found ", zap.String("action", action.ActionName), zap.Error(err))
-				continue
-			}
-			flowMachine.MarkFailed()
+			ex.flowService.MarkFailed(action.WorkflowName, action.FlowId)
 		}
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/mohitkumar/orchy/server/container"
+	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/persistence"
 )
@@ -36,14 +37,14 @@ func NewExecutors(shards *persistence.Shards) *Executors {
 	}
 }
 
-func (ex *Executors) InitExecutors(partitions int, container *container.DIContiner, wg *sync.WaitGroup) {
+func (ex *Executors) InitExecutors(partitions int, container *container.DIContiner, flowService *flow.FlowService, wg *sync.WaitGroup) {
 	ex.partitions = partitions
 	for i := 0; i < partitions; i++ {
 		ex.userExecutors[i] = NewUserActionExecutor(container, ex.shards.GetShard(i), wg)
-		ex.systemExecutors[i] = NewSystemActionExecutor(container, ex.shards.GetShard(i), wg)
-		ex.delayExecutors[i] = NewDelayExecutor(container, ex.shards.GetShard(i), wg)
-		ex.retryExecutors[i] = NewRetryExecutor(container, ex.shards.GetShard(i), wg)
-		ex.timeoutExecutors[i] = NewTimeoutExecutor(container, ex.shards.GetShard(i), wg)
+		ex.systemExecutors[i] = NewSystemActionExecutor(flowService, ex.shards.GetShard(i), wg)
+		ex.delayExecutors[i] = NewDelayExecutor(flowService, ex.shards.GetShard(i), wg)
+		ex.retryExecutors[i] = NewRetryExecutor(flowService, ex.shards.GetShard(i), wg)
+		ex.timeoutExecutors[i] = NewTimeoutExecutor(flowService, container, ex.shards.GetShard(i), wg)
 	}
 }
 

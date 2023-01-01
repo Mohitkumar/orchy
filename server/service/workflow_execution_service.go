@@ -1,69 +1,41 @@
 package service
 
 import (
-	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"go.uber.org/zap"
 )
 
 type WorkflowExecutionService struct {
-	container *container.DIContiner
+	flowService *flow.FlowService
 }
 
-func NewWorkflowExecutionService(container *container.DIContiner) *WorkflowExecutionService {
+func NewWorkflowExecutionService(flowService *flow.FlowService) *WorkflowExecutionService {
 	return &WorkflowExecutionService{
-		container: container,
+		flowService: flowService,
 	}
 }
 
 func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) (string, error) {
-	flowMachine := flow.NewFlowStateMachine(s.container)
-	err := flowMachine.InitAndDispatchAction(name, input)
+	flowId, err := s.flowService.Init(name, input)
 	if err != nil {
 		return "", err
 	}
 	logger.Info("started workflow", zap.String("workflow", name), zap.Any("input", input))
-	return flowMachine.FlowId, nil
+	return flowId, nil
 }
 
 func (s *WorkflowExecutionService) ResumeFlow(name string, flowId string) error {
 	logger.Info("resuming workflow", zap.String("workflow", name), zap.String("id", flowId))
-	flowMachine, err := flow.GetFlowStateMachine(name, flowId, s.container)
-	if err != nil {
-		return err
-	}
-	return flowMachine.Resume()
+	return nil
 }
 
 func (s *WorkflowExecutionService) PauseFlow(name string, flowId string) error {
 	logger.Info("pausing workflow", zap.String("workflow", name), zap.String("id", flowId))
-	flowMachine, err := flow.GetFlowStateMachine(name, flowId, s.container)
-	if err != nil {
-		return err
-	}
-	return flowMachine.MarkPaused()
+	return nil
 }
 
 func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, event string) error {
-	flowMachine, err := flow.GetFlowStateMachine(name, flowId, s.container)
-	if err != nil {
-		return err
-	}
-	comp := true
-	for actionId := range flowMachine.CurrentActions {
-		completed, err := flowMachine.MoveForwardAndDispatch("default", actionId, nil)
-		if err != nil {
-			return err
-		}
-		comp = comp && completed
-	}
-
-	if comp {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
+	s.flowService.ExecuteResume(name, flowId, event)
 	return nil
 }
