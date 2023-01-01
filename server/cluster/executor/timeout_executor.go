@@ -7,7 +7,6 @@ import (
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
-	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/persistence"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
@@ -70,15 +69,7 @@ func (ex *timeoutExecutor) handle() {
 			continue
 		}
 		if int(action.RetryCount) < actionDefinition.RetryCount {
-			logger.Debug("action timedout retrying", zap.String("action", action.ActionName), zap.Int("retry", int(action.RetryCount)))
-			var retryAfter time.Duration
-			switch actionDefinition.RetryPolicy {
-			case model.RETRY_POLICY_FIXED:
-				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds) * time.Second
-			case model.RETRY_POLICY_BACKOFF:
-				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(action.RetryCount+1)) * time.Second
-			}
-			ex.flowService.RetryAction(action.WorkflowName, action.FlowId, int(action.ActionId), int(action.RetryCount)+1, retryAfter)
+			ex.flowService.RetryAction(action.WorkflowName, action.FlowId, int(action.ActionId), int(action.RetryCount)+1, 1*time.Second, "timeout")
 		} else {
 			logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
 			ex.flowService.MarkFailed(action.WorkflowName, action.FlowId)

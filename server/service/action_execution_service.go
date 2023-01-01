@@ -55,7 +55,7 @@ func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResu
 			logger.Error("action definition not found ", zap.String("action", actionResult.ActionName), zap.Error(err))
 			return err
 		}
-		if actionResult.RetryCount <= int32(actionDefinition.RetryCount) {
+		if actionResult.RetryCount < int32(actionDefinition.RetryCount) {
 			var retryAfter time.Duration
 			switch actionDefinition.RetryPolicy {
 			case model.RETRY_POLICY_FIXED:
@@ -63,8 +63,7 @@ func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResu
 			case model.RETRY_POLICY_BACKOFF:
 				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(actionResult.RetryCount+1)) * time.Second
 			}
-			s.flowService.RetryAction(wfName, wfId, int(actionResult.ActionId), int(actionResult.RetryCount)+1, retryAfter)
-
+			s.flowService.RetryAction(wfName, wfId, int(actionResult.ActionId), int(actionResult.RetryCount)+1, retryAfter, "failed")
 		} else {
 			logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
 			s.flowService.MarkFailed(wfName, wfId)

@@ -235,22 +235,12 @@ func (f *FlowService) ExecuteSystemAction(wfName string, flowId string, tryCount
 	}
 }
 
-func (f *FlowService) RetryAction(wfName string, flowId string, actionId int, tryCount int, retryAfter time.Duration) {
-	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
+func (f *FlowService) RetryAction(wfName string, flowId string, actionId int, tryCount int, retryAfter time.Duration, reason string) {
+	flow, flowCtx, err := f.validateAndGetFlow(wfName, flowId, actionId)
 	if err != nil {
-		logger.Error("Workflow Definition not found", zap.String("Workflow", wfName), zap.Error(err))
 		return
 	}
-	flow := Convert(wf, flowId, f.container)
-	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
-	if err != nil {
-		logger.Debug("flow already completed, can not create flow machine", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
-		return
-	}
-	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
-		logger.Debug("flow already completed, can not create flow machine", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
-		return
-	}
+	logger.Info("retrying action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.String("reason", reason), zap.Int("action", actionId), zap.Int("retry", tryCount))
 	currentAction := flow.Actions[actionId]
 	act := &api.Action{
 		WorkflowName: wfName,
@@ -327,22 +317,10 @@ func (f *FlowService) ExecuteResume(wfName string, flowId string, event string) 
 }
 
 func (f *FlowService) retry(wfName string, flowId string, actionId int, tryCount int) {
-	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
+	flow, flowCtx, err := f.validateAndGetFlow(wfName, flowId, actionId)
 	if err != nil {
-		logger.Error("Workflow Definition not found", zap.String("Workflow", wfName), zap.Error(err))
 		return
 	}
-	flow := Convert(wf, flowId, f.container)
-	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
-	if err != nil {
-		logger.Debug("flow already completed, can not create flow machine", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
-		return
-	}
-	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
-		logger.Debug("flow already completed, can not create flow machine", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
-		return
-	}
-
 	flowCtx.CurrentActionIds[actionId] = tryCount
 	err = f.saveContextAndDispatchAction(wfName, flowId, []int{actionId}, tryCount, flow, flowCtx)
 	if err != nil {
