@@ -74,8 +74,28 @@ func Validate(wf *model.Workflow, container *container.DIContiner) error {
 	if err != nil {
 		return err
 	}
+	allActions := make(map[int]bool)
+	for _, actionDef := range wf.Actions {
+		allActions[actionDef.Id] = true
+	}
 	validActionId := make(map[int]any)
 	for _, actionDef := range wf.Actions {
+		nextMap := actionDef.Next
+		if nextMap != nil {
+			if len(nextMap) == 0 {
+				return fmt.Errorf("invalid next action for action %d", actionDef.Id)
+			}
+			for _, v := range nextMap {
+				if v == nil {
+					return fmt.Errorf("invalid next action for action %d, should be array", actionDef.Id)
+				}
+				for _, act := range v {
+					if _, ok := allActions[act]; !ok {
+						return fmt.Errorf("invalid next action for action %d, action %d not defined", actionDef.Id, act)
+					}
+				}
+			}
+		}
 		if _, ok := validActionId[actionDef.Id]; ok {
 			return fmt.Errorf("action id %d is duplicate", actionDef.Id)
 		}

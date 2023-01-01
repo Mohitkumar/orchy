@@ -38,3 +38,33 @@ func (s *Server) HandleEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	respondOKWithoutBody(w)
 }
+
+func (s *Server) HandlePauseFlow(w http.ResponseWriter, r *http.Request) {
+	var req model.WorkflowRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	defer r.Body.Close()
+	err := s.executorService.PauseFlow(req.Name, req.FlowId)
+	if err != nil {
+		logger.Error("error pausing workflow", zap.String("name", req.Name), zap.String("id", req.FlowId), zap.Error(err))
+		respondWithError(w, http.StatusBadRequest, "error consuming event workflow")
+		return
+	}
+	respondOKWithoutBody(w)
+}
+
+func (s *Server) HandleResumeFlow(w http.ResponseWriter, r *http.Request) {
+	var req model.WorkflowRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	defer r.Body.Close()
+	err := s.executorService.ResumeFlow(req.Name, req.FlowId)
+	if err != nil {
+		logger.Error("error resuming workflow", zap.String("name", req.Name), zap.String("id", req.FlowId), zap.Error(err))
+		respondWithError(w, http.StatusBadRequest, "error consuming event workflow")
+		return
+	}
+	respondOKWithoutBody(w)
+}

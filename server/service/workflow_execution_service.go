@@ -27,11 +27,13 @@ func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) 
 
 func (s *WorkflowExecutionService) ResumeFlow(name string, flowId string) error {
 	logger.Info("resuming workflow", zap.String("workflow", name), zap.String("id", flowId))
+	s.flowService.ExecuteResume(name, flowId, "default")
 	return nil
 }
 
 func (s *WorkflowExecutionService) PauseFlow(name string, flowId string) error {
 	logger.Info("pausing workflow", zap.String("workflow", name), zap.String("id", flowId))
+	s.flowService.MarkPaused(name, flowId)
 	return nil
 }
 

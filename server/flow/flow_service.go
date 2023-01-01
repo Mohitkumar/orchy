@@ -141,14 +141,22 @@ func (f *FlowService) validateAndGetFlow(wfName string, flowId string, actionId 
 		return nil, nil, err
 	}
 	flow := Convert(wf, flowId, f.container)
+	isSystemAction := false
+	if flow.Actions[actionId].GetType() == action.ACTION_TYPE_SYSTEM {
+		isSystemAction = true
+	}
 	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
-		logger.Debug("flow already completed, can not create flow machine", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
+		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return nil, nil, fmt.Errorf("flow already completed")
 	}
 	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
-		logger.Debug("flow already completed, can not create flow machine", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
+		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return nil, nil, fmt.Errorf("flow already completed")
+	}
+	if !isSystemAction && flowCtx.State == model.PAUSED {
+		logger.Info("flow is paused, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow paused")))
+		return nil, nil, fmt.Errorf("flow paused")
 	}
 	if _, ok := flowCtx.ExecutedActions[actionId]; ok {
 		logger.Error("Action already executed", zap.String("Workflow", wfName), zap.String("Id", flowId), zap.Int("action", actionId))
@@ -216,7 +224,7 @@ func (f *FlowService) ExecuteSystemAction(wfName string, flowId string, tryCount
 	currentAction := flow.Actions[actionId]
 	event, dataMap, err := currentAction.Execute(wfName, flowCtx, tryCount)
 	if err != nil {
-		logger.Error("error executing workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
+		logger.Error("error executing workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId), zap.Error(err))
 	}
 
 	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
@@ -277,23 +285,6 @@ func (f *FlowService) DelayAction(wfName string, flowId string, actionId int, tr
 	}
 }
 
-func (f *FlowService) IsValid(wfName string, flowId string, actionId int) bool {
-	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
-	if err != nil {
-		logger.Debug("flow already completed, can not create flow machine", zap.Error(fmt.Errorf("workflow complted")))
-		return false
-	}
-	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
-		logger.Debug("flow already completed, can not create flow machine", zap.Error(fmt.Errorf("workflow complted")))
-		return false
-	}
-	if _, ok := flowCtx.ExecutedActions[actionId]; ok {
-		logger.Error("Action already executed", zap.String("Workflow", wfName), zap.String("Id", flowId), zap.Int("action", actionId))
-		return false
-	}
-	return true
-}
-
 func (f *FlowService) ExecuteRetry(wfName string, flowId string, actionId int, tryCount int) {
 	req := model.FlowExecutionRequest{
 		WorkflowName: wfName,
@@ -329,29 +320,25 @@ func (f *FlowService) retry(wfName string, flowId string, actionId int, tryCount
 }
 
 func (f *FlowService) resume(wfName string, flowId string, tryCount int) {
-	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
-	if err != nil {
-		logger.Error("Workflow Definition not found", zap.String("Workflow", wfName), zap.Error(err))
-		return
-	}
-	flow := Convert(wf, flowId, f.container)
 	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
-		logger.Debug("flow already completed, can not create flow machine", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
+		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return
 	}
 	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
-		logger.Debug("flow already completed, can not create flow machine", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
+		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return
 	}
-	actionIds := make([]int, 0, len(flowCtx.CurrentActionIds))
 	for k := range flowCtx.CurrentActionIds {
-		actionIds = append(actionIds, k)
-	}
-
-	err = f.saveContextAndDispatchAction(wfName, flowId, actionIds, tryCount, flow, flowCtx)
-	if err != nil {
-		logger.Error("error dispatching action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Any("actions", actionIds))
+		req := model.FlowExecutionRequest{
+			WorkflowName: wfName,
+			FlowId:       flowId,
+			Event:        "default",
+			ActionId:     k,
+			TryCount:     tryCount,
+			RequestType:  model.NEW_FLOW_EXECUTION,
+		}
+		f.execute(req)
 	}
 }
 
@@ -363,11 +350,19 @@ func (f *FlowService) MarkFailed(wfName string, flowId string) {
 	}
 }
 
+func (f *FlowService) MarkPaused(wfName string, flowId string) {
+	f.stateChangeChannel <- model.FlowStateChangeRequest{
+		WorkflowName: wfName,
+		FlowId:       flowId,
+		State:        model.PAUSED,
+	}
+}
+
 func (f *FlowService) MarkWaitingDelay(wfName string, flowId string) {
 	f.stateChangeChannel <- model.FlowStateChangeRequest{
 		WorkflowName: wfName,
 		FlowId:       flowId,
-		State:        model.FAILED,
+		State:        model.WAITING_DELAY,
 	}
 	logger.Info("workflow waiting delay", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 }
@@ -376,7 +371,7 @@ func (f *FlowService) MarkWaitingEvent(wfName string, flowId string) {
 	f.stateChangeChannel <- model.FlowStateChangeRequest{
 		WorkflowName: wfName,
 		FlowId:       flowId,
-		State:        model.FAILED,
+		State:        model.WAITING_EVENT,
 	}
 	logger.Info("workflow waiting for event", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 }
@@ -385,7 +380,7 @@ func (f *FlowService) MarkRunning(wfName string, flowId string) {
 	f.stateChangeChannel <- model.FlowStateChangeRequest{
 		WorkflowName: wfName,
 		FlowId:       flowId,
-		State:        model.FAILED,
+		State:        model.RUNNING,
 	}
 	logger.Info("workflow running", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 }
@@ -393,7 +388,7 @@ func (f *FlowService) MarkRunning(wfName string, flowId string) {
 func (f *FlowService) changeState(wfName string, flowId string, state model.FlowState) {
 	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
-		logger.Debug("flow already completed, can not create flow machine", zap.Error(fmt.Errorf("workflow complted")))
+		logger.Debug("flow already completed", zap.Error(fmt.Errorf("workflow complted")))
 		return
 	}
 	flowCtx.State = state

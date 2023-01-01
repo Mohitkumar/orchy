@@ -37,6 +37,8 @@ func NewServer(httpPort int, container *container.DIContiner, executorService *s
 	router.HandleFunc("/workflow/{name}", s.HandleGetFlow).Methods(http.MethodGet)
 	router.HandleFunc("/flow/execute", s.HandleRunFlow).Methods(http.MethodPost)
 	router.HandleFunc("/flow/event", s.HandleEvent).Methods(http.MethodPost)
+	router.HandleFunc("/flow/pause", s.HandlePauseFlow).Methods(http.MethodPost)
+	router.HandleFunc("/flow/resume", s.HandleResumeFlow).Methods(http.MethodPost)
 	router.Use(loggingMiddleware)
 	s.Handler = router
 	return s, nil

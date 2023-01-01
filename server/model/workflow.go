@@ -30,3 +30,8 @@ type WorkflowEvent struct {
 	FlowId string `json:"flowId"`
 	Event  string `json:"event"`
 }
+
+type WorkflowRequest struct {
+	Name   string `json:"name"`
+	FlowId string `json:"flowId"`
+}
