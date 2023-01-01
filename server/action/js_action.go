@@ -18,11 +18,11 @@ type jsAction struct {
 	jsvM       *v8.Isolate
 }
 
-func NewJsAction(expression string, bAction baseAction) *jsAction {
+func NewJsAction(expression string, bAction baseAction, jsVm *v8.Isolate) *jsAction {
 	return &jsAction{
 		baseAction: bAction,
 		expression: expression,
-		jsvM:       v8.NewIsolate(),
+		jsvM:       jsVm,
 	}
 }
 

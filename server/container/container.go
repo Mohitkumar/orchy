@@ -7,6 +7,7 @@ import (
 	"github.com/mohitkumar/orchy/server/persistence"
 	rd "github.com/mohitkumar/orchy/server/persistence/redis"
 	"github.com/mohitkumar/orchy/server/util"
+	v8 "rogchap.com/v8go"
 )
 
 type DIContiner struct {
@@ -18,8 +19,8 @@ type DIContiner struct {
 	FlowContextEncDec util.EncoderDecoder[model.FlowContext]
 	ActionEncDec      util.EncoderDecoder[model.ActionDefinition]
 	ring              *cluster.Ring
-	memebership       *cluster.Membership
 	shards            *persistence.Shards
+	jsvM              *v8.Isolate
 }
 
 func (p *DIContiner) setInitialized() {
@@ -64,6 +65,7 @@ func (d *DIContiner) Init(conf config.Config) {
 		d.externalQueue = rd.NewRedisQueue(rdConf)
 	}
 	d.stateHandler = cluster.NewStateHandlerContainer(d.clusterStorage)
+	d.jsvM = v8.NewIsolate()
 	d.stateHandler.Init()
 }
 
@@ -100,4 +102,11 @@ func (d *DIContiner) GetStateHandler() *cluster.StateHandlerContainer {
 		panic("persistence not initalized")
 	}
 	return d.stateHandler
+}
+
+func (d *DIContiner) GetJavaScriptVM() *v8.Isolate {
+	if !d.initialized {
+		panic("persistence not initalized")
+	}
+	return d.jsvM
 }
