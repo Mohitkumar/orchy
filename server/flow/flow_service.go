@@ -141,10 +141,6 @@ func (f *FlowService) validateAndGetFlow(wfName string, flowId string, actionId 
 		return nil, nil, err
 	}
 	flow := Convert(wf, flowId, f.container)
-	isSystemAction := false
-	if flow.Actions[actionId].GetType() == action.ACTION_TYPE_SYSTEM {
-		isSystemAction = true
-	}
 	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
 		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
@@ -153,10 +149,6 @@ func (f *FlowService) validateAndGetFlow(wfName string, flowId string, actionId 
 	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
 		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return nil, nil, fmt.Errorf("flow already completed")
-	}
-	if !isSystemAction && flowCtx.State == model.PAUSED {
-		logger.Info("flow is paused, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow paused")))
-		return nil, nil, fmt.Errorf("flow paused")
 	}
 	if _, ok := flowCtx.ExecutedActions[actionId]; ok {
 		logger.Error("Action already executed", zap.String("Workflow", wfName), zap.String("Id", flowId), zap.Int("action", actionId))
