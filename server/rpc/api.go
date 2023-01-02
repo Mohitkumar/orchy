@@ -4,8 +4,10 @@ import (
 	"context"
 
 	api "github.com/mohitkumar/orchy/api/v1"
+	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/persistence"
+	"go.uber.org/zap"
 )
 
 var _ api.ActionServiceServer = (*grpcServer)(nil)
@@ -55,4 +57,20 @@ func (s *grpcServer) GetServers(ctx context.Context, req *api.GetServersRequest)
 		return nil, err
 	}
 	return &api.GetServersResponse{Servers: servers}, nil
+}
+
+func (s *grpcServer) PollStream(req *api.ActionPollRequest, stream api.ActionService_PollStreamServer) error {
+	ch, _ := s.ActionService.PollStream(req.ActionType)
+	errorCh := make(chan error)
+	go func() {
+		for {
+			act := <-ch
+			if err := stream.Send(act); err != nil {
+				logger.Error("error sending stream", zap.Error(err))
+				errorCh <- err
+			}
+		}
+	}()
+	err := <-errorCh
+	return err
 }

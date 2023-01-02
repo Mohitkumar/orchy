@@ -24,7 +24,9 @@ const _ = grpc.SupportPackageIsVersion7
 type ActionServiceClient interface {
 	SaveActionDefinition(ctx context.Context, in *ActionDefinition, opts ...grpc.CallOption) (*ActionDefinitionSaveResponse, error)
 	Poll(ctx context.Context, in *ActionPollRequest, opts ...grpc.CallOption) (*Actions, error)
+	PollStream(ctx context.Context, in *ActionPollRequest, opts ...grpc.CallOption) (ActionService_PollStreamClient, error)
 	Push(ctx context.Context, in *ActionResult, opts ...grpc.CallOption) (*ActionResultPushResponse, error)
+	PushStream(ctx context.Context, opts ...grpc.CallOption) (ActionService_PushStreamClient, error)
 	GetServers(ctx context.Context, in *GetServersRequest, opts ...grpc.CallOption) (*GetServersResponse, error)
 }
 
@@ -54,6 +56,38 @@ func (c *actionServiceClient) Poll(ctx context.Context, in *ActionPollRequest, o
 	return out, nil
 }
 
+func (c *actionServiceClient) PollStream(ctx context.Context, in *ActionPollRequest, opts ...grpc.CallOption) (ActionService_PollStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ActionService_ServiceDesc.Streams[0], "/ActionService/PollStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &actionServicePollStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ActionService_PollStreamClient interface {
+	Recv() (*Action, error)
+	grpc.ClientStream
+}
+
+type actionServicePollStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *actionServicePollStreamClient) Recv() (*Action, error) {
+	m := new(Action)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *actionServiceClient) Push(ctx context.Context, in *ActionResult, opts ...grpc.CallOption) (*ActionResultPushResponse, error) {
 	out := new(ActionResultPushResponse)
 	err := c.cc.Invoke(ctx, "/ActionService/Push", in, out, opts...)
@@ -61,6 +95,40 @@ func (c *actionServiceClient) Push(ctx context.Context, in *ActionResult, opts .
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *actionServiceClient) PushStream(ctx context.Context, opts ...grpc.CallOption) (ActionService_PushStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ActionService_ServiceDesc.Streams[1], "/ActionService/PushStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &actionServicePushStreamClient{stream}
+	return x, nil
+}
+
+type ActionService_PushStreamClient interface {
+	Send(*ActionResult) error
+	CloseAndRecv() (*ActionResultPushResponse, error)
+	grpc.ClientStream
+}
+
+type actionServicePushStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *actionServicePushStreamClient) Send(m *ActionResult) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *actionServicePushStreamClient) CloseAndRecv() (*ActionResultPushResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(ActionResultPushResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *actionServiceClient) GetServers(ctx context.Context, in *GetServersRequest, opts ...grpc.CallOption) (*GetServersResponse, error) {
@@ -78,7 +146,9 @@ func (c *actionServiceClient) GetServers(ctx context.Context, in *GetServersRequ
 type ActionServiceServer interface {
 	SaveActionDefinition(context.Context, *ActionDefinition) (*ActionDefinitionSaveResponse, error)
 	Poll(context.Context, *ActionPollRequest) (*Actions, error)
+	PollStream(*ActionPollRequest, ActionService_PollStreamServer) error
 	Push(context.Context, *ActionResult) (*ActionResultPushResponse, error)
+	PushStream(ActionService_PushStreamServer) error
 	GetServers(context.Context, *GetServersRequest) (*GetServersResponse, error)
 	mustEmbedUnimplementedActionServiceServer()
 }
@@ -93,8 +163,14 @@ func (UnimplementedActionServiceServer) SaveActionDefinition(context.Context, *A
 func (UnimplementedActionServiceServer) Poll(context.Context, *ActionPollRequest) (*Actions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Poll not implemented")
 }
+func (UnimplementedActionServiceServer) PollStream(*ActionPollRequest, ActionService_PollStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method PollStream not implemented")
+}
 func (UnimplementedActionServiceServer) Push(context.Context, *ActionResult) (*ActionResultPushResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Push not implemented")
+}
+func (UnimplementedActionServiceServer) PushStream(ActionService_PushStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method PushStream not implemented")
 }
 func (UnimplementedActionServiceServer) GetServers(context.Context, *GetServersRequest) (*GetServersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetServers not implemented")
@@ -148,6 +224,27 @@ func _ActionService_Poll_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ActionService_PollStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ActionPollRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ActionServiceServer).PollStream(m, &actionServicePollStreamServer{stream})
+}
+
+type ActionService_PollStreamServer interface {
+	Send(*Action) error
+	grpc.ServerStream
+}
+
+type actionServicePollStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *actionServicePollStreamServer) Send(m *Action) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _ActionService_Push_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ActionResult)
 	if err := dec(in); err != nil {
@@ -164,6 +261,32 @@ func _ActionService_Push_Handler(srv interface{}, ctx context.Context, dec func(
 		return srv.(ActionServiceServer).Push(ctx, req.(*ActionResult))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _ActionService_PushStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ActionServiceServer).PushStream(&actionServicePushStreamServer{stream})
+}
+
+type ActionService_PushStreamServer interface {
+	SendAndClose(*ActionResultPushResponse) error
+	Recv() (*ActionResult, error)
+	grpc.ServerStream
+}
+
+type actionServicePushStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *actionServicePushStreamServer) SendAndClose(m *ActionResultPushResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *actionServicePushStreamServer) Recv() (*ActionResult, error) {
+	m := new(ActionResult)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func _ActionService_GetServers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -208,6 +331,17 @@ var ActionService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ActionService_GetServers_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "PollStream",
+			Handler:       _ActionService_PollStream_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "PushStream",
+			Handler:       _ActionService_PushStream_Handler,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "api/v1/flow.proto",
 }

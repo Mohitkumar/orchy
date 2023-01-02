@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/go-redis/redis/v9"
 	api "github.com/mohitkumar/orchy/api/v1"
@@ -55,4 +56,26 @@ func (rq *redisQueue) Poll(actionName string, batchSize int) (*api.Actions, erro
 		out = append(out, action)
 	}
 	return &api.Actions{Actions: out}, nil
+}
+
+func (rq *redisQueue) PollStream(actionName string, ch chan<- *api.Action) {
+	queueName := rq.getNamespaceKey(actionName)
+	ctx := context.Background()
+	go func() {
+		for {
+			values, err := rq.redisClient.Do(ctx, "blpop", queueName, 0).Result()
+			if err != nil {
+				//logger.Error("error while pop from redis list", zap.String("queue", queueName), zap.Error(err))
+				continue
+			}
+			for _, value := range values.([]interface{}) {
+				action := &api.Action{}
+				err := proto.Unmarshal([]byte(fmt.Sprintf("%v", value)), action)
+				if err != nil {
+					continue
+				}
+				ch <- action
+			}
+		}
+	}()
 }

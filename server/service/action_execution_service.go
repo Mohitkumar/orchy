@@ -37,6 +37,23 @@ func (ts *ActionExecutionService) Poll(actionName string, batchSize int) (*api.A
 	return actions, nil
 }
 
+func (ts *ActionExecutionService) PollStream(actionName string) (<-chan *api.Action, error) {
+	ch := make(chan *api.Action, 100)
+	outCh := make(chan *api.Action, 100)
+	ts.container.GetExternalQueue().PollStream(actionName, ch)
+	go func() {
+		for {
+			act := <-ch
+			actionDef, _ := ts.container.GetMetadataStorage().GetActionDefinition(act.ActionName)
+			if actionDef.RetryCount > 1 {
+				ts.container.GetClusterStorage().Timeout(act, time.Duration(actionDef.TimeoutSeconds)*time.Second)
+			}
+			outCh <- act
+		}
+	}()
+	return outCh, nil
+}
+
 func (ts *ActionExecutionService) Push(res *api.ActionResult) error {
 	return ts.HandleActionResult(res)
 }

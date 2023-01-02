@@ -20,6 +20,7 @@ import (
 type ActionService interface {
 	Poll(action string, batchSize int) (*api.Actions, error)
 	Push(*api.ActionResult) error
+	PollStream(actionName string) (<-chan *api.Action, error)
 }
 
 type ActionDefinitionService interface {

@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -112,13 +113,49 @@ func (pw *pollerWorker) workerLoop(ticker *time.Ticker) {
 }
 func (pw *pollerWorker) Start() {
 	logger.Info("starting workers", zap.String("worker", pw.workerName))
-	pw.wg.Add(1)
-	ticker := time.NewTicker(pw.worker.GetPollInterval())
-	go pw.workerLoop(ticker)
+	//pw.wg.Add(1)
+	//ticker := time.NewTicker(pw.worker.GetPollInterval())
+	go pw.workerLoopSteram()
 	logger.Info("started worker", zap.String("name", pw.workerName))
 }
 
 func (pw *pollerWorker) Stop() {
 	pw.stop <- struct{}{}
 	pw.client.Close()
+}
+
+func (pw *pollerWorker) workerLoopSteram() error {
+	ctx := context.WithValue(context.Background(), "worker", pw.worker.GetName())
+	req := &api_v1.ActionPollRequest{
+		ActionType: pw.worker.GetName(),
+		BatchSize:  int32(pw.worker.BatchSize()),
+	}
+	stream, err := pw.client.GetApiClient().PollStream(ctx, req)
+	if err != nil {
+		return err
+	}
+	done := make(chan bool)
+
+	go func() {
+		for {
+			action, err := stream.Recv()
+			if err == io.EOF {
+				done <- true
+				return
+			}
+			if err != nil {
+				logger.Error("cannot receive", zap.Error(err))
+				done <- true
+				return
+			}
+			result := pw.execute(action)
+			err = pw.sendResponse(ctx, result)
+			if err != nil {
+				logger.Error("error sending action execution response to server", zap.String("actionType", pw.worker.GetName()))
+			}
+		}
+	}()
+	<-done
+	fmt.Println("completed", pw.worker.GetName())
+	return nil
 }

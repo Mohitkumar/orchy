@@ -11,6 +11,7 @@ import (
 type ExternalQueue interface {
 	Push(action *api.Action) error
 	Poll(actionName string, batchSize int) (*api.Actions, error)
+	PollStream(actionName string, ch chan<- *api.Action)
 }
 
 type Storage interface {

@@ -69,6 +69,8 @@ message GetServersResponse {
 service ActionService{
     rpc SaveActionDefinition(ActionDefinition) returns (ActionDefinitionSaveResponse){}
     rpc Poll(ActionPollRequest) returns (Actions){}
+    rpc PollStream(ActionPollRequest) returns (stream Action){}
     rpc Push(ActionResult) returns (ActionResultPushResponse) {}
+    rpc PushStream(stream ActionResult) returns (ActionResultPushResponse) {}
     rpc GetServers(GetServersRequest) returns (GetServersResponse) {}
 }
