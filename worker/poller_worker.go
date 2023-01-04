@@ -116,7 +116,6 @@ func (pw *pollerWorker) Start() {
 	//pw.wg.Add(1)
 	//ticker := time.NewTicker(pw.worker.GetPollInterval())
 	go pw.workerLoopSteram()
-	logger.Info("started worker", zap.String("name", pw.workerName))
 }
 
 func (pw *pollerWorker) Stop() {
@@ -134,19 +133,17 @@ func (pw *pollerWorker) workerLoopSteram() error {
 	if err != nil {
 		return err
 	}
-	done := make(chan bool)
-
+	completed := make(chan bool)
 	go func() {
 		for {
+			fmt.Println("running")
 			action, err := stream.Recv()
 			if err == io.EOF {
-				done <- true
-				return
+				completed <- true
 			}
 			if err != nil {
 				logger.Error("cannot receive", zap.Error(err))
-				done <- true
-				return
+				completed <- true
 			}
 			result := pw.execute(action)
 			err = pw.sendResponse(ctx, result)
@@ -155,7 +152,26 @@ func (pw *pollerWorker) workerLoopSteram() error {
 			}
 		}
 	}()
-	<-done
-	fmt.Println("completed", pw.worker.GetName())
+	<-completed
 	return nil
+}
+
+func (pw *pollerWorker) consumeStream(ctx context.Context, stream api_v1.ActionService_PollStreamClient, completed chan<- bool) {
+	for {
+		action, err := stream.Recv()
+		if err == io.EOF {
+			completed <- true
+			return
+		}
+		if err != nil {
+			logger.Error("cannot receive", zap.Error(err))
+			completed <- true
+			return
+		}
+		result := pw.execute(action)
+		err = pw.sendResponse(ctx, result)
+		if err != nil {
+			logger.Error("error sending action execution response to server", zap.String("actionType", pw.worker.GetName()))
+		}
+	}
 }

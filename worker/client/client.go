@@ -34,8 +34,9 @@ func (c *RpcClient) Close() error {
 }
 
 func (c *RpcClient) Refresh() error {
+	fmt.Println("refresh")
 	oldConn := c.conn
-	conn, err := grpc.Dial(fmt.Sprintf("orchy:///%s", c.serverUrl), grpc.WithInsecure())
+	conn, err := grpc.Dial(fmt.Sprintf("orchy:///%s", c.serverUrl), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		logger.Error("grpc server unavailable", zap.String("server", c.serverUrl))
 		return err
@@ -43,6 +44,7 @@ func (c *RpcClient) Refresh() error {
 	c.conn = conn
 	c.actionServiceClient = api.NewActionServiceClient(conn)
 	oldConn.Close()
+	fmt.Println("refresh success")
 	return nil
 }
 

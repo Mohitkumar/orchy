@@ -38,8 +38,8 @@ func (ts *ActionExecutionService) Poll(actionName string, batchSize int) (*api.A
 }
 
 func (ts *ActionExecutionService) PollStream(actionName string) (<-chan *api.Action, error) {
-	ch := make(chan *api.Action, 100)
-	outCh := make(chan *api.Action, 100)
+	ch := make(chan *api.Action)
+	outCh := make(chan *api.Action)
 	ts.container.GetExternalQueue().PollStream(actionName, ch)
 	go func() {
 		for {
