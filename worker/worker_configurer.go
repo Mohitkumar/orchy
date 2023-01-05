@@ -2,10 +2,7 @@ package worker
 
 import (
 	"context"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	api "github.com/mohitkumar/orchy/api/v1"
@@ -16,10 +13,10 @@ type WorkerConfigurer struct {
 	config       WorkerConfiguration
 	actionPoller *actionPoller
 	client       *client.RpcClient
-	wg           sync.WaitGroup
+	wg           *sync.WaitGroup
 }
 
-func NewWorkerConfigurer(conf WorkerConfiguration) *WorkerConfigurer {
+func NewWorkerConfigurer(conf WorkerConfiguration, wg *sync.WaitGroup) *WorkerConfigurer {
 	client, err := client.NewRpcClient(conf.ServerUrl)
 	if err != nil {
 		panic(err)
@@ -30,6 +27,7 @@ func NewWorkerConfigurer(conf WorkerConfiguration) *WorkerConfigurer {
 		config:       conf,
 		actionPoller: actionPoller,
 		client:       client,
+		wg:           wg,
 	}
 	return wc
 }
@@ -52,11 +50,7 @@ func (wc *WorkerConfigurer) RegisterWorker(w *WorkerWrapper, name string, pollIn
 }
 
 func (wc *WorkerConfigurer) Start() {
-	wc.actionPoller.start(&wc.wg)
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	<-sigc
-	wc.Stop()
+	wc.actionPoller.start(wc.wg)
 }
 
 func (wc *WorkerConfigurer) Stop() {

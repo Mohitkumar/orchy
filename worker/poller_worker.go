@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	backoff "github.com/cenkalti/backoff/v4"
 	api_v1 "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/worker/client"
 	"github.com/mohitkumar/orchy/worker/logger"
@@ -17,13 +16,11 @@ import (
 )
 
 type pollerWorker struct {
-	worker                   *worker
-	workerName               string
-	client                   *client.RpcClient
-	stop                     chan struct{}
-	maxRetryBeforeResultPush int
-	retryIntervalSecond      int
-	wg                       *sync.WaitGroup
+	worker     *worker
+	workerName string
+	client     *client.RpcClient
+	stop       chan struct{}
+	wg         *sync.WaitGroup
 }
 
 func (pw *pollerWorker) execute(action *api_v1.Action) *api_v1.ActionResult {
@@ -53,20 +50,13 @@ func (pw *pollerWorker) execute(action *api_v1.Action) *api_v1.ActionResult {
 }
 
 func (pw *pollerWorker) sendResponse(ctx context.Context, actionResult *api_v1.ActionResult) error {
-	b := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(pw.retryIntervalSecond)*time.Second), uint64(pw.maxRetryBeforeResultPush))
-	err := backoff.Retry(func() error {
-		res, err := pw.client.GetApiClient().Push(ctx, actionResult)
-		if err != nil {
-			return err
-		}
-		logger.Debug("send result to server", zap.Bool("status", res.Status))
-		if !res.Status {
-			return fmt.Errorf("push action execution result failed")
-		}
-		return nil
-	}, b)
+	res, err := pw.client.GetApiClient().Push(ctx, actionResult)
 	if err != nil {
 		return err
+	}
+	logger.Debug("send result to server", zap.Bool("status", res.Status))
+	if !res.Status {
+		return fmt.Errorf("push action execution result failed")
 	}
 	return nil
 }
@@ -119,6 +109,6 @@ func (pw *pollerWorker) Start() {
 }
 
 func (pw *pollerWorker) Stop() {
-	pw.stop <- struct{}{}
+	close(pw.stop)
 	pw.client.Close()
 }

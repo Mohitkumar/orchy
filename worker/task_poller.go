@@ -35,13 +35,11 @@ func (tp *actionPoller) start(wg *sync.WaitGroup) {
 				panic(err)
 			}
 			pw := &pollerWorker{
-				worker:                   w.worker,
-				stop:                     make(chan struct{}),
-				client:                   client,
-				wg:                       wg,
-				maxRetryBeforeResultPush: tp.config.MaxRetryBeforeResultPush,
-				retryIntervalSecond:      tp.config.RetryIntervalSecond,
-				workerName:               w.worker.GetName() + "_" + strconv.Itoa(i),
+				worker:     w.worker,
+				stop:       make(chan struct{}),
+				client:     client,
+				wg:         wg,
+				workerName: w.worker.GetName() + "_" + strconv.Itoa(i),
 			}
 			tp.pollerWorker = append(tp.pollerWorker, pw)
 			pw.Start()
