@@ -1,8 +1,6 @@
 package executor
 
 import (
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -62,8 +60,6 @@ func (ex *delayExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions {
-		parts := strings.Split(action, ":")
-		actionId, _ := strconv.Atoi(parts[3])
-		ex.flowService.ExecuteAction(parts[0], parts[1], "default", actionId, nil)
+		ex.flowService.ExecuteAction(action.WorkflowName, action.FlowId, "default", action.ActionId, nil)
 	}
 }

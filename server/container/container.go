@@ -45,25 +45,27 @@ func (d *DIContiner) Init(conf config.Config) {
 		d.ActionEncDec = util.NewJsonEncoderDecoder[model.ActionDefinition]()
 	}
 
-	switch conf.StorageType {
-	case config.STORAGE_TYPE_REDIS:
-		rdConf := rd.Config{
-			Addrs:     conf.RedisConfig.Addrs,
-			Namespace: conf.RedisConfig.Namespace,
-		}
-		d.shards = rd.InitRedisShards(rdConf, d.FlowContextEncDec, conf.RingConfig.PartitionCount)
-		d.metadataStorage = rd.NewRedisMetadataStorage(rdConf)
-		d.clusterStorage = cluster.NewClusterStorage(d.shards, d.ring)
-	case config.STORAGE_TYPE_INMEM:
-	}
+	var externalQueue persistence.ExternalQueue
 	switch conf.QueueType {
 	case config.QUEUE_TYPE_REDIS:
 		rdConf := rd.Config{
 			Addrs:     conf.RedisConfig.Addrs,
 			Namespace: conf.RedisConfig.Namespace,
 		}
-		d.externalQueue = rd.NewRedisQueue(rdConf)
+		externalQueue = rd.NewRedisQueue(rdConf)
 	}
+	switch conf.StorageType {
+	case config.STORAGE_TYPE_REDIS:
+		rdConf := rd.Config{
+			Addrs:     conf.RedisConfig.Addrs,
+			Namespace: conf.RedisConfig.Namespace,
+		}
+		d.shards = rd.InitRedisShards(rdConf, externalQueue, d.FlowContextEncDec, conf.RingConfig.PartitionCount)
+		d.metadataStorage = rd.NewRedisMetadataStorage(rdConf)
+		d.clusterStorage = cluster.NewClusterStorage(d.shards, d.ring)
+	case config.STORAGE_TYPE_INMEM:
+	}
+
 	d.stateHandler = cluster.NewStateHandlerContainer(d.clusterStorage)
 	d.jsvM = v8.NewIsolate()
 	d.stateHandler.Init()
@@ -88,13 +90,6 @@ func (d *DIContiner) GetClusterStorage() cluster.Storage {
 		panic("persistence not initalized")
 	}
 	return d.clusterStorage
-}
-
-func (d *DIContiner) GetExternalQueue() cluster.ExternalQueue {
-	if !d.initialized {
-		panic("persistence not initalized")
-	}
-	return d.externalQueue
 }
 
 func (d *DIContiner) GetStateHandler() *cluster.StateHandlerContainer {

@@ -7,6 +7,7 @@ import (
 	"github.com/go-redis/redis/v9"
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/persistence"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -21,7 +22,8 @@ func NewRedisQueue(config Config) *redisQueue {
 		baseDao: newBaseDao(config),
 	}
 }
-func (rq *redisQueue) Push(action *api.Action) error {
+func (rq *redisQueue) Push(actions []model.ActionExecutionRequest) error {
+
 	queueName := rq.getNamespaceKey(action.ActionName)
 	msg, err := proto.Marshal(action)
 	if err != nil {
@@ -37,7 +39,7 @@ func (rq *redisQueue) Push(action *api.Action) error {
 	return nil
 }
 
-func (rq *redisQueue) Poll(actionName string, batchSize int) (*api.Actions, error) {
+func (rq *redisQueue) Poll(actionName string, batchSize int) ([]model.ActionExecutionRequest, error) {
 	queueName := rq.getNamespaceKey(actionName)
 	ctx := context.Background()
 	var out []*api.Action

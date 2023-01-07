@@ -28,6 +28,10 @@ type MetadataStorage interface {
 	GetActionDefinition(action string) (*model.ActionDefinition, error)
 }
 
+type ExternalQueue interface {
+	Push(actions []model.ActionExecutionRequest) error
+	Poll(actionName string, batchSize int) ([]model.ActionExecutionRequest, error)
+}
 type Shard interface {
 	GetShardId() string
 	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
@@ -35,13 +39,14 @@ type Shard interface {
 	DeleteFlowContext(wfName string, flowId string) error
 
 	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []model.ActionExecutionRequest) error
-	PollAction(actionType string, batchSize int) ([]string, error)
+	PollAction(actionType string, batchSize int) ([]model.ActionExecutionRequest, error)
 	Retry(wfName string, flowId string, actionId int, delay time.Duration) error
-	PollRetry() ([]string, error)
+	PollRetry() ([]model.ActionExecutionRequest, error)
 	Delay(wfName string, flowId string, actionId int, delay time.Duration) error
-	PollDelay() ([]string, error)
+	PollDelay() ([]model.ActionExecutionRequest, error)
 	Timeout(wfName string, flowId string, actionId int, delay time.Duration) error
-	PollTimeout() ([]string, error)
+	PollTimeout() ([]model.ActionExecutionRequest, error)
+	GetExternalQueue() ExternalQueue
 }
 
 type Shards struct {

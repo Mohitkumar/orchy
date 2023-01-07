@@ -27,7 +27,9 @@ const ACTION_TYPE_SYSTEM ActionType = "SYSTEM"
 const ACTION_TYPE_USER ActionType = "USER"
 
 type ActionExecutionRequest struct {
-	ActionId   int
-	ActionType ActionType
-	ActionName string
+	WorkflowName string
+	FlowId       string
+	ActionId     int
+	ActionName   string
+	ActionType   ActionType
 }
