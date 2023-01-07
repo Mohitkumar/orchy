@@ -3,8 +3,10 @@ package redis
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/go-redis/redis/v9"
+	rd "github.com/go-redis/redis/v9"
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
@@ -23,17 +25,18 @@ func NewRedisQueue(config Config) *redisQueue {
 	}
 }
 func (rq *redisQueue) Push(actions []model.ActionExecutionRequest) error {
-
-	queueName := rq.getNamespaceKey(action.ActionName)
-	msg, err := proto.Marshal(action)
-	if err != nil {
-		return err
-	}
 	ctx := context.Background()
-
-	err = rq.redisClient.LPush(ctx, queueName, msg).Err()
+	groups := rq.groupByActionName(actions)
+	_, err := rq.baseDao.redisClient.TxPipelined(ctx, func(pipe rd.Pipeliner) error {
+		var err error
+		for k, v := range groups {
+			queueName := rq.getNamespaceKey(k)
+			err = pipe.SAdd(ctx, queueName, v).Err()
+		}
+		return err
+	})
 	if err != nil {
-		logger.Error("error while push to redis list", zap.String("queue", queueName), zap.Error(err))
+		logger.Error("error while push to redis list", zap.Error(err))
 		return persistence.StorageLayerError{}
 	}
 	return nil
@@ -57,4 +60,17 @@ func (rq *redisQueue) Poll(actionName string, batchSize int) ([]model.ActionExec
 		out = append(out, action)
 	}
 	return &api.Actions{Actions: out}, nil
+}
+
+func (rq *redisQueue) groupByActionName(actions []model.ActionExecutionRequest) map[string][]string {
+	out := make(map[string][]string)
+	for _, act := range actions {
+		if _, ok := out[act.ActionName]; !ok {
+			out[act.ActionName] = []string{fmt.Sprintf("%s:%s:%s:%d", act.WorkflowName, act.FlowId, act.ActionName, act.ActionId)}
+		} else {
+			list := out[act.ActionName]
+			list = append(list, fmt.Sprintf("%s:%s:%s:%d", act.WorkflowName, act.FlowId, act.ActionName, act.ActionId))
+		}
+	}
+	return out
 }

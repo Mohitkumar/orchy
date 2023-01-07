@@ -14,7 +14,6 @@ type DIContiner struct {
 	initialized       bool
 	metadataStorage   persistence.MetadataStorage
 	clusterStorage    cluster.Storage
-	externalQueue     cluster.ExternalQueue
 	stateHandler      *cluster.StateHandlerContainer
 	FlowContextEncDec util.EncoderDecoder[model.FlowContext]
 	ActionEncDec      util.EncoderDecoder[model.ActionDefinition]

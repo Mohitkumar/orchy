@@ -3,15 +3,9 @@ package cluster
 import (
 	"time"
 
-	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/persistence"
 )
-
-type ExternalQueue interface {
-	Push(action *api.Action) error
-	Poll(actionName string, batchSize int) (*api.Actions, error)
-}
 
 type Storage interface {
 	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
