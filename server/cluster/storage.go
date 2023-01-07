@@ -17,10 +17,11 @@ type Storage interface {
 	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
 	DeleteFlowContext(wfName string, flowId string) error
-	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []*api.Action) error
-	Retry(action *api.Action, delay time.Duration) error
-	Delay(action *api.Action, delay time.Duration) error
-	Timeout(action *api.Action, delay time.Duration) error
+
+	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []model.ActionExecutionRequest) error
+	Retry(wfName string, flowId string, actionId int, delay time.Duration) error
+	Delay(wfName string, flowId string, actionId int, delay time.Duration) error
+	Timeout(wfName string, flowId string, actionId int, delay time.Duration) error
 }
 
 var _ Storage = new(clusterStorage)
@@ -51,22 +52,22 @@ func (s *clusterStorage) DeleteFlowContext(wfName string, flowId string) error {
 	return shard.DeleteFlowContext(wfName, flowId)
 }
 
-func (s *clusterStorage) SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []*api.Action) error {
+func (s *clusterStorage) SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []model.ActionExecutionRequest) error {
 	shard := s.shards.GetShard(s.ring.GetPartition(flowId))
 	return shard.SaveFlowContextAndDispatchAction(wfName, flowId, flowCtx, actions)
 }
 
-func (s *clusterStorage) Retry(action *api.Action, delay time.Duration) error {
-	shard := s.shards.GetShard(s.ring.GetPartition(action.FlowId))
-	return shard.Retry(action, delay)
+func (s *clusterStorage) Retry(wfName string, flowId string, actionId int, delay time.Duration) error {
+	shard := s.shards.GetShard(s.ring.GetPartition(flowId))
+	return shard.Retry(wfName, flowId, actionId, delay)
 }
 
-func (s *clusterStorage) Delay(action *api.Action, delay time.Duration) error {
-	shard := s.shards.GetShard(s.ring.GetPartition(action.FlowId))
-	return shard.Delay(action, delay)
+func (s *clusterStorage) Delay(wfName string, flowId string, actionId int, delay time.Duration) error {
+	shard := s.shards.GetShard(s.ring.GetPartition(flowId))
+	return shard.Delay(wfName, flowId, actionId, delay)
 }
 
-func (s *clusterStorage) Timeout(action *api.Action, delay time.Duration) error {
-	shard := s.shards.GetShard(s.ring.GetPartition(action.FlowId))
-	return shard.Timeout(action, delay)
+func (s *clusterStorage) Timeout(wfName string, flowId string, actionId int, delay time.Duration) error {
+	shard := s.shards.GetShard(s.ring.GetPartition(flowId))
+	return shard.Timeout(wfName, flowId, actionId, delay)
 }

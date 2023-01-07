@@ -12,7 +12,6 @@ type FlowExecutionRequest struct {
 	Event        string
 	ActionId     int
 	DataMap      map[string]any
-	TryCount     int
 	RequestType  FlowExecutionType
 }
 
@@ -20,4 +19,15 @@ type FlowStateChangeRequest struct {
 	WorkflowName string
 	FlowId       string
 	State        FlowState
+}
+
+type ActionType string
+
+const ACTION_TYPE_SYSTEM ActionType = "SYSTEM"
+const ACTION_TYPE_USER ActionType = "USER"
+
+type ActionExecutionRequest struct {
+	ActionId   int
+	ActionType ActionType
+	ActionName string
 }

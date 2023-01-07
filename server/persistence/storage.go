@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/model"
 )
 
@@ -34,14 +33,15 @@ type Shard interface {
 	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
 	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
 	DeleteFlowContext(wfName string, flowId string) error
-	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, action []*api.Action) error
-	PollAction(actionType string, batchSize int) (*api.Actions, error)
-	Retry(action *api.Action, delay time.Duration) error
-	PollRetry() (*api.Actions, error)
-	Delay(action *api.Action, delay time.Duration) error
-	PollDelay() (*api.Actions, error)
-	Timeout(action *api.Action, delay time.Duration) error
-	PollTimeout() (*api.Actions, error)
+
+	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []model.ActionExecutionRequest) error
+	PollAction(actionType string, batchSize int) ([]string, error)
+	Retry(wfName string, flowId string, actionId int, delay time.Duration) error
+	PollRetry() ([]string, error)
+	Delay(wfName string, flowId string, actionId int, delay time.Duration) error
+	PollDelay() ([]string, error)
+	Timeout(wfName string, flowId string, actionId int, delay time.Duration) error
+	PollTimeout() ([]string, error)
 }
 
 type Shards struct {

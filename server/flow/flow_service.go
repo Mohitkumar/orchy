@@ -6,12 +6,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/action"
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
-	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
 
@@ -33,14 +31,13 @@ func NewFlowService(container *container.DIContiner, wg *sync.WaitGroup) *FlowSe
 	}
 }
 
-func (f *FlowService) ExecuteAction(wfName string, wfId string, event string, actionId int, tryCount int, data map[string]any) {
+func (f *FlowService) ExecuteAction(wfName string, wfId string, event string, actionId int, data map[string]any) {
 	req := model.FlowExecutionRequest{
 		WorkflowName: wfName,
 		FlowId:       wfId,
 		ActionId:     actionId,
 		Event:        event,
 		DataMap:      data,
-		TryCount:     tryCount,
 		RequestType:  model.NEW_FLOW_EXECUTION,
 	}
 	f.executionChannel <- req
@@ -60,9 +57,9 @@ func (f *FlowService) Start() {
 			case req := <-f.executionChannel:
 				switch req.RequestType {
 				case model.RETRY_FLOW_EXECUTION:
-					f.retry(req.WorkflowName, req.FlowId, req.ActionId, req.TryCount)
+					f.retry(req.WorkflowName, req.FlowId, req.ActionId)
 				case model.RESUME_FLOW_EXECUTION:
-					f.resume(req.WorkflowName, req.FlowId, req.TryCount)
+					f.resume(req.WorkflowName, req.FlowId)
 				default:
 					f.execute(req)
 				}
@@ -93,7 +90,7 @@ func (f *FlowService) Init(wfName string, input map[string]any) (string, error) 
 		ExecutedActions:  map[int]bool{},
 		CurrentActionIds: map[int]int{wf.RootAction: 1},
 	}
-	f.saveContextAndDispatchAction(wfName, flowId, []int{wf.RootAction}, 1, flow, flowCtx)
+	f.saveContextAndDispatchAction(wfName, flowId, []int{wf.RootAction}, flow, flowCtx)
 	if err != nil {
 		logger.Error("error executiong flow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(err))
 		return flowId, err
@@ -118,7 +115,7 @@ func (f *FlowService) execute(req model.FlowExecutionRequest) {
 	}
 	actionIdsToDispatch := nextActionMap[req.Event]
 	for _, actionId := range actionIdsToDispatch {
-		flowCtx.CurrentActionIds[actionId] = req.TryCount
+		flowCtx.CurrentActionIds[actionId] = 1
 	}
 	data := flowCtx.Data
 	if req.DataMap != nil || len(req.DataMap) > 0 {
@@ -127,11 +124,28 @@ func (f *FlowService) execute(req model.FlowExecutionRequest) {
 		data[fmt.Sprintf("%d", req.ActionId)] = output
 	}
 	flowCtx.Data = data
-	err = f.saveContextAndDispatchAction(req.WorkflowName, req.FlowId, actionIdsToDispatch, req.TryCount, flow, flowCtx)
+	err = f.saveContextAndDispatchAction(req.WorkflowName, req.FlowId, actionIdsToDispatch, flow, flowCtx)
 	if err != nil {
 		logger.Error("error executiong flow", zap.Any("Flow", req), zap.Error(err))
 	}
 
+}
+
+func (f *FlowService) validateFlow(wfName string, flowId string, actionId int) error {
+	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
+	if err != nil {
+		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
+		return fmt.Errorf("flow already completed")
+	}
+	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
+		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
+		return fmt.Errorf("flow already completed")
+	}
+	if _, ok := flowCtx.ExecutedActions[actionId]; ok {
+		logger.Error("Action already executed", zap.String("Workflow", wfName), zap.String("Id", flowId), zap.Int("action", actionId))
+		return fmt.Errorf("action %d already executed", actionId)
+	}
+	return nil
 }
 
 func (f *FlowService) validateAndGetFlow(wfName string, flowId string, actionId int) (*Flow, *model.FlowContext, error) {
@@ -156,24 +170,20 @@ func (f *FlowService) validateAndGetFlow(wfName string, flowId string, actionId 
 	}
 	return flow, flowCtx, nil
 }
-func (f *FlowService) saveContextAndDispatchAction(wfName string, flowId string, actionIds []int, tryCount int, flow *Flow, flowCtx *model.FlowContext) error {
-	var actions []*api.Action
+func (f *FlowService) saveContextAndDispatchAction(wfName string, flowId string, actionIds []int, flow *Flow, flowCtx *model.FlowContext) error {
+	var actions []model.ActionExecutionRequest
 	for _, actionId := range actionIds {
 		currentAction := flow.Actions[actionId]
-		var actionType api.Action_Type
+		var actionType model.ActionType
 		if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
-			actionType = api.Action_SYSTEM
+			actionType = model.ACTION_TYPE_SYSTEM
 		} else {
-			actionType = api.Action_USER
+			actionType = model.ACTION_TYPE_USER
 		}
-		act := &api.Action{
-			WorkflowName: wfName,
-			FlowId:       flowId,
-			Data:         util.ConvertToProto(util.ResolveInputParams(flowCtx, currentAction.GetInputParams())),
-			ActionId:     int32(actionId),
-			ActionName:   currentAction.GetName(),
-			RetryCount:   int32(tryCount),
-			Type:         actionType,
+		act := model.ActionExecutionRequest{
+			ActionId:   actionId,
+			ActionType: actionType,
+			ActionName: currentAction.GetName(),
 		}
 		actions = append(actions, act)
 	}
@@ -228,61 +238,65 @@ func (f *FlowService) ExecuteSystemAction(wfName string, flowId string, tryCount
 		case "wait":
 			f.MarkWaitingEvent(wfName, flowId)
 		default:
-			f.ExecuteAction(wfName, flowId, event, actionId, 1, dataMap)
+			f.ExecuteAction(wfName, flowId, event, actionId, dataMap)
 		}
 	} else {
 		logger.Error("should be system action")
 	}
 }
 
-func (f *FlowService) RetryAction(wfName string, flowId string, actionId int, tryCount int, retryAfter time.Duration, reason string) {
+func (f *FlowService) RetryAction(wfName string, flowId string, actionId int, reason string) {
 	flow, flowCtx, err := f.validateAndGetFlow(wfName, flowId, actionId)
 	if err != nil {
 		return
 	}
-	logger.Info("retrying action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.String("reason", reason), zap.Int("action", actionId), zap.Int("retry", tryCount))
-	currentAction := flow.Actions[actionId]
-	act := &api.Action{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		Data:         util.ConvertToProto(util.ResolveInputParams(flowCtx, currentAction.GetInputParams())),
-		ActionId:     int32(currentAction.GetId()),
-		ActionName:   currentAction.GetName(),
-		RetryCount:   int32(tryCount),
-	}
-	err = f.container.GetClusterStorage().Retry(act, retryAfter)
+	action := flow.Actions[actionId]
+	actionDefinition, err := f.container.GetMetadataStorage().GetActionDefinition(action.GetName())
 	if err != nil {
-		logger.Error("error retrying workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
+		logger.Error("action definition not found ", zap.String("action", action.GetName()), zap.Error(err))
+		return
 	}
+	tryCount := flowCtx.CurrentActionIds[actionId]
+	logger.Info("retrying action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.String("reason", reason), zap.Int("action", actionId), zap.Int("retry", tryCount+1))
+	if tryCount < actionDefinition.RetryCount {
+		var retryAfter time.Duration
+		switch actionDefinition.RetryPolicy {
+		case model.RETRY_POLICY_FIXED:
+			retryAfter = time.Duration(actionDefinition.RetryAfterSeconds) * time.Second
+		case model.RETRY_POLICY_BACKOFF:
+			retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*(tryCount+1)) * time.Second
+		}
+		if "timeout" == reason {
+			retryAfter = 1 * time.Second
+		}
+		err = f.container.GetClusterStorage().Retry(wfName, flowId, actionId, retryAfter)
+		if err != nil {
+			logger.Error("error retrying workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
+		}
+	} else {
+		logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
+		f.MarkFailed(wfName, flowId)
+	}
+
 }
 
 func (f *FlowService) DelayAction(wfName string, flowId string, actionId int, tryCount int, delay time.Duration) {
-	flow, flowCtx, err := f.validateAndGetFlow(wfName, flowId, actionId)
+	err := f.validateFlow(wfName, flowId, actionId)
 	if err != nil {
 		return
 	}
-	currentAction := flow.Actions[actionId]
-	act := &api.Action{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		Data:         util.ConvertToProto(util.ResolveInputParams(flowCtx, currentAction.GetInputParams())),
-		ActionId:     int32(currentAction.GetId()),
-		ActionName:   currentAction.GetName(),
-		RetryCount:   int32(tryCount),
-	}
-	err = f.container.GetClusterStorage().Delay(act, delay)
+	err = f.container.GetClusterStorage().Delay(wfName, flowId, actionId, delay)
 
 	if err != nil {
 		logger.Error("error running delay action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
 	}
 }
 
-func (f *FlowService) ExecuteRetry(wfName string, flowId string, actionId int, tryCount int) {
+func (f *FlowService) ExecuteRetry(wfName string, flowId string, actionId int) {
 	req := model.FlowExecutionRequest{
 		WorkflowName: wfName,
 		FlowId:       flowId,
 		ActionId:     actionId,
-		TryCount:     tryCount,
 		RequestType:  model.RETRY_FLOW_EXECUTION,
 	}
 	f.executionChannel <- req
@@ -293,25 +307,24 @@ func (f *FlowService) ExecuteResume(wfName string, flowId string, event string) 
 		WorkflowName: wfName,
 		FlowId:       flowId,
 		Event:        event,
-		TryCount:     1,
 		RequestType:  model.RESUME_FLOW_EXECUTION,
 	}
 	f.executionChannel <- req
 }
 
-func (f *FlowService) retry(wfName string, flowId string, actionId int, tryCount int) {
+func (f *FlowService) retry(wfName string, flowId string, actionId int) {
 	flow, flowCtx, err := f.validateAndGetFlow(wfName, flowId, actionId)
 	if err != nil {
 		return
 	}
-	flowCtx.CurrentActionIds[actionId] = tryCount
-	err = f.saveContextAndDispatchAction(wfName, flowId, []int{actionId}, tryCount, flow, flowCtx)
+	flowCtx.CurrentActionIds[actionId] = flowCtx.CurrentActionIds[actionId] + 1
+	err = f.saveContextAndDispatchAction(wfName, flowId, []int{actionId}, flow, flowCtx)
 	if err != nil {
 		logger.Error("error dispatching action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
 	}
 }
 
-func (f *FlowService) resume(wfName string, flowId string, tryCount int) {
+func (f *FlowService) resume(wfName string, flowId string) {
 	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
 		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
@@ -327,7 +340,6 @@ func (f *FlowService) resume(wfName string, flowId string, tryCount int) {
 			FlowId:       flowId,
 			Event:        "default",
 			ActionId:     k,
-			TryCount:     tryCount,
 			RequestType:  model.NEW_FLOW_EXECUTION,
 		}
 		f.execute(req)

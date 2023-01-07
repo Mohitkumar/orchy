@@ -1,6 +1,8 @@
 package executor
 
 import (
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -62,17 +64,9 @@ func (ex *timeoutExecutor) handle() {
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
-	for _, action := range actions.Actions {
-		actionDefinition, err := ex.diContainer.GetMetadataStorage().GetActionDefinition(action.ActionName)
-		if err != nil {
-			logger.Error("action definition not found ", zap.String("action", action.ActionName), zap.Error(err))
-			continue
-		}
-		if int(action.RetryCount) < actionDefinition.RetryCount {
-			ex.flowService.RetryAction(action.WorkflowName, action.FlowId, int(action.ActionId), int(action.RetryCount)+1, 1*time.Second, "timeout")
-		} else {
-			logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
-			ex.flowService.MarkFailed(action.WorkflowName, action.FlowId)
-		}
+	for _, action := range actions {
+		parts := strings.Split(action, ":")
+		actionId, _ := strconv.Atoi(parts[3])
+		ex.flowService.RetryAction(parts[0], parts[1], actionId, "timeout")
 	}
 }

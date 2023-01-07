@@ -6,10 +6,7 @@ import (
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/flow"
-	"github.com/mohitkumar/orchy/server/logger"
-	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/util"
-	"go.uber.org/zap"
 )
 
 type ActionExecutionService struct {
@@ -48,26 +45,9 @@ func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResu
 
 	switch actionResult.Status {
 	case api.ActionResult_SUCCESS:
-		s.flowService.ExecuteAction(wfName, wfId, "default", int(actionResult.ActionId), 1, data)
+		s.flowService.ExecuteAction(wfName, wfId, "default", int(actionResult.ActionId), data)
 	case api.ActionResult_FAIL:
-		actionDefinition, err := s.container.GetMetadataStorage().GetActionDefinition(actionResult.ActionName)
-		if err != nil {
-			logger.Error("action definition not found ", zap.String("action", actionResult.ActionName), zap.Error(err))
-			return err
-		}
-		if actionResult.RetryCount < int32(actionDefinition.RetryCount) {
-			var retryAfter time.Duration
-			switch actionDefinition.RetryPolicy {
-			case model.RETRY_POLICY_FIXED:
-				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds) * time.Second
-			case model.RETRY_POLICY_BACKOFF:
-				retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*int(actionResult.RetryCount+1)) * time.Second
-			}
-			s.flowService.RetryAction(wfName, wfId, int(actionResult.ActionId), int(actionResult.RetryCount)+1, retryAfter, "failed")
-		} else {
-			logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
-			s.flowService.MarkFailed(wfName, wfId)
-		}
+		s.flowService.RetryAction(wfName, wfId, int(actionResult.ActionId), "failed")
 	}
 	return nil
 }

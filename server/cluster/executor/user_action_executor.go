@@ -1,6 +1,8 @@
 package executor
 
 import (
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -59,8 +61,10 @@ func (ex *userActionExecutor) handle() {
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
-	for _, action := range actions.Actions {
-		logger.Info("running action", zap.String("name", action.ActionName), zap.String("workflow", action.WorkflowName), zap.String("id", action.FlowId))
+	for _, action := range actions {
+		parts := strings.Split(action, ":")
+		actionId, _ := strconv.Atoi(parts[3])
+		logger.Info("running action", zap.String("name", parts[2]), zap.String("workflow", parts[0]), zap.String("id", parts[1]))
 		ex.diContainer.GetExternalQueue().Push(action)
 	}
 }
