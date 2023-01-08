@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/mohitkumar/orchy/server/cluster"
-	"github.com/mohitkumar/orchy/server/cluster/executor"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/flow"
@@ -20,15 +19,13 @@ import (
 
 type Agent struct {
 	Config                   config.Config
-	ring                     *cluster.Ring
-	membership               *cluster.Membership
+	cluster                  *cluster.Cluster
 	diContainer              *container.DIContiner
 	flowService              *flow.FlowService
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
 	actionExecutionService   *service.ActionExecutionService
 	workflowExecutionService *service.WorkflowExecutionService
-	executors                *executor.Executors
 	shutdown                 bool
 	shutdowns                chan struct{}
 	shutdownLock             sync.Mutex
@@ -46,7 +43,6 @@ func New(config config.Config) (*Agent, error) {
 		a.setupFlowService,
 		a.setupWorkflowExecutionService,
 		a.setupActionExecutorService,
-		a.setupExecutors,
 		a.setupHttpServer,
 		a.setupGrpcServer,
 	}
@@ -59,18 +55,13 @@ func New(config config.Config) (*Agent, error) {
 }
 
 func (a *Agent) setupCluster() error {
-	r := cluster.NewRing(a.Config.RingConfig)
-	a.ring = r
-	mem, err := cluster.New(r, a.Config.ClusterConfig)
-	if err != nil {
-		return err
-	}
-	a.membership = mem
+	a.cluster = cluster.NewCluster(a.Config, &a.wg)
+	a.cluster.Start()
 	return nil
 }
 
 func (a *Agent) setupDiContainer() error {
-	a.diContainer = container.NewDiContainer(a.ring)
+	a.diContainer = container.NewDiContainer()
 	a.diContainer.Init(a.Config)
 	return nil
 }
@@ -91,12 +82,6 @@ func (a *Agent) setupActionExecutorService() error {
 	return nil
 }
 
-func (a *Agent) setupExecutors() error {
-	a.executors = executor.NewExecutors(a.diContainer.GetShards())
-	a.executors.InitExecutors(a.Config.RingConfig.PartitionCount, a.diContainer, a.flowService, &a.wg)
-	a.executors.StartAll()
-	return nil
-}
 func (a *Agent) setupHttpServer() error {
 	var err error
 	a.httpServer, err = rest.NewServer(a.Config.HttpPort, a.diContainer, a.workflowExecutionService)
@@ -111,8 +96,8 @@ func (a *Agent) setupGrpcServer() error {
 	conf := &rpc.GrpcConfig{
 		ActionService:           a.actionExecutionService,
 		ActionDefinitionService: a.diContainer.GetMetadataStorage(),
-		GetServerer:             a.ring,
-		ClusterRefresher:        a.membership,
+		GetServerer:             a.cluster.GetServerer(),
+		ClusterRefresher:        a.cluster.GetClusterRefersher(),
 	}
 	a.grpcServer, err = rpc.NewGrpcServer(conf)
 	if err != nil {

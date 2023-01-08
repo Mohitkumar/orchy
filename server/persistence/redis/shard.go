@@ -25,7 +25,7 @@ type redisShardStorage struct {
 	encoderDecoder util.EncoderDecoder[model.FlowContext]
 }
 
-func NewRedisShard(conf Config, encoderDecoder util.EncoderDecoder[model.FlowContext], shardId string) *redisShardStorage {
+func NewRedisStorage(conf Config, encoderDecoder util.EncoderDecoder[model.FlowContext], shardId string) *redisShardStorage {
 	return &redisShardStorage{
 		baseDao:        newBaseDao(conf),
 		encoderDecoder: encoderDecoder,

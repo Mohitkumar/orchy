@@ -30,11 +30,9 @@ func NewStateHandlerContainer(storage Storage) *StateHandlerContainer {
 		storage:  storage,
 		handlers: make(map[Statehandler]func(wfName string, wfId string) error, 1),
 	}
+	hd.handlers[DELETE] = hd.delete
+	hd.handlers[NOOP] = hd.noop
 	return hd
-}
-
-func (s *StateHandlerContainer) Init() {
-	s.handlers[DELETE] = s.delete
 }
 
 func (s *StateHandlerContainer) GetHandler(st Statehandler) func(wfName string, wfId string) error {
