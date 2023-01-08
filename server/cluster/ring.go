@@ -18,21 +18,17 @@ func NewHasher() *hasher {
 	return &hasher{}
 }
 
-type RingConfig struct {
-	PartitionCount int
-}
-
 func (h hasher) Sum64(data []byte) uint64 {
 	return murmur3.Sum64(data)
 }
 
 type Ring struct {
-	RingConfig
-	hring     *consistent.Consistent
-	nodes     map[string]Node
-	temp      map[string]Node
-	localNode Node
-	mu        sync.Mutex
+	partitionCount int
+	hring          *consistent.Consistent
+	nodes          map[string]Node
+	temp           map[string]Node
+	localNode      Node
+	mu             sync.Mutex
 }
 
 type Node struct {
@@ -44,19 +40,19 @@ func (n Node) String() string {
 	return n.name
 }
 
-func NewRing(c RingConfig) *Ring {
+func NewRing(paritionCount int) *Ring {
 	cfg := consistent.Config{
-		PartitionCount:    c.PartitionCount,
+		PartitionCount:    paritionCount,
 		ReplicationFactor: 20,
 		Load:              1.25,
 		Hasher:            NewHasher(),
 	}
 	hr := consistent.New(nil, cfg)
 	return &Ring{
-		RingConfig: c,
-		hring:      hr,
-		nodes:      make(map[string]Node),
-		temp:       make(map[string]Node),
+		partitionCount: paritionCount,
+		hring:          hr,
+		nodes:          make(map[string]Node),
+		temp:           make(map[string]Node),
 	}
 }
 
@@ -98,7 +94,7 @@ func (r *Ring) GetPartition(key string) int {
 func (r *Ring) GetPartitions() []int {
 	i := 0
 	partitions := make([]int, 0)
-	for i < r.PartitionCount {
+	for i < r.partitionCount {
 		owner := r.hring.GetPartitionOwner(i)
 		if owner.String() == r.localNode.name {
 			partitions = append(partitions, i)

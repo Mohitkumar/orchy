@@ -9,13 +9,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type Config struct {
-	NodeName       string
-	BindAddr       string
-	Tags           map[string]string
-	StartJoinAddrs []string
-}
-
 type Handler interface {
 	Join(name, addr string, isLocal bool) error
 	Leave(name string) error

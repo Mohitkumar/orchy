@@ -6,34 +6,32 @@ import (
 
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
-	"github.com/mohitkumar/orchy/server/persistence"
+	"github.com/mohitkumar/orchy/server/shard"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
 )
 
-var _ Executor = new(systemActionExecutor)
+var _ shard.Executor = new(systemActionExecutor)
 
 type timeoutExecutor struct {
 	flowService *flow.FlowService
-	shard       persistence.Shard
+	shardId     string
+	storage     shard.Storage
 	wg          *sync.WaitGroup
 	tw          *util.TickWorker
 	stop        chan struct{}
 }
 
-func NewTimeoutExecutor(flowService *flow.FlowService, shard persistence.Shard, wg *sync.WaitGroup) *timeoutExecutor {
+func NewTimeoutExecutor(shardId string, storage shard.Storage, flowService *flow.FlowService, wg *sync.WaitGroup) *timeoutExecutor {
 	ex := &timeoutExecutor{
 		flowService: flowService,
-		shard:       shard,
+		shardId:     shardId,
+		storage:     storage,
 		stop:        make(chan struct{}),
 		wg:          wg,
 	}
-	ex.tw = util.NewTickWorker(ex.Name(), 1*time.Second, ex.stop, ex.handle, ex.wg)
+	ex.tw = util.NewTickWorker("timeout-executor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
 	return ex
-}
-
-func (ex *timeoutExecutor) Name() string {
-	return "timeout-executor-" + ex.shard.GetShardId()
 }
 
 func (ex *timeoutExecutor) Start() {
@@ -55,7 +53,7 @@ func (ex *timeoutExecutor) IsRunning() bool {
 }
 
 func (ex *timeoutExecutor) handle() {
-	actions, err := ex.shard.PollTimeout()
+	actions, err := ex.storage.PollTimeout()
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}

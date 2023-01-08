@@ -7,17 +7,6 @@ import (
 	"github.com/mohitkumar/orchy/server/persistence"
 )
 
-type Storage interface {
-	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
-	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
-	DeleteFlowContext(wfName string, flowId string) error
-
-	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []model.ActionExecutionRequest) error
-	Retry(wfName string, flowId string, actionId int, delay time.Duration) error
-	Delay(wfName string, flowId string, actionId int, delay time.Duration) error
-	Timeout(wfName string, flowId string, actionId int, delay time.Duration) error
-}
-
 var _ Storage = new(clusterStorage)
 
 type clusterStorage struct {
