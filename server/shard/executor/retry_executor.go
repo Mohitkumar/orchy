@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/shard"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
@@ -14,21 +14,21 @@ import (
 var _ shard.Executor = new(systemActionExecutor)
 
 type retryExecutor struct {
-	flowService *flow.FlowService
-	shardId     string
-	storage     shard.Storage
-	tw          *util.TickWorker
-	wg          *sync.WaitGroup
-	stop        chan struct{}
+	shardId          string
+	storage          shard.Storage
+	executionChannel chan<- model.FlowExecutionRequest
+	tw               *util.TickWorker
+	wg               *sync.WaitGroup
+	stop             chan struct{}
 }
 
-func NewRetryExecutor(shardId string, stoarge shard.Storage, flowService *flow.FlowService, wg *sync.WaitGroup) *retryExecutor {
+func NewRetryExecutor(shardId string, stoarge shard.Storage, executionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *retryExecutor {
 	ex := &retryExecutor{
-		flowService: flowService,
-		shardId:     shardId,
-		storage:     stoarge,
-		stop:        make(chan struct{}),
-		wg:          wg,
+		shardId:          shardId,
+		storage:          stoarge,
+		executionChannel: executionChannel,
+		stop:             make(chan struct{}),
+		wg:               wg,
 	}
 	ex.tw = util.NewTickWorker("retryexecutor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
 	return ex
@@ -59,6 +59,12 @@ func (ex *retryExecutor) handle() {
 	}
 	for _, action := range actions {
 
-		ex.flowService.ExecuteRetry(action.WorkflowName, action.FlowId, action.ActionId)
+		req := model.FlowExecutionRequest{
+			WorkflowName: action.WorkflowName,
+			FlowId:       action.FlowId,
+			ActionId:     action.ActionId,
+			RequestType:  model.RETRY_FLOW_EXECUTION,
+		}
+		ex.executionChannel <- req
 	}
 }

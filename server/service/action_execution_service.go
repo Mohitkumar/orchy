@@ -4,29 +4,29 @@ import (
 	"time"
 
 	api "github.com/mohitkumar/orchy/api/v1"
-	"github.com/mohitkumar/orchy/server/container"
+	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/util"
 )
 
 type ActionExecutionService struct {
-	container   *container.DIContiner
+	cluster   *cluster.Cluster
 	flowService *flow.FlowService
 }
 
-func NewActionExecutionService(container *container.DIContiner, flowService *flow.FlowService) *ActionExecutionService {
+func NewActionExecutionService(cluster *cluster.Cluster, flowService *flow.FlowService) *ActionExecutionService {
 	return &ActionExecutionService{
-		container:   container,
+		cluster:   cluster,
 		flowService: flowService,
 	}
 }
 func (ts *ActionExecutionService) Poll(actionName string, batchSize int) (*api.Actions, error) {
-	actions, err := ts.container.GetExternalQueue().Poll(actionName, batchSize)
+	actions, err := ts.cluster.().Poll(actionName, batchSize)
 	if err != nil {
 		return nil, err
 	}
 	for _, action := range actions.Actions {
-		actionDef, _ := ts.container.GetMetadataStorage().GetActionDefinition(action.ActionName)
+		actionDef, _ := ts.cluster.GetMetadataStorage().GetActionDefinition(action.ActionName)
 		if actionDef.RetryCount > 1 {
 			ts.container.GetClusterStorage().Timeout(action, time.Duration(actionDef.TimeoutSeconds)*time.Second)
 		}

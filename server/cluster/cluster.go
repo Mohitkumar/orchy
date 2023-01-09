@@ -6,23 +6,27 @@ import (
 	"time"
 
 	"github.com/mohitkumar/orchy/server/config"
+	"github.com/mohitkumar/orchy/server/metadata"
 	"github.com/mohitkumar/orchy/server/model"
 	rd "github.com/mohitkumar/orchy/server/persistence/redis"
 	"github.com/mohitkumar/orchy/server/shard"
 	"github.com/mohitkumar/orchy/server/shard/executor"
 	"github.com/mohitkumar/orchy/server/util"
+	v8 "rogchap.com/v8go"
 )
 
 type Cluster struct {
-	storage      Storage
-	ring         *Ring
-	membership   *Membership
-	shards       map[int]*shard.Shard
-	stateHandler *StateHandlerContainer
-	mu           sync.Mutex
+	storage         Storage
+	ring            *Ring
+	membership      *Membership
+	shards          map[int]*shard.Shard
+	stateHandler    *StateHandlerContainer
+	metadataStorage metadata.MetadataStorage
+	jsvm            *v8.Isolate
+	mu              sync.Mutex
 }
 
-func NewCluster(conf config.Config, wg *sync.WaitGroup) *Cluster {
+func NewCluster(conf config.Config, flowExecutionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *Cluster {
 	cluserConfig := conf.ClusterConfig
 	ring := NewRing(cluserConfig.PartitionCount)
 	membership, err := New(ring, cluserConfig)
@@ -36,6 +40,16 @@ func NewCluster(conf config.Config, wg *sync.WaitGroup) *Cluster {
 		//proto
 	default:
 		flowCtxEncoder = util.NewJsonEncoderDecoder[model.FlowContext]()
+	}
+	var metadataStorage metadata.MetadataStorage
+	switch conf.StorageType {
+	case config.STORAGE_TYPE_REDIS:
+		rdConf := rd.Config{
+			Addrs:     conf.RedisConfig.Addrs,
+			Namespace: conf.RedisConfig.Namespace,
+		}
+		metadataStorage = rd.NewRedisMetadataStorage(rdConf)
+	case config.STORAGE_TYPE_INMEM:
 	}
 	for i := 0; i < cluserConfig.PartitionCount; i++ {
 		shardId := strconv.FormatInt(int64(i), 10)
@@ -62,21 +76,23 @@ func NewCluster(conf config.Config, wg *sync.WaitGroup) *Cluster {
 		sh := shard.NewShard(shardId, externalQueue, shardStorage)
 
 		sh.RegisterExecutor("user-action", executor.NewUserActionExecutor(shardId, shardStorage, externalQueue, wg))
-		sh.RegisterExecutor("system-action", executor.NewSystemActionExecutor(shardId, shardStorage, externalQueue, wg))
-		sh.RegisterExecutor("delay", executor.NewDelayExecutor(shardId, shardStorage, externalQueue, wg))
-		sh.RegisterExecutor("retry", executor.NewRetryExecutor(shardId, shardStorage, externalQueue, wg))
-		sh.RegisterExecutor("timeout", executor.NewTimeoutExecutor(shardId, shardStorage, externalQueue, wg))
+		sh.RegisterExecutor("system-action", executor.NewSystemActionExecutor(shardId, shardStorage, flowExecutionChannel, wg))
+		sh.RegisterExecutor("delay", executor.NewDelayExecutor(shardId, shardStorage, flowExecutionChannel, wg))
+		sh.RegisterExecutor("retry", executor.NewRetryExecutor(shardId, shardStorage, flowExecutionChannel, wg))
+		sh.RegisterExecutor("timeout", executor.NewTimeoutExecutor(shardId, shardStorage, flowExecutionChannel, wg))
 		shards[i] = sh
 	}
 
 	clusterStorage := NewClusterStorage(shards, ring)
 	stateHandler := NewStateHandlerContainer(clusterStorage)
 	return &Cluster{
-		storage:      clusterStorage,
-		ring:         ring,
-		membership:   membership,
-		stateHandler: stateHandler,
-		shards:       make(map[int]*shard.Shard),
+		storage:         clusterStorage,
+		metadataStorage: metadataStorage,
+		ring:            ring,
+		membership:      membership,
+		stateHandler:    stateHandler,
+		shards:          make(map[int]*shard.Shard),
+		jsvm:            v8.NewIsolate(),
 	}
 }
 
@@ -95,16 +111,21 @@ func (c *Cluster) Start() {
 	}
 }
 
-func (c *Cluster) Stop() {
+func (c *Cluster) Stop() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, sh := range c.shards {
 		sh.Stop()
 	}
+	return nil
 }
 
 func (c *Cluster) GetStorage() Storage {
 	return c.storage
+}
+
+func (c *Cluster) GetMetadataStorage() metadata.MetadataStorage {
+	return c.metadataStorage
 }
 
 func (c *Cluster) GetClusterRefersher() *Membership {
@@ -117,6 +138,10 @@ func (c *Cluster) GetServerer() *Ring {
 
 func (c *Cluster) GetStateHandler() *StateHandlerContainer {
 	return c.stateHandler
+}
+
+func (c *Cluster) GetJsVM() *v8.Isolate {
+	return c.jsvm
 }
 
 type Storage interface {

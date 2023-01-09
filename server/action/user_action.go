@@ -21,7 +21,7 @@ func NewUserAction(bAction baseAction) *UserAction {
 }
 
 func (ua *UserAction) Validate() error {
-	_, err := ua.container.GetMetadataStorage().GetActionDefinition(ua.name)
+	_, err := ua.metadataStorage.GetActionDefinition(ua.name)
 	if err != nil {
 		return fmt.Errorf("actionId=%d, action %s not registered", ua.id, ua.name)
 	}

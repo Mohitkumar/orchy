@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/shard"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
@@ -14,21 +14,21 @@ import (
 var _ shard.Executor = new(systemActionExecutor)
 
 type systemActionExecutor struct {
-	flowService *flow.FlowService
-	shardId     string
-	storage     shard.Storage
-	tw          *util.TickWorker
-	wg          *sync.WaitGroup
-	stop        chan struct{}
+	shardId          string
+	storage          shard.Storage
+	executionChannel chan<- model.FlowExecutionRequest
+	tw               *util.TickWorker
+	wg               *sync.WaitGroup
+	stop             chan struct{}
 }
 
-func NewSystemActionExecutor(shardId string, storage shard.Storage, flowService *flow.FlowService, wg *sync.WaitGroup) *systemActionExecutor {
+func NewSystemActionExecutor(shardId string, storage shard.Storage, executionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *systemActionExecutor {
 	ex := &systemActionExecutor{
-		flowService: flowService,
-		shardId:     shardId,
-		storage:     storage,
-		stop:        make(chan struct{}),
-		wg:          wg,
+		shardId:          shardId,
+		storage:          storage,
+		executionChannel: executionChannel,
+		stop:             make(chan struct{}),
+		wg:               wg,
 	}
 	ex.tw = util.NewTickWorker("system-action-executor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
 	return ex

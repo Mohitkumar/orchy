@@ -7,7 +7,6 @@ import (
 
 	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/config"
-	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/rest"
@@ -20,7 +19,6 @@ import (
 type Agent struct {
 	Config                   config.Config
 	cluster                  *cluster.Cluster
-	diContainer              *container.DIContiner
 	flowService              *flow.FlowService
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
@@ -38,9 +36,8 @@ func New(config config.Config) (*Agent, error) {
 		shutdowns: make(chan struct{}),
 	}
 	setup := []func() error{
-		a.setupCluster,
-		a.setupDiContainer,
 		a.setupFlowService,
+		a.setupCluster,
 		a.setupWorkflowExecutionService,
 		a.setupActionExecutorService,
 		a.setupHttpServer,
@@ -55,19 +52,13 @@ func New(config config.Config) (*Agent, error) {
 }
 
 func (a *Agent) setupCluster() error {
-	a.cluster = cluster.NewCluster(a.Config, &a.wg)
+	a.cluster = cluster.NewCluster(a.Config, a.flowService.GetExecutionChannel(), &a.wg)
 	a.cluster.Start()
 	return nil
 }
 
-func (a *Agent) setupDiContainer() error {
-	a.diContainer = container.NewDiContainer()
-	a.diContainer.Init(a.Config)
-	return nil
-}
-
 func (a *Agent) setupFlowService() error {
-	a.flowService = flow.NewFlowService(a.diContainer, &a.wg)
+	a.flowService = flow.NewFlowService(a.cluster, &a.wg)
 	a.flowService.Start()
 	return nil
 }
@@ -78,13 +69,13 @@ func (a *Agent) setupWorkflowExecutionService() error {
 }
 
 func (a *Agent) setupActionExecutorService() error {
-	a.actionExecutionService = service.NewActionExecutionService(a.diContainer, a.flowService)
+	a.actionExecutionService = service.NewActionExecutionService(a.cluster, a.flowService)
 	return nil
 }
 
 func (a *Agent) setupHttpServer() error {
 	var err error
-	a.httpServer, err = rest.NewServer(a.Config.HttpPort, a.diContainer, a.workflowExecutionService)
+	a.httpServer, err = rest.NewServer(a.Config.HttpPort, a.cluster.GetMetadataStorage(), a.workflowExecutionService)
 	if err != nil {
 		return err
 	}
@@ -95,7 +86,7 @@ func (a *Agent) setupGrpcServer() error {
 	var err error
 	conf := &rpc.GrpcConfig{
 		ActionService:           a.actionExecutionService,
-		ActionDefinitionService: a.diContainer.GetMetadataStorage(),
+		ActionDefinitionService: a.cluster.GetMetadataStorage(),
 		GetServerer:             a.cluster.GetServerer(),
 		ClusterRefresher:        a.cluster.GetClusterRefersher(),
 	}
@@ -144,7 +135,7 @@ func (a *Agent) Shutdown() error {
 	close(a.shutdowns)
 
 	shutdown := []func() error{
-		a.executors.StopAll,
+		a.cluster.Stop,
 		a.flowService.Stop,
 		a.httpServer.Stop,
 		func() error {

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/metadata"
 	"github.com/mohitkumar/orchy/server/service"
 	"go.uber.org/zap"
 )
@@ -17,17 +17,17 @@ import (
 type Server struct {
 	http.Server
 	Port            int
-	container       *container.DIContiner
+	metadataStorage metadata.MetadataStorage
 	executorService *service.WorkflowExecutionService
 }
 
-func NewServer(httpPort int, container *container.DIContiner, executorService *service.WorkflowExecutionService) (*Server, error) {
+func NewServer(httpPort int, metadataStorage metadata.MetadataStorage, executorService *service.WorkflowExecutionService) (*Server, error) {
 
 	s := &Server{
 		Server: http.Server{
 			Addr: fmt.Sprintf(":%d", httpPort),
 		},
-		container:       container,
+		metadataStorage: metadataStorage,
 		executorService: executorService,
 		Port:            httpPort,
 	}

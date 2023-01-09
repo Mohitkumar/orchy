@@ -10,8 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var _ persistence.MetadataStorage = new(redisMetadataStorage)
-
 const WORKFLOW_DEF string = "WORKFLOW"
 const ACTION_DEF string = "ACTION"
 

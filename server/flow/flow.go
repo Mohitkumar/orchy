@@ -6,8 +6,9 @@ import (
 
 	"github.com/mohitkumar/orchy/server/action"
 	"github.com/mohitkumar/orchy/server/cluster"
-	"github.com/mohitkumar/orchy/server/container"
+	"github.com/mohitkumar/orchy/server/metadata"
 	"github.com/mohitkumar/orchy/server/model"
+	v8 "rogchap.com/v8go"
 )
 
 type Flow struct {
@@ -18,14 +19,14 @@ type Flow struct {
 	SuccessHandler cluster.Statehandler
 }
 
-func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Flow {
+func Convert(wf *model.Workflow, id string, jsvm *v8.Isolate, metadataStorage metadata.MetadataStorage) *Flow {
 	actionMap := make(map[int]action.Action)
 	for _, actionDef := range wf.Actions {
 		var flAct action.Action
 		actionType := action.ToActionType(actionDef.Type)
 		nextMap := actionDef.Next
 		baseAction := action.NewBaseAction(actionDef.Id, actionType,
-			actionDef.Name, actionDef.InputParams, nextMap, container)
+			actionDef.Name, actionDef.InputParams, nextMap, metadataStorage)
 		flAct = baseAction
 		if actionType == action.ACTION_TYPE_SYSTEM {
 			if strings.EqualFold(actionDef.Name, "switch") {
@@ -35,7 +36,7 @@ func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Fl
 			} else if strings.EqualFold(actionDef.Name, "wait") {
 				flAct = action.NewWaitAction(actionDef.Event, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "javascript") {
-				flAct = action.NewJsAction(actionDef.Expression, *baseAction, container.GetJavaScriptVM())
+				flAct = action.NewJsAction(actionDef.Expression, *baseAction, jsvm)
 			}
 		} else {
 			flAct = action.NewUserAction(*baseAction)
@@ -65,7 +66,7 @@ func Convert(wf *model.Workflow, id string, container *container.DIContiner) *Fl
 	return flow
 }
 
-func Validate(wf *model.Workflow, container *container.DIContiner) error {
+func Validate(wf *model.Workflow, metadataStorage metadata.MetadataStorage) error {
 	err := cluster.ValidateStateHandler(wf.OnFailure)
 	if err != nil {
 		return err
@@ -108,7 +109,7 @@ func Validate(wf *model.Workflow, container *container.DIContiner) error {
 	if _, ok := validActionId[wf.RootAction]; !ok {
 		return fmt.Errorf("no action with root action id %d in workflow", wf.RootAction)
 	}
-	fl := Convert(wf, "validate", container)
+	fl := Convert(wf, "validate", nil, metadataStorage)
 	for _, act := range fl.Actions {
 		err := act.Validate()
 		if err != nil {

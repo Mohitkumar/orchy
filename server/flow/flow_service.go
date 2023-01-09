@@ -7,28 +7,32 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mohitkumar/orchy/server/action"
-	"github.com/mohitkumar/orchy/server/container"
+	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"go.uber.org/zap"
 )
 
 type FlowService struct {
-	container          *container.DIContiner
+	cluster            *cluster.Cluster
 	executionChannel   chan model.FlowExecutionRequest
 	stateChangeChannel chan model.FlowStateChangeRequest
 	stop               chan struct{}
 	wg                 *sync.WaitGroup
 }
 
-func NewFlowService(container *container.DIContiner, wg *sync.WaitGroup) *FlowService {
+func NewFlowService(cluster *cluster.Cluster, wg *sync.WaitGroup) *FlowService {
 	return &FlowService{
-		container:          container,
-		executionChannel:   make(chan model.FlowExecutionRequest, 10000),
+		cluster:            cluster,
+		executionChannel:   make(chan model.FlowExecutionRequest, 1000),
 		stateChangeChannel: make(chan model.FlowStateChangeRequest, 1000),
 		stop:               make(chan struct{}),
 		wg:                 wg,
 	}
+}
+
+func (f *FlowService) GetExecutionChannel() chan model.FlowExecutionRequest {
+	return f.executionChannel
 }
 
 func (f *FlowService) ExecuteAction(wfName string, wfId string, event string, actionId int, data map[string]any) {
@@ -74,13 +78,13 @@ func (f *FlowService) Start() {
 }
 
 func (f *FlowService) Init(wfName string, input map[string]any) (string, error) {
-	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
+	wf, err := f.cluster.GetMetadataStorage().GetWorkflowDefinition(wfName)
 	if err != nil {
 		logger.Error("Workflow Definition not found", zap.String("Workflow", wfName), zap.Error(err))
 		return "", err
 	}
 	flowId := uuid.New().String()
-	flow := Convert(wf, flowId, f.container)
+	flow := Convert(wf, flowId, f.cluster.GetJsVM(), f.cluster.GetMetadataStorage())
 	dataMap := make(map[string]any)
 	dataMap["input"] = input
 	flowCtx := &model.FlowContext{
@@ -132,7 +136,7 @@ func (f *FlowService) execute(req model.FlowExecutionRequest) {
 }
 
 func (f *FlowService) validateFlow(wfName string, flowId string, actionId int) error {
-	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
+	flowCtx, err := f.cluster.GetStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
 		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return fmt.Errorf("flow already completed")
@@ -149,13 +153,13 @@ func (f *FlowService) validateFlow(wfName string, flowId string, actionId int) e
 }
 
 func (f *FlowService) validateAndGetFlow(wfName string, flowId string, actionId int) (*Flow, *model.FlowContext, error) {
-	wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
+	wf, err := f.cluster.GetMetadataStorage().GetWorkflowDefinition(wfName)
 	if err != nil {
 		logger.Error("Workflow Definition not found", zap.String("Workflow", wfName), zap.Error(err))
 		return nil, nil, err
 	}
-	flow := Convert(wf, flowId, f.container)
-	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
+	flow := Convert(wf, flowId, f.cluster.GetJsVM(), f.cluster.GetMetadataStorage())
+	flowCtx, err := f.cluster.GetStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
 		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return nil, nil, fmt.Errorf("flow already completed")
@@ -187,7 +191,7 @@ func (f *FlowService) saveContextAndDispatchAction(wfName string, flowId string,
 		}
 		actions = append(actions, act)
 	}
-	err := f.container.GetClusterStorage().SaveFlowContextAndDispatchAction(wfName, flowId, flowCtx, actions)
+	err := f.cluster.GetStorage().SaveFlowContextAndDispatchAction(wfName, flowId, flowCtx, actions)
 	if err != nil {
 		return err
 	}
@@ -209,8 +213,8 @@ func (f *FlowService) isComplete(flow *Flow, flowCtx *model.FlowContext) bool {
 
 func (f *FlowService) markComplete(wfName string, flowId string, flow *Flow, flowCtx *model.FlowContext) {
 	flowCtx.State = model.COMPLETED
-	f.container.GetClusterStorage().SaveFlowContext(wfName, flowId, flowCtx)
-	successHandler := f.container.GetStateHandler().GetHandler(flow.SuccessHandler)
+	f.cluster.GetStorage().SaveFlowContext(wfName, flowId, flowCtx)
+	successHandler := f.cluster.GetStateHandler().GetHandler(flow.SuccessHandler)
 	err := successHandler(wfName, flowId)
 	if err != nil {
 		logger.Error("error in running success handler", zap.Error(err))
@@ -251,7 +255,7 @@ func (f *FlowService) RetryAction(wfName string, flowId string, actionId int, re
 		return
 	}
 	action := flow.Actions[actionId]
-	actionDefinition, err := f.container.GetMetadataStorage().GetActionDefinition(action.GetName())
+	actionDefinition, err := f.cluster.GetMetadataStorage().GetActionDefinition(action.GetName())
 	if err != nil {
 		logger.Error("action definition not found ", zap.String("action", action.GetName()), zap.Error(err))
 		return
@@ -269,7 +273,7 @@ func (f *FlowService) RetryAction(wfName string, flowId string, actionId int, re
 		if "timeout" == reason {
 			retryAfter = 1 * time.Second
 		}
-		err = f.container.GetClusterStorage().Retry(wfName, flowId, actionId, retryAfter)
+		err = f.cluster.GetStorage().Retry(wfName, flowId, actionId, retryAfter)
 		if err != nil {
 			logger.Error("error retrying workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
 		}
@@ -285,7 +289,7 @@ func (f *FlowService) DelayAction(wfName string, flowId string, actionId int, tr
 	if err != nil {
 		return
 	}
-	err = f.container.GetClusterStorage().Delay(wfName, flowId, actionId, delay)
+	err = f.cluster.GetStorage().Delay(wfName, flowId, actionId, delay)
 
 	if err != nil {
 		logger.Error("error running delay action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
@@ -325,7 +329,7 @@ func (f *FlowService) retry(wfName string, flowId string, actionId int) {
 }
 
 func (f *FlowService) resume(wfName string, flowId string) {
-	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
+	flowCtx, err := f.cluster.GetStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
 		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return
@@ -390,34 +394,34 @@ func (f *FlowService) MarkRunning(wfName string, flowId string) {
 }
 
 func (f *FlowService) changeState(wfName string, flowId string, state model.FlowState) {
-	flowCtx, err := f.container.GetClusterStorage().GetFlowContext(wfName, flowId)
+	flowCtx, err := f.cluster.GetStorage().GetFlowContext(wfName, flowId)
 	if err != nil {
 		logger.Debug("flow already completed", zap.Error(fmt.Errorf("workflow complted")))
 		return
 	}
 	flowCtx.State = state
-	f.container.GetClusterStorage().SaveFlowContext(wfName, flowId, flowCtx)
+	f.cluster.GetStorage().SaveFlowContext(wfName, flowId, flowCtx)
 	if state == model.FAILED {
-		wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
+		wf, err := f.cluster.GetMetadataStorage().GetWorkflowDefinition(wfName)
 		if err != nil {
 			logger.Error("Workflow Definition not found", zap.Error(err))
 			return
 		}
-		flow := Convert(wf, flowId, f.container)
-		failureHandler := f.container.GetStateHandler().GetHandler(flow.FailureHandler)
+		flow := Convert(wf, flowId, f.cluster.GetJsVM(), f.cluster.GetMetadataStorage())
+		failureHandler := f.cluster.GetStateHandler().GetHandler(flow.FailureHandler)
 		err = failureHandler(wfName, flowId)
 		if err != nil {
 			logger.Error("error in running failure handler", zap.Error(err))
 		}
 		logger.Info("workflow failed", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 	} else if state == model.COMPLETED {
-		wf, err := f.container.GetMetadataStorage().GetWorkflowDefinition(wfName)
+		wf, err := f.cluster.GetMetadataStorage().GetWorkflowDefinition(wfName)
 		if err != nil {
 			logger.Error("Workflow Definition not found", zap.Error(err))
 			return
 		}
-		flow := Convert(wf, flowId, f.container)
-		successHandler := f.container.GetStateHandler().GetHandler(flow.SuccessHandler)
+		flow := Convert(wf, flowId, f.cluster.GetJsVM(), f.cluster.GetMetadataStorage())
+		successHandler := f.cluster.GetStateHandler().GetHandler(flow.SuccessHandler)
 		err = successHandler(wfName, flowId)
 		if err != nil {
 			logger.Error("error in running success handler", zap.Error(err))

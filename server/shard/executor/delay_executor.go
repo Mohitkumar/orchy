@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/shard"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
@@ -14,21 +14,21 @@ import (
 var _ shard.Executor = new(systemActionExecutor)
 
 type delayExecutor struct {
-	flowService *flow.FlowService
-	shardId     string
-	storage     shard.Storage
-	wg          *sync.WaitGroup
-	tw          *util.TickWorker
-	stop        chan struct{}
+	shardId          string
+	storage          shard.Storage
+	wg               *sync.WaitGroup
+	tw               *util.TickWorker
+	executionChannel chan<- model.FlowExecutionRequest
+	stop             chan struct{}
 }
 
-func NewDelayExecutor(shardId string, stoarge shard.Storage, flowService *flow.FlowService, wg *sync.WaitGroup) *delayExecutor {
+func NewDelayExecutor(shardId string, storage shard.Storage, executionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *delayExecutor {
 	ex := &delayExecutor{
-		flowService: flowService,
-		shardId:     shardId,
-		storage:     stoarge,
-		stop:        make(chan struct{}),
-		wg:          wg,
+		shardId:          shardId,
+		storage:          storage,
+		executionChannel: executionChannel,
+		stop:             make(chan struct{}),
+		wg:               wg,
 	}
 	ex.tw = util.NewTickWorker("delay-executor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
 	return ex
@@ -58,6 +58,14 @@ func (ex *delayExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions {
-		ex.flowService.ExecuteAction(action.WorkflowName, action.FlowId, "default", action.ActionId, nil)
+		req := model.FlowExecutionRequest{
+			WorkflowName: action.WorkflowName,
+			FlowId:       action.FlowId,
+			ActionId:     action.ActionId,
+			Event:        "default",
+			DataMap:      nil,
+			RequestType:  model.NEW_FLOW_EXECUTION,
+		}
+		ex.executionChannel <- req
 	}
 }
