@@ -5,6 +5,7 @@ type FlowExecutionType string
 const NEW_FLOW_EXECUTION FlowExecutionType = "NEW"
 const RETRY_FLOW_EXECUTION FlowExecutionType = "RETRY"
 const RESUME_FLOW_EXECUTION FlowExecutionType = "RESUME"
+const SYSTEM_FLOW_EXECUTION FlowExecutionType = "SYSTEM"
 
 type FlowExecutionRequest struct {
 	WorkflowName string

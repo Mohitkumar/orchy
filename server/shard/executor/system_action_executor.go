@@ -58,6 +58,12 @@ func (ex *systemActionExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions {
-		ex.flowService.ExecuteSystemAction(action.WorkflowName, action.FlowId, 1, action.ActionId)
+		req := model.FlowExecutionRequest{
+			WorkflowName: action.WorkflowName,
+			FlowId:       action.FlowId,
+			ActionId:     action.ActionId,
+			RequestType:  model.SYSTEM_FLOW_EXECUTION,
+		}
+		ex.executionChannel <- req
 	}
 }

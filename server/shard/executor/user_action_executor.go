@@ -58,6 +58,14 @@ func (ex *userActionExecutor) handle() {
 	}
 	for _, action := range actions {
 		logger.Info("running action", zap.String("name", action.ActionName), zap.String("workflow", action.WorkflowName), zap.String("id", action.FlowId))
+		act := &api.Action{
+			WorkflowName: wfName,
+			FlowId:       flowId,
+			Data:         util.ConvertToProto(util.ResolveInputParams(flowCtx, currentAction.GetInputParams())),
+			ActionId:     int32(currentAction.GetId()),
+			ActionName:   currentAction.GetName(),
+			RetryCount:   int32(tryCount),
+		}
 	}
 	ex.externalQueue.Push(actions)
 }

@@ -64,6 +64,8 @@ func (f *FlowService) Start() {
 					f.retry(req.WorkflowName, req.FlowId, req.ActionId)
 				case model.RESUME_FLOW_EXECUTION:
 					f.resume(req.WorkflowName, req.FlowId)
+				case model.SYSTEM_FLOW_EXECUTION:
+					f.executeSystemAction(req.WorkflowName, req.FlowId, req.ActionId)
 				default:
 					f.execute(req)
 				}
@@ -222,13 +224,13 @@ func (f *FlowService) markComplete(wfName string, flowId string, flow *Flow, flo
 	logger.Info("workflow completed", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 }
 
-func (f *FlowService) ExecuteSystemAction(wfName string, flowId string, tryCount int, actionId int) {
+func (f *FlowService) executeSystemAction(wfName string, flowId string, actionId int) {
 	flow, flowCtx, err := f.validateAndGetFlow(wfName, flowId, actionId)
 	if err != nil {
 		return
 	}
 	currentAction := flow.Actions[actionId]
-	event, dataMap, err := currentAction.Execute(wfName, flowCtx, tryCount)
+	event, dataMap, err := currentAction.Execute(wfName, flowCtx, 1)
 	if err != nil {
 		logger.Error("error executing workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId), zap.Error(err))
 	}

@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/mohitkumar/orchy/server/metadata"
 	"github.com/mohitkumar/orchy/server/model"
@@ -122,6 +123,23 @@ func (c *Cluster) Stop() error {
 
 func (c *Cluster) GetStorage() Storage {
 	return c.storage
+}
+
+func (c *Cluster) Poll(queuName string, batchSize int) (*api.Actions, error) {
+	result := make([]*api.Action, 0)
+	for _, part := range c.ring.GetPartitions() {
+		if len(result) < batchSize {
+			numOfItemsToFetch := batchSize - len(result)
+			actions, err := c.shards[part].GetExternalQueue().Poll(queuName, numOfItemsToFetch)
+			if err != nil {
+				continue
+			}
+			result = append(result, actions.Actions...)
+		} else {
+			break
+		}
+	}
+	return &api.Actions{Actions: result}, nil
 }
 
 func (c *Cluster) GetMetadataStorage() metadata.MetadataStorage {

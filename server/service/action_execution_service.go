@@ -10,25 +10,25 @@ import (
 )
 
 type ActionExecutionService struct {
-	cluster   *cluster.Cluster
+	cluster     *cluster.Cluster
 	flowService *flow.FlowService
 }
 
 func NewActionExecutionService(cluster *cluster.Cluster, flowService *flow.FlowService) *ActionExecutionService {
 	return &ActionExecutionService{
-		cluster:   cluster,
+		cluster:     cluster,
 		flowService: flowService,
 	}
 }
 func (ts *ActionExecutionService) Poll(actionName string, batchSize int) (*api.Actions, error) {
-	actions, err := ts.cluster.().Poll(actionName, batchSize)
+	actions, err := ts.cluster.Poll(actionName, batchSize)
 	if err != nil {
 		return nil, err
 	}
 	for _, action := range actions.Actions {
 		actionDef, _ := ts.cluster.GetMetadataStorage().GetActionDefinition(action.ActionName)
 		if actionDef.RetryCount > 1 {
-			ts.container.GetClusterStorage().Timeout(action, time.Duration(actionDef.TimeoutSeconds)*time.Second)
+			ts.cluster.GetStorage().Timeout(action.WorkflowName, action.FlowId, int(action.ActionId), time.Duration(actionDef.TimeoutSeconds)*time.Second)
 		}
 	}
 	return actions, nil

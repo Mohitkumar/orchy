@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/mohitkumar/orchy/server/agent"
-	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -64,12 +63,12 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 	c.cfg.StorageType = config.StorageType(viper.GetString("storage-impl"))
 	c.cfg.QueueType = config.QueueType(viper.GetString("queue-impl"))
 	c.cfg.EncoderDecoderType = config.EncoderDecoderType(viper.GetString("data-serializer"))
-	c.cfg.RingConfig = cluster.RingConfig{PartitionCount: viper.GetInt("partitions")}
 
-	c.cfg.ClusterConfig = cluster.Config{
+	c.cfg.ClusterConfig = config.ClusterConfig{
 		NodeName:       viper.GetString("node-name"),
 		BindAddr:       viper.GetString("bind-addr"),
 		StartJoinAddrs: viper.GetStringSlice("cluster-address"),
+		PartitionCount: viper.GetInt("partitions"),
 	}
 	rpcAddr, err := c.cfg.RPCAddr()
 	if err != nil {
