@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mohitkumar/orchy/server/metadata"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/oliveagle/jsonpath"
 )
@@ -44,24 +43,22 @@ type Action interface {
 var _ Action = new(baseAction)
 
 type baseAction struct {
-	id              int
-	actType         ActionType
-	name            string
-	inputParams     map[string]any
-	nextMap         map[string][]int
-	params          map[string]any
-	metadataStorage metadata.MetadataStorage
+	id          int
+	actType     ActionType
+	name        string
+	inputParams map[string]any
+	nextMap     map[string][]int
+	params      map[string]any
 }
 
-func NewBaseAction(id int, Type ActionType, name string, inputParams map[string]any, nextMap map[string][]int, metadataStorage metadata.MetadataStorage) *baseAction {
+func NewBaseAction(id int, Type ActionType, name string, inputParams map[string]any, nextMap map[string][]int) *baseAction {
 	return &baseAction{
-		id:              id,
-		name:            name,
-		inputParams:     inputParams,
-		params:          make(map[string]any),
-		actType:         Type,
-		nextMap:         nextMap,
-		metadataStorage: metadataStorage,
+		id:          id,
+		name:        name,
+		inputParams: inputParams,
+		params:      make(map[string]any),
+		actType:     Type,
+		nextMap:     nextMap,
 	}
 
 }

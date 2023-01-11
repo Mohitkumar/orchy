@@ -22,7 +22,7 @@ type Cluster struct {
 	membership      *Membership
 	shards          map[int]*shard.Shard
 	stateHandler    *StateHandlerContainer
-	metadataStorage metadata.MetadataStorage
+	metadataService metadata.MetadataService
 	jsvm            *v8.Isolate
 	mu              sync.Mutex
 }
@@ -52,6 +52,8 @@ func NewCluster(conf config.Config, flowExecutionChannel chan<- model.FlowExecut
 		metadataStorage = rd.NewRedisMetadataStorage(rdConf)
 	case config.STORAGE_TYPE_INMEM:
 	}
+	jsvm := v8.NewIsolate()
+	metadataService := metadata.NewMetadataService(metadataStorage, jsvm)
 	for i := 0; i < cluserConfig.PartitionCount; i++ {
 		shardId := strconv.FormatInt(int64(i), 10)
 		var shardStorage shard.Storage
@@ -76,7 +78,7 @@ func NewCluster(conf config.Config, flowExecutionChannel chan<- model.FlowExecut
 		}
 		sh := shard.NewShard(shardId, externalQueue, shardStorage)
 
-		sh.RegisterExecutor("user-action", executor.NewUserActionExecutor(shardId, shardStorage, externalQueue, wg))
+		sh.RegisterExecutor("user-action", executor.NewUserActionExecutor(shardId, shardStorage, metadataService, externalQueue, wg))
 		sh.RegisterExecutor("system-action", executor.NewSystemActionExecutor(shardId, shardStorage, flowExecutionChannel, wg))
 		sh.RegisterExecutor("delay", executor.NewDelayExecutor(shardId, shardStorage, flowExecutionChannel, wg))
 		sh.RegisterExecutor("retry", executor.NewRetryExecutor(shardId, shardStorage, flowExecutionChannel, wg))
@@ -86,14 +88,15 @@ func NewCluster(conf config.Config, flowExecutionChannel chan<- model.FlowExecut
 
 	clusterStorage := NewClusterStorage(shards, ring)
 	stateHandler := NewStateHandlerContainer(clusterStorage)
+
 	return &Cluster{
 		storage:         clusterStorage,
-		metadataStorage: metadataStorage,
+		metadataService: metadataService,
 		ring:            ring,
 		membership:      membership,
 		stateHandler:    stateHandler,
 		shards:          make(map[int]*shard.Shard),
-		jsvm:            v8.NewIsolate(),
+		jsvm:            jsvm,
 	}
 }
 
@@ -142,8 +145,8 @@ func (c *Cluster) Poll(queuName string, batchSize int) (*api.Actions, error) {
 	return &api.Actions{Actions: result}, nil
 }
 
-func (c *Cluster) GetMetadataStorage() metadata.MetadataStorage {
-	return c.metadataStorage
+func (c *Cluster) GetMetadataService() metadata.MetadataService {
+	return c.metadataService
 }
 
 func (c *Cluster) GetClusterRefersher() *Membership {

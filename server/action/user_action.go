@@ -1,8 +1,6 @@
 package action
 
 import (
-	"fmt"
-
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"go.uber.org/zap"
@@ -21,11 +19,6 @@ func NewUserAction(bAction baseAction) *UserAction {
 }
 
 func (ua *UserAction) Validate() error {
-	_, err := ua.metadataStorage.GetActionDefinition(ua.name)
-	if err != nil {
-		return fmt.Errorf("actionId=%d, action %s not registered", ua.id, ua.name)
-	}
-
 	return nil
 }
 func (ua *UserAction) GetNext() map[string][]int {

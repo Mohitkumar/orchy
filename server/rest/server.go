@@ -17,17 +17,17 @@ import (
 type Server struct {
 	http.Server
 	Port            int
-	metadataStorage metadata.MetadataStorage
+	metadataService metadata.MetadataService
 	executorService *service.WorkflowExecutionService
 }
 
-func NewServer(httpPort int, metadataStorage metadata.MetadataStorage, executorService *service.WorkflowExecutionService) (*Server, error) {
+func NewServer(httpPort int, metadataService metadata.MetadataService, executorService *service.WorkflowExecutionService) (*Server, error) {
 
 	s := &Server{
 		Server: http.Server{
 			Addr: fmt.Sprintf(":%d", httpPort),
 		},
-		metadataStorage: metadataStorage,
+		metadataService: metadataService,
 		executorService: executorService,
 		Port:            httpPort,
 	}

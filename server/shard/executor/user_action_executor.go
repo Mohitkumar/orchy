@@ -4,7 +4,9 @@ import (
 	"sync"
 	"time"
 
+	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/metadata"
 	"github.com/mohitkumar/orchy/server/shard"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
@@ -13,21 +15,23 @@ import (
 var _ shard.Executor = new(userActionExecutor)
 
 type userActionExecutor struct {
-	shardId       string
-	storage       shard.Storage
-	externalQueue shard.ExternalQueue
-	wg            *sync.WaitGroup
-	tw            *util.TickWorker
-	stop          chan struct{}
+	shardId         string
+	storage         shard.Storage
+	externalQueue   shard.ExternalQueue
+	metadataService metadata.MetadataService
+	wg              *sync.WaitGroup
+	tw              *util.TickWorker
+	stop            chan struct{}
 }
 
-func NewUserActionExecutor(shardId string, storage shard.Storage, externalQueue shard.ExternalQueue, wg *sync.WaitGroup) *userActionExecutor {
+func NewUserActionExecutor(shardId string, storage shard.Storage, metadataService metadata.MetadataService, externalQueue shard.ExternalQueue, wg *sync.WaitGroup) *userActionExecutor {
 	ex := &userActionExecutor{
-		shardId:       shardId,
-		storage:       storage,
-		externalQueue: externalQueue,
-		stop:          make(chan struct{}),
-		wg:            wg,
+		shardId:         shardId,
+		storage:         storage,
+		externalQueue:   externalQueue,
+		metadataService: metadataService,
+		stop:            make(chan struct{}),
+		wg:              wg,
 	}
 	ex.tw = util.NewTickWorker("user-action-executor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
 	return ex
@@ -57,15 +61,23 @@ func (ex *userActionExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions {
-		logger.Info("running action", zap.String("name", action.ActionName), zap.String("workflow", action.WorkflowName), zap.String("id", action.FlowId))
-		act := &api.Action{
-			WorkflowName: wfName,
-			FlowId:       flowId,
-			Data:         util.ConvertToProto(util.ResolveInputParams(flowCtx, currentAction.GetInputParams())),
-			ActionId:     int32(currentAction.GetId()),
-			ActionName:   currentAction.GetName(),
-			RetryCount:   int32(tryCount),
+		flowCtx, err := ex.storage.GetFlowContext(action.WorkflowName, action.FlowId)
+		if err != nil {
+			continue
 		}
+		logger.Info("running action", zap.String("name", action.ActionName), zap.String("workflow", action.WorkflowName), zap.String("id", action.FlowId))
+		flow, err := ex.metadataService.GetFlow(action.WorkflowName, action.FlowId)
+		if err != nil {
+			continue
+		}
+		currentAction := flow.Actions[action.ActionId]
+		act := &api.Action{
+			WorkflowName: action.WorkflowName,
+			FlowId:       action.FlowId,
+			Data:         util.ConvertToProto(util.ResolveInputParams(flowCtx, currentAction.GetInputParams())),
+			ActionId:     int32(action.ActionId),
+			ActionName:   action.ActionName,
+		}
+		ex.externalQueue.Push(act)
 	}
-	ex.externalQueue.Push(actions)
 }
