@@ -24,19 +24,15 @@ type FlowEngine struct {
 	wg                 *sync.WaitGroup
 }
 
-func NewFlowEngine(cluster *cluster.Cluster, metadadataService metadata.MetadataService, wg *sync.WaitGroup) *FlowEngine {
+func NewFlowEngine(cluster *cluster.Cluster, executionChannel chan model.FlowExecutionRequest, metadadataService metadata.MetadataService, wg *sync.WaitGroup) *FlowEngine {
 	return &FlowEngine{
 		cluster:            cluster,
 		metadataService:    metadadataService,
-		executionChannel:   make(chan model.FlowExecutionRequest, 1000),
+		executionChannel:   executionChannel,
 		stateChangeChannel: make(chan model.FlowStateChangeRequest, 1000),
 		stop:               make(chan struct{}),
 		wg:                 wg,
 	}
-}
-
-func (f *FlowEngine) GetExecutionChannel() chan model.FlowExecutionRequest {
-	return f.executionChannel
 }
 
 func (f *FlowEngine) ExecuteAction(wfName string, wfId string, event string, actionId int, data map[string]any) {

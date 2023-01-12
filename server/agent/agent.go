@@ -10,6 +10,7 @@ import (
 	"github.com/mohitkumar/orchy/server/engine"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/metadata"
+	"github.com/mohitkumar/orchy/server/model"
 	rd "github.com/mohitkumar/orchy/server/persistence/redis"
 	"github.com/mohitkumar/orchy/server/rest"
 	"github.com/mohitkumar/orchy/server/rpc"
@@ -21,6 +22,7 @@ import (
 
 type Agent struct {
 	Config                   config.Config
+	executionChannel         chan model.FlowExecutionRequest
 	cluster                  *cluster.Cluster
 	metadataService          metadata.MetadataService
 	jsvm                     *v8.Isolate
@@ -41,6 +43,7 @@ func New(config config.Config) (*Agent, error) {
 		shutdowns: make(chan struct{}),
 	}
 	setup := []func() error{
+		a.setupExecutionChannel,
 		a.setupJsVm,
 		a.setupMetadataService,
 		a.setupCluster,
@@ -78,14 +81,18 @@ func (a *Agent) setupMetadataService() error {
 	return nil
 }
 
+func (a *Agent) setupExecutionChannel() error {
+	a.executionChannel = make(chan model.FlowExecutionRequest)
+	return nil
+}
 func (a *Agent) setupCluster() error {
-	a.cluster = cluster.NewCluster(a.Config, a.metadataService, a.flowEngine.GetExecutionChannel(), &a.wg)
+	a.cluster = cluster.NewCluster(a.Config, a.metadataService, a.executionChannel, &a.wg)
 	a.cluster.Start()
 	return nil
 }
 
 func (a *Agent) setupFlowEngine() error {
-	a.flowEngine = engine.NewFlowEngine(a.cluster, a.metadataService, &a.wg)
+	a.flowEngine = engine.NewFlowEngine(a.cluster, a.executionChannel, a.metadataService, &a.wg)
 	a.flowEngine.Start()
 	return nil
 }
