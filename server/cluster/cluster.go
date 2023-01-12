@@ -7,27 +7,26 @@ import (
 
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/config"
+	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/metadata"
 	"github.com/mohitkumar/orchy/server/model"
 	rd "github.com/mohitkumar/orchy/server/persistence/redis"
 	"github.com/mohitkumar/orchy/server/shard"
 	"github.com/mohitkumar/orchy/server/shard/executor"
 	"github.com/mohitkumar/orchy/server/util"
-	v8 "rogchap.com/v8go"
+	"go.uber.org/zap"
 )
 
 type Cluster struct {
-	storage         Storage
-	ring            *Ring
-	membership      *Membership
-	shards          map[int]*shard.Shard
-	stateHandler    *StateHandlerContainer
-	metadataService metadata.MetadataService
-	jsvm            *v8.Isolate
-	mu              sync.Mutex
+	storage      Storage
+	ring         *Ring
+	membership   *Membership
+	shards       map[int]*shard.Shard
+	stateHandler *StateHandlerContainer
+	mu           sync.Mutex
 }
 
-func NewCluster(conf config.Config, flowExecutionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *Cluster {
+func NewCluster(conf config.Config, metadataService metadata.MetadataService, flowExecutionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *Cluster {
 	cluserConfig := conf.ClusterConfig
 	ring := NewRing(cluserConfig.PartitionCount)
 	membership, err := New(ring, cluserConfig)
@@ -42,18 +41,6 @@ func NewCluster(conf config.Config, flowExecutionChannel chan<- model.FlowExecut
 	default:
 		flowCtxEncoder = util.NewJsonEncoderDecoder[model.FlowContext]()
 	}
-	var metadataStorage metadata.MetadataStorage
-	switch conf.StorageType {
-	case config.STORAGE_TYPE_REDIS:
-		rdConf := rd.Config{
-			Addrs:     conf.RedisConfig.Addrs,
-			Namespace: conf.RedisConfig.Namespace,
-		}
-		metadataStorage = rd.NewRedisMetadataStorage(rdConf)
-	case config.STORAGE_TYPE_INMEM:
-	}
-	jsvm := v8.NewIsolate()
-	metadataService := metadata.NewMetadataService(metadataStorage, jsvm)
 	for i := 0; i < cluserConfig.PartitionCount; i++ {
 		shardId := strconv.FormatInt(int64(i), 10)
 		var shardStorage shard.Storage
@@ -90,13 +77,11 @@ func NewCluster(conf config.Config, flowExecutionChannel chan<- model.FlowExecut
 	stateHandler := NewStateHandlerContainer(clusterStorage)
 
 	return &Cluster{
-		storage:         clusterStorage,
-		metadataService: metadataService,
-		ring:            ring,
-		membership:      membership,
-		stateHandler:    stateHandler,
-		shards:          make(map[int]*shard.Shard),
-		jsvm:            jsvm,
+		storage:      clusterStorage,
+		ring:         ring,
+		membership:   membership,
+		stateHandler: stateHandler,
+		shards:       shards,
 	}
 }
 
@@ -110,7 +95,9 @@ func (c *Cluster) GetShard(shardId int) *shard.Shard {
 func (c *Cluster) Start() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	logger.Info("starting cluster...")
 	for _, sh := range c.shards {
+		logger.Info("starting shard", zap.String("shard", sh.GetShardId()))
 		sh.Start()
 	}
 }
@@ -145,10 +132,6 @@ func (c *Cluster) Poll(queuName string, batchSize int) (*api.Actions, error) {
 	return &api.Actions{Actions: result}, nil
 }
 
-func (c *Cluster) GetMetadataService() metadata.MetadataService {
-	return c.metadataService
-}
-
 func (c *Cluster) GetClusterRefersher() *Membership {
 	return c.membership
 }
@@ -159,10 +142,6 @@ func (c *Cluster) GetServerer() *Ring {
 
 func (c *Cluster) GetStateHandler() *StateHandlerContainer {
 	return c.stateHandler
-}
-
-func (c *Cluster) GetJsVM() *v8.Isolate {
-	return c.jsvm
 }
 
 type Storage interface {

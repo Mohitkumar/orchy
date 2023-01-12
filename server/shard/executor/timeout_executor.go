@@ -4,11 +4,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/shard"
 	"github.com/mohitkumar/orchy/server/util"
-	"go.uber.org/zap"
 )
 
 var _ shard.Executor = new(systemActionExecutor)
@@ -53,11 +51,11 @@ func (ex *timeoutExecutor) IsRunning() bool {
 }
 
 func (ex *timeoutExecutor) handle() {
-	actions, err := ex.storage.PollTimeout()
+	/*actions, err := ex.storage.PollTimeout()
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions {
 		ex.flowService.RetryAction(action.WorkflowName, action.FlowId, action.ActionId, "timeout")
-	}
+	}*/
 }

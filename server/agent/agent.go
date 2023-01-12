@@ -9,16 +9,21 @@ import (
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/mohitkumar/orchy/server/engine"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/metadata"
+	rd "github.com/mohitkumar/orchy/server/persistence/redis"
 	"github.com/mohitkumar/orchy/server/rest"
 	"github.com/mohitkumar/orchy/server/rpc"
 	"github.com/mohitkumar/orchy/server/service"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	v8 "rogchap.com/v8go"
 )
 
 type Agent struct {
 	Config                   config.Config
 	cluster                  *cluster.Cluster
+	metadataService          metadata.MetadataService
+	jsvm                     *v8.Isolate
 	flowEngine               *engine.FlowEngine
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
@@ -36,8 +41,10 @@ func New(config config.Config) (*Agent, error) {
 		shutdowns: make(chan struct{}),
 	}
 	setup := []func() error{
-		a.setupFlowEngine,
+		a.setupJsVm,
+		a.setupMetadataService,
 		a.setupCluster,
+		a.setupFlowEngine,
 		a.setupWorkflowExecutionService,
 		a.setupActionExecutorService,
 		a.setupHttpServer,
@@ -51,14 +58,34 @@ func New(config config.Config) (*Agent, error) {
 	return a, nil
 }
 
+func (a *Agent) setupJsVm() error {
+	a.jsvm = v8.NewIsolate()
+	return nil
+}
+
+func (a *Agent) setupMetadataService() error {
+	var metadataStorage metadata.MetadataStorage
+	switch a.Config.StorageType {
+	case config.STORAGE_TYPE_REDIS:
+		rdConf := rd.Config{
+			Addrs:     a.Config.RedisConfig.Addrs,
+			Namespace: a.Config.RedisConfig.Namespace,
+		}
+		metadataStorage = rd.NewRedisMetadataStorage(rdConf)
+	case config.STORAGE_TYPE_INMEM:
+	}
+	a.metadataService = metadata.NewMetadataService(metadataStorage, a.jsvm)
+	return nil
+}
+
 func (a *Agent) setupCluster() error {
-	a.cluster = cluster.NewCluster(a.Config, a.flowEngine.GetExecutionChannel(), &a.wg)
+	a.cluster = cluster.NewCluster(a.Config, a.metadataService, a.flowEngine.GetExecutionChannel(), &a.wg)
 	a.cluster.Start()
 	return nil
 }
 
 func (a *Agent) setupFlowEngine() error {
-	a.flowEngine = engine.NewFlowEngine(a.cluster, a.cluster.GetMetadataService(), &a.wg)
+	a.flowEngine = engine.NewFlowEngine(a.cluster, a.metadataService, &a.wg)
 	a.flowEngine.Start()
 	return nil
 }
@@ -69,13 +96,13 @@ func (a *Agent) setupWorkflowExecutionService() error {
 }
 
 func (a *Agent) setupActionExecutorService() error {
-	a.actionExecutionService = service.NewActionExecutionService(a.cluster, a.cluster.GetMetadataService(), a.flowEngine)
+	a.actionExecutionService = service.NewActionExecutionService(a.cluster, a.metadataService, a.flowEngine)
 	return nil
 }
 
 func (a *Agent) setupHttpServer() error {
 	var err error
-	a.httpServer, err = rest.NewServer(a.Config.HttpPort, a.cluster.GetMetadataService(), a.workflowExecutionService)
+	a.httpServer, err = rest.NewServer(a.Config.HttpPort, a.metadataService, a.workflowExecutionService)
 	if err != nil {
 		return err
 	}
@@ -86,7 +113,7 @@ func (a *Agent) setupGrpcServer() error {
 	var err error
 	conf := &rpc.GrpcConfig{
 		ActionService:           a.actionExecutionService,
-		ActionDefinitionService: a.cluster.GetMetadataService().GetMetadataStorage(),
+		ActionDefinitionService: a.metadataService.GetMetadataStorage(),
 		GetServerer:             a.cluster.GetServerer(),
 		ClusterRefresher:        a.cluster.GetClusterRefersher(),
 	}
