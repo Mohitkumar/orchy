@@ -122,7 +122,6 @@ func (a *Agent) setupGrpcServer() error {
 		ActionService:           a.actionExecutionService,
 		ActionDefinitionService: a.metadataService.GetMetadataStorage(),
 		GetServerer:             a.cluster.GetServerer(),
-		ClusterRefresher:        a.cluster.GetClusterRefersher(),
 	}
 	a.grpcServer, err = rpc.NewGrpcServer(conf)
 	if err != nil {

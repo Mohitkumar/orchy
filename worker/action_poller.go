@@ -14,12 +14,14 @@ type nWorker struct {
 type actionPoller struct {
 	workers      []*nWorker
 	pollerWorker []*pollerWorker
+	clusterConf  *client.ClusterConf
 	config       WorkerConfiguration
 }
 
-func newActionPoller(conf WorkerConfiguration) *actionPoller {
+func newActionPoller(conf WorkerConfiguration, clusterConf *client.ClusterConf) *actionPoller {
 	return &actionPoller{
-		config: conf,
+		config:      conf,
+		clusterConf: clusterConf,
 	}
 }
 
@@ -30,7 +32,7 @@ func (tp *actionPoller) registerWorker(worker *worker, numWorkers int) {
 func (tp *actionPoller) start(wg *sync.WaitGroup) {
 	for _, w := range tp.workers {
 		for i := 0; i < w.num; i++ {
-			client, err := client.NewRpcClient(tp.config.ServerUrl)
+			client, err := client.NewRpcClient(tp.config.ServerUrl, tp.clusterConf)
 			if err != nil {
 				panic(err)
 			}
