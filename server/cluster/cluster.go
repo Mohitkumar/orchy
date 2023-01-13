@@ -28,6 +28,7 @@ type Cluster struct {
 
 func NewCluster(conf config.Config, metadataService metadata.MetadataService, flowExecutionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *Cluster {
 	cluserConfig := conf.ClusterConfig
+	batchSize := conf.BatchSize
 	ring := NewRing(cluserConfig.PartitionCount)
 	membership, err := New(ring, cluserConfig)
 	if err != nil {
@@ -65,8 +66,8 @@ func NewCluster(conf config.Config, metadataService metadata.MetadataService, fl
 		}
 		sh := shard.NewShard(shardId, externalQueue, shardStorage)
 
-		sh.RegisterExecutor("user-action", executor.NewUserActionExecutor(shardId, shardStorage, metadataService, externalQueue, wg))
-		sh.RegisterExecutor("system-action", executor.NewSystemActionExecutor(shardId, shardStorage, flowExecutionChannel, wg))
+		sh.RegisterExecutor("user-action", executor.NewUserActionExecutor(shardId, shardStorage, metadataService, externalQueue, batchSize, wg))
+		sh.RegisterExecutor("system-action", executor.NewSystemActionExecutor(shardId, shardStorage, flowExecutionChannel, batchSize, wg))
 		sh.RegisterExecutor("delay", executor.NewDelayExecutor(shardId, shardStorage, flowExecutionChannel, wg))
 		sh.RegisterExecutor("retry", executor.NewRetryExecutor(shardId, shardStorage, flowExecutionChannel, wg))
 		sh.RegisterExecutor("timeout", executor.NewTimeoutExecutor(shardId, shardStorage, flowExecutionChannel, wg))

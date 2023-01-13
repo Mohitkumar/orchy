@@ -19,6 +19,7 @@ type Storage interface {
 
 	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []model.ActionExecutionRequest) error
 	PollAction(actionType string, batchSize int) ([]model.ActionExecutionRequest, error)
+	Ack(actionType string, actions []model.ActionExecutionRequest) error
 	Retry(wfName string, flowId string, actionId int, delay time.Duration) error
 	PollRetry() ([]model.ActionExecutionRequest, error)
 	Delay(wfName string, flowId string, actionId int, delay time.Duration) error

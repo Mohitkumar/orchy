@@ -22,15 +22,17 @@ type userActionExecutor struct {
 	wg              *sync.WaitGroup
 	tw              *util.TickWorker
 	stop            chan struct{}
+	batchSize       int
 }
 
-func NewUserActionExecutor(shardId string, storage shard.Storage, metadataService metadata.MetadataService, externalQueue shard.ExternalQueue, wg *sync.WaitGroup) *userActionExecutor {
+func NewUserActionExecutor(shardId string, storage shard.Storage, metadataService metadata.MetadataService, externalQueue shard.ExternalQueue, batchSize int, wg *sync.WaitGroup) *userActionExecutor {
 	ex := &userActionExecutor{
 		shardId:         shardId,
 		storage:         storage,
 		externalQueue:   externalQueue,
 		metadataService: metadataService,
 		stop:            make(chan struct{}),
+		batchSize:       batchSize,
 		wg:              wg,
 	}
 	ex.tw = util.NewTickWorker("user-action-executor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
@@ -56,7 +58,7 @@ func (ex *userActionExecutor) Stop() {
 }
 
 func (ex *userActionExecutor) handle() {
-	actions, err := ex.storage.PollAction("user", 100)
+	actions, err := ex.storage.PollAction("user", ex.batchSize)
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
@@ -79,5 +81,11 @@ func (ex *userActionExecutor) handle() {
 			ActionName:   action.ActionName,
 		}
 		ex.externalQueue.Push(act)
+	}
+	if len(actions) != 0 {
+		err = ex.storage.Ack("user", actions)
+		if err != nil {
+			logger.Error("error while ack user actions", zap.Error(err))
+		}
 	}
 }

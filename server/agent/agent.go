@@ -82,7 +82,7 @@ func (a *Agent) setupMetadataService() error {
 }
 
 func (a *Agent) setupExecutionChannel() error {
-	a.executionChannel = make(chan model.FlowExecutionRequest)
+	a.executionChannel = make(chan model.FlowExecutionRequest, 100)
 	return nil
 }
 func (a *Agent) setupCluster() error {

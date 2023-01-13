@@ -32,6 +32,7 @@ type Config struct {
 	QueueType          QueueType
 	EncoderDecoderType EncoderDecoderType
 	ClusterConfig      ClusterConfig
+	BatchSize          int
 }
 
 type ClusterConfig struct {

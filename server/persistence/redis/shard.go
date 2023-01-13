@@ -72,14 +72,17 @@ func (r *redisShardStorage) DeleteFlowContext(wfName string, flowId string) erro
 }
 
 func (r *redisShardStorage) SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []model.ActionExecutionRequest) error {
-	var messagesUser []string
-	var messagesSystem []string
+	var messagesUser []rd.Z
+	var messagesSystem []rd.Z
 	for _, action := range actions {
-		message := fmt.Sprintf("%s:%s:%s:%d", wfName, flowId, action.ActionName, action.ActionId)
+		member := rd.Z{
+			Score:  float64(time.Now().UnixMilli()),
+			Member: fmt.Sprintf("%s:%s:%s:%d", wfName, flowId, action.ActionName, action.ActionId),
+		}
 		if action.ActionType == model.ACTION_TYPE_SYSTEM {
-			messagesSystem = append(messagesSystem, string(message))
+			messagesSystem = append(messagesSystem, member)
 		} else {
-			messagesUser = append(messagesUser, string(message))
+			messagesUser = append(messagesUser, member)
 		}
 	}
 	key := r.baseDao.getNamespaceKey(WORKFLOW_KEY, wfName, r.shardId)
@@ -90,10 +93,10 @@ func (r *redisShardStorage) SaveFlowContextAndDispatchAction(wfName string, flow
 	_, err := r.baseDao.redisClient.TxPipelined(ctx, func(pipe rd.Pipeliner) error {
 		err := pipe.HSet(ctx, key, []string{flowId, string(data)}).Err()
 		if len(messagesUser) != 0 {
-			err = pipe.LPush(ctx, queueNameUser, messagesUser).Err()
+			err = pipe.ZAdd(ctx, queueNameUser, messagesUser...).Err()
 		}
 		if len(messagesSystem) != 0 {
-			err = pipe.LPush(ctx, queueNameSystem, messagesSystem).Err()
+			err = pipe.ZAdd(ctx, queueNameSystem, messagesSystem...).Err()
 		}
 		return err
 	})
@@ -106,7 +109,7 @@ func (r *redisShardStorage) SaveFlowContextAndDispatchAction(wfName string, flow
 func (r *redisShardStorage) PollAction(actionType string, batchSize int) ([]model.ActionExecutionRequest, error) {
 	queueName := r.getNamespaceKey(actionType, r.shardId)
 	ctx := context.Background()
-	values, err := r.redisClient.LPopCount(ctx, queueName, batchSize).Result()
+	values, err := r.redisClient.ZRange(ctx, queueName, 0, int64(batchSize-1)).Result()
 	if err != nil {
 		if errors.Is(err, rd.Nil) {
 			return []model.ActionExecutionRequest{}, nil
@@ -128,10 +131,25 @@ func (r *redisShardStorage) PollAction(actionType string, batchSize int) ([]mode
 	return resList, nil
 }
 
+func (r *redisShardStorage) Ack(actionType string, actions []model.ActionExecutionRequest) error {
+	queueName := r.getNamespaceKey(actionType, r.shardId)
+	ctx := context.Background()
+	var messages []string
+	for _, act := range actions {
+		message := fmt.Sprintf("%s:%s:%s:%d", act.WorkflowName, act.FlowId, act.ActionName, act.ActionId)
+		messages = append(messages, message)
+	}
+	err := r.redisClient.ZRem(ctx, queueName, messages).Err()
+	if err != nil {
+		return persistence.StorageLayerError{Message: err.Error()}
+	}
+	return nil
+}
+
 func (r *redisShardStorage) Retry(wfName string, flowId string, actionId int, delay time.Duration) error {
 	message := fmt.Sprintf("%s:%s:%d", wfName, flowId, actionId)
 	queueName := r.getNamespaceKey("retry", r.shardId)
-	return r.addToSortedSet(queueName, []byte(message), delay)
+	return r.addToSortedSet(queueName, []string{message}, delay)
 }
 func (r *redisShardStorage) PollRetry() ([]model.ActionExecutionRequest, error) {
 	queueName := r.getNamespaceKey("retry", r.shardId)
@@ -156,7 +174,7 @@ func (r *redisShardStorage) PollRetry() ([]model.ActionExecutionRequest, error) 
 func (r *redisShardStorage) Delay(wfName string, flowId string, actionId int, delay time.Duration) error {
 	message := fmt.Sprintf("%s:%s:%d", wfName, flowId, actionId)
 	queueName := r.getNamespaceKey("delay", r.shardId)
-	return r.addToSortedSet(queueName, []byte(message), delay)
+	return r.addToSortedSet(queueName, []string{message}, delay)
 }
 func (r *redisShardStorage) PollDelay() ([]model.ActionExecutionRequest, error) {
 	queueName := r.getNamespaceKey("delay", r.shardId)
@@ -182,7 +200,7 @@ func (r *redisShardStorage) PollDelay() ([]model.ActionExecutionRequest, error) 
 func (r *redisShardStorage) Timeout(wfName string, flowId string, actionId int, delay time.Duration) error {
 	message := fmt.Sprintf("%s:%s:%d", wfName, flowId, actionId)
 	queueName := r.getNamespaceKey("timeout", r.shardId)
-	return r.addToSortedSet(queueName, []byte(message), delay)
+	return r.addToSortedSet(queueName, []string{message}, delay)
 }
 
 func (r *redisShardStorage) PollTimeout() ([]model.ActionExecutionRequest, error) {
@@ -206,14 +224,19 @@ func (r *redisShardStorage) PollTimeout() ([]model.ActionExecutionRequest, error
 	return resList, err
 }
 
-func (r *redisShardStorage) addToSortedSet(key string, message []byte, delay time.Duration) error {
+func (r *redisShardStorage) addToSortedSet(key string, messages []string, delay time.Duration) error {
 	ctx := context.Background()
 	currentTime := time.Now().Add(delay).UnixMilli()
-	member := rd.Z{
-		Score:  float64(currentTime),
-		Member: message,
+	var members []rd.Z
+	for _, message := range messages {
+		member := rd.Z{
+			Score:  float64(currentTime),
+			Member: message,
+		}
+		members = append(members, member)
 	}
-	err := r.redisClient.ZAdd(ctx, key, member).Err()
+
+	err := r.redisClient.ZAdd(ctx, key, members...).Err()
 	if err != nil {
 		return persistence.StorageLayerError{Message: err.Error()}
 	}

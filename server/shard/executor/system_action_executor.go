@@ -19,15 +19,17 @@ type systemActionExecutor struct {
 	executionChannel chan<- model.FlowExecutionRequest
 	tw               *util.TickWorker
 	wg               *sync.WaitGroup
+	batchSize        int
 	stop             chan struct{}
 }
 
-func NewSystemActionExecutor(shardId string, storage shard.Storage, executionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *systemActionExecutor {
+func NewSystemActionExecutor(shardId string, storage shard.Storage, executionChannel chan<- model.FlowExecutionRequest, batchSize int, wg *sync.WaitGroup) *systemActionExecutor {
 	ex := &systemActionExecutor{
 		shardId:          shardId,
 		storage:          storage,
 		executionChannel: executionChannel,
 		stop:             make(chan struct{}),
+		batchSize:        batchSize,
 		wg:               wg,
 	}
 	ex.tw = util.NewTickWorker("system-action-executor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
@@ -53,7 +55,7 @@ func (ex *systemActionExecutor) IsRunning() bool {
 }
 
 func (ex *systemActionExecutor) handle() {
-	actions, err := ex.storage.PollAction("system", 10)
+	actions, err := ex.storage.PollAction("system", ex.batchSize)
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
@@ -65,5 +67,11 @@ func (ex *systemActionExecutor) handle() {
 			RequestType:  model.SYSTEM_FLOW_EXECUTION,
 		}
 		ex.executionChannel <- req
+	}
+	if len(actions) != 0 {
+		err = ex.storage.Ack("system", actions)
+		if err != nil {
+			logger.Error("error while ack system actions", zap.Error(err))
+		}
 	}
 }
