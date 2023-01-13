@@ -7,14 +7,12 @@ import (
 
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/config"
-	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/metadata"
 	"github.com/mohitkumar/orchy/server/model"
 	rd "github.com/mohitkumar/orchy/server/persistence/redis"
 	"github.com/mohitkumar/orchy/server/shard"
 	"github.com/mohitkumar/orchy/server/shard/executor"
 	"github.com/mohitkumar/orchy/server/util"
-	"go.uber.org/zap"
 )
 
 type Cluster struct {
@@ -29,11 +27,6 @@ type Cluster struct {
 func NewCluster(conf config.Config, metadataService metadata.MetadataService, flowExecutionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *Cluster {
 	cluserConfig := conf.ClusterConfig
 	batchSize := conf.BatchSize
-	ring := NewRing(cluserConfig.PartitionCount)
-	membership, err := New(ring, cluserConfig)
-	if err != nil {
-		panic("can not start cluster")
-	}
 	shards := make(map[int]*shard.Shard)
 	var flowCtxEncoder util.EncoderDecoder[model.FlowContext]
 	switch conf.EncoderDecoderType {
@@ -74,16 +67,24 @@ func NewCluster(conf config.Config, metadataService metadata.MetadataService, fl
 		shards[i] = sh
 	}
 
+	ring := NewRing(cluserConfig.PartitionCount)
+
 	clusterStorage := NewClusterStorage(shards, ring)
 	stateHandler := NewStateHandlerContainer(clusterStorage)
 
-	return &Cluster{
+	c := &Cluster{
 		storage:      clusterStorage,
 		ring:         ring,
-		membership:   membership,
 		stateHandler: stateHandler,
 		shards:       shards,
 	}
+	ring.SetRebalancer(c.Rebalance)
+	membership, err := NewMemberShip(ring, cluserConfig)
+	if err != nil {
+		panic("can not start cluster")
+	}
+	c.membership = membership
+	return c
 }
 
 func (c *Cluster) GetShard(shardId int) *shard.Shard {
@@ -93,14 +94,27 @@ func (c *Cluster) GetShard(shardId int) *shard.Shard {
 	return shard
 }
 
-func (c *Cluster) Start() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	logger.Info("starting cluster...")
-	for _, sh := range c.shards {
-		logger.Info("starting shard", zap.String("shard", sh.GetShardId()))
-		sh.Start()
+func (c *Cluster) Rebalance(partitions []int) {
+	for id, shard := range c.shards {
+		if contains(partitions, id) {
+			shard.Start()
+		} else {
+			shard.Stop()
+		}
 	}
+}
+
+func contains(s []int, e int) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Cluster) Start() {
+
 }
 
 func (c *Cluster) Stop() error {

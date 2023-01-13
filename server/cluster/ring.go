@@ -27,6 +27,7 @@ type Ring struct {
 	hring          *consistent.Consistent
 	nodes          map[string]Node
 	localNode      Node
+	rebalancer     func([]int)
 	mu             sync.Mutex
 }
 
@@ -54,6 +55,10 @@ func NewRing(paritionCount int) *Ring {
 	}
 }
 
+func (r *Ring) SetRebalancer(reb func([]int)) {
+	r.rebalancer = reb
+}
+
 func (r *Ring) Join(name, addr string, isLocal bool) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -70,15 +75,17 @@ func (r *Ring) Join(name, addr string, isLocal bool) error {
 	}
 	r.nodes[name] = node
 	r.hring.Add(node)
+	r.rebalancer(r.GetPartitions())
 	return nil
 }
 
 func (r *Ring) Leave(name string) error {
-	logger.Info("removing member from cluster", zap.String("node", name))
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	logger.Info("removing member from cluster", zap.String("node", name))
 	delete(r.nodes, name)
 	r.hring.Remove(name)
+	r.rebalancer(r.GetPartitions())
 	return nil
 }
 
