@@ -1,4 +1,4 @@
-package cluster
+package shard
 
 import (
 	"github.com/mohitkumar/orchy/server/flow"

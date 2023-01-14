@@ -20,11 +20,11 @@ type Storage interface {
 	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []model.ActionExecutionRequest) error
 	PollAction(actionType string, batchSize int) ([]model.ActionExecutionRequest, error)
 	Ack(actionType string, actions []model.ActionExecutionRequest) error
-	Retry(wfName string, flowId string, actionId int, delay time.Duration) error
+	Retry(wfName string, flowId string, actionName string, actionId int, delay time.Duration) error
 	PollRetry() ([]model.ActionExecutionRequest, error)
-	Delay(wfName string, flowId string, actionId int, delay time.Duration) error
+	Delay(wfName string, flowId string, actionName string, actionId int, delay time.Duration) error
 	PollDelay() ([]model.ActionExecutionRequest, error)
-	Timeout(wfName string, flowId string, actionId int, delay time.Duration) error
+	Timeout(wfName string, flowId string, actionName string, actionId int, delay time.Duration) error
 	PollTimeout() ([]model.ActionExecutionRequest, error)
 }
 
@@ -37,14 +37,18 @@ type Shard struct {
 	id            string
 	externalQueue ExternalQueue
 	storage       Storage
+	stateHandler  *StateHandlerContainer
+	engine        *FlowEngine
 	executors     map[string]Executor
 }
 
-func NewShard(id string, externalQueue ExternalQueue, storage Storage) *Shard {
+func NewShard(id string, externalQueue ExternalQueue, storage Storage, engine *FlowEngine, stateHandler *StateHandlerContainer) *Shard {
 	return &Shard{
 		id:            id,
 		externalQueue: externalQueue,
 		storage:       storage,
+		engine:        engine,
+		stateHandler:  stateHandler,
 		executors:     make(map[string]Executor),
 	}
 }
@@ -61,6 +65,10 @@ func (s *Shard) GetStorage() Storage {
 	return s.storage
 }
 
+func (s *Shard) GetEngine() *FlowEngine {
+	return s.engine
+}
+
 func (s *Shard) GetExternalQueue() ExternalQueue {
 	return s.externalQueue
 }
@@ -69,6 +77,14 @@ func (s *Shard) Start() {
 	for _, executor := range s.executors {
 		executor.Start()
 	}
+}
+
+func (s *Shard) StartEngine() {
+	s.engine.Start()
+}
+
+func (s *Shard) StopEngine() {
+	s.engine.Stop()
 }
 
 func (s *Shard) Stop() {

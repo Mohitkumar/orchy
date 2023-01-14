@@ -1,13 +1,11 @@
-package engine
+package shard
 
 import (
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/mohitkumar/orchy/server/action"
-	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/metadata"
@@ -16,19 +14,21 @@ import (
 )
 
 type FlowEngine struct {
-	cluster            *cluster.Cluster
+	storage            Storage
 	metadataService    metadata.MetadataService
+	stateHandler       *StateHandlerContainer
 	executionChannel   chan model.FlowExecutionRequest
 	stateChangeChannel chan model.FlowStateChangeRequest
 	stop               chan struct{}
 	wg                 *sync.WaitGroup
 }
 
-func NewFlowEngine(cluster *cluster.Cluster, executionChannel chan model.FlowExecutionRequest, metadadataService metadata.MetadataService, wg *sync.WaitGroup) *FlowEngine {
+func NewFlowEngine(storage Storage, metadadataService metadata.MetadataService, wg *sync.WaitGroup) *FlowEngine {
 	return &FlowEngine{
-		cluster:            cluster,
+		storage:            storage,
+		stateHandler:       NewStateHandlerContainer(storage),
 		metadataService:    metadadataService,
-		executionChannel:   executionChannel,
+		executionChannel:   make(chan model.FlowExecutionRequest, 1000),
 		stateChangeChannel: make(chan model.FlowStateChangeRequest, 1000),
 		stop:               make(chan struct{}),
 		wg:                 wg,
@@ -79,12 +79,11 @@ func (f *FlowEngine) Start() {
 	}()
 }
 
-func (f *FlowEngine) Init(wfName string, input map[string]any) (string, error) {
-	flowId := uuid.New().String()
+func (f *FlowEngine) Init(wfName string, flowId string, input map[string]any) error {
 	flow, err := f.metadataService.GetFlow(wfName, flowId)
 	if err != nil {
 		logger.Error("Workflow not found", zap.String("Workflow", wfName), zap.Error(err))
-		return "", err
+		return err
 	}
 	dataMap := make(map[string]any)
 	dataMap["input"] = input
@@ -98,9 +97,9 @@ func (f *FlowEngine) Init(wfName string, input map[string]any) (string, error) {
 	f.saveContextAndDispatchAction(wfName, flowId, []int{flow.RootAction}, flow, flowCtx)
 	if err != nil {
 		logger.Error("error executiong flow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(err))
-		return flowId, err
+		return err
 	}
-	return flowId, nil
+	return nil
 }
 
 func (f *FlowEngine) execute(req model.FlowExecutionRequest) {
@@ -137,7 +136,7 @@ func (f *FlowEngine) execute(req model.FlowExecutionRequest) {
 }
 
 func (f *FlowEngine) validateFlow(wfName string, flowId string, actionId int) error {
-	flowCtx, err := f.cluster.GetStorage().GetFlowContext(wfName, flowId)
+	flowCtx, err := f.storage.GetFlowContext(wfName, flowId)
 	if err != nil {
 		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return fmt.Errorf("flow already completed")
@@ -159,7 +158,7 @@ func (f *FlowEngine) validateAndGetFlow(wfName string, flowId string, actionId i
 		logger.Error("Workflow not found", zap.String("Workflow", wfName), zap.Error(err))
 		return nil, nil, err
 	}
-	flowCtx, err := f.cluster.GetStorage().GetFlowContext(wfName, flowId)
+	flowCtx, err := f.storage.GetFlowContext(wfName, flowId)
 	if err != nil {
 		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return nil, nil, fmt.Errorf("flow already completed")
@@ -191,7 +190,7 @@ func (f *FlowEngine) saveContextAndDispatchAction(wfName string, flowId string, 
 		}
 		actions = append(actions, act)
 	}
-	err := f.cluster.GetStorage().SaveFlowContextAndDispatchAction(wfName, flowId, flowCtx, actions)
+	err := f.storage.SaveFlowContextAndDispatchAction(wfName, flowId, flowCtx, actions)
 	if err != nil {
 		return err
 	}
@@ -213,8 +212,8 @@ func (f *FlowEngine) isComplete(flow *flow.Flow, flowCtx *model.FlowContext) boo
 
 func (f *FlowEngine) markComplete(wfName string, flowId string, flow *flow.Flow, flowCtx *model.FlowContext) {
 	flowCtx.State = model.COMPLETED
-	f.cluster.GetStorage().SaveFlowContext(wfName, flowId, flowCtx)
-	successHandler := f.cluster.GetStateHandler().GetHandler(flow.SuccessHandler)
+	f.storage.SaveFlowContext(wfName, flowId, flowCtx)
+	successHandler := f.stateHandler.GetHandler(flow.SuccessHandler)
 	err := successHandler(wfName, flowId)
 	if err != nil {
 		logger.Error("error in running success handler", zap.Error(err))
@@ -238,7 +237,7 @@ func (f *FlowEngine) executeSystemAction(wfName string, flowId string, actionId 
 		case "delay":
 			f.MarkWaitingDelay(wfName, flowId)
 			delay := currentAction.GetParams()["delay"].(time.Duration)
-			f.DelayAction(wfName, flowId, currentAction.GetId(), 1, delay)
+			f.DelayAction(wfName, flowId, currentAction.GetName(), currentAction.GetId(), delay)
 		case "wait":
 			f.MarkWaitingEvent(wfName, flowId)
 		default:
@@ -249,7 +248,7 @@ func (f *FlowEngine) executeSystemAction(wfName string, flowId string, actionId 
 	}
 }
 
-func (f *FlowEngine) RetryAction(wfName string, flowId string, actionId int, reason string) {
+func (f *FlowEngine) RetryAction(wfName string, flowId string, actionName string, actionId int, reason string) {
 	flow, flowCtx, err := f.validateAndGetFlow(wfName, flowId, actionId)
 	if err != nil {
 		return
@@ -273,7 +272,7 @@ func (f *FlowEngine) RetryAction(wfName string, flowId string, actionId int, rea
 		if "timeout" == reason {
 			retryAfter = 1 * time.Second
 		}
-		err = f.cluster.GetStorage().Retry(wfName, flowId, actionId, retryAfter)
+		err = f.storage.Retry(wfName, flowId, actionName, actionId, retryAfter)
 		if err != nil {
 			logger.Error("error retrying workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
 		}
@@ -284,12 +283,12 @@ func (f *FlowEngine) RetryAction(wfName string, flowId string, actionId int, rea
 
 }
 
-func (f *FlowEngine) DelayAction(wfName string, flowId string, actionId int, tryCount int, delay time.Duration) {
+func (f *FlowEngine) DelayAction(wfName string, flowId string, actionName string, actionId int, delay time.Duration) {
 	err := f.validateFlow(wfName, flowId, actionId)
 	if err != nil {
 		return
 	}
-	err = f.cluster.GetStorage().Delay(wfName, flowId, actionId, delay)
+	err = f.storage.Delay(wfName, flowId, actionName, actionId, delay)
 
 	if err != nil {
 		logger.Error("error running delay action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
@@ -306,12 +305,33 @@ func (f *FlowEngine) ExecuteRetry(wfName string, flowId string, actionId int) {
 	f.executionChannel <- req
 }
 
+func (f *FlowEngine) ExecuteDelay(wfName string, flowId string, actionId int) {
+	req := model.FlowExecutionRequest{
+		WorkflowName: wfName,
+		FlowId:       flowId,
+		ActionId:     actionId,
+		Event:        "default",
+		DataMap:      nil,
+		RequestType:  model.NEW_FLOW_EXECUTION,
+	}
+	f.executionChannel <- req
+}
 func (f *FlowEngine) ExecuteResume(wfName string, flowId string, event string) {
 	req := model.FlowExecutionRequest{
 		WorkflowName: wfName,
 		FlowId:       flowId,
 		Event:        event,
 		RequestType:  model.RESUME_FLOW_EXECUTION,
+	}
+	f.executionChannel <- req
+}
+
+func (f *FlowEngine) ExecuteSystemAction(wfName string, flowId string, actionId int) {
+	req := model.FlowExecutionRequest{
+		WorkflowName: wfName,
+		FlowId:       flowId,
+		ActionId:     actionId,
+		RequestType:  model.SYSTEM_FLOW_EXECUTION,
 	}
 	f.executionChannel <- req
 }
@@ -329,7 +349,7 @@ func (f *FlowEngine) retry(wfName string, flowId string, actionId int) {
 }
 
 func (f *FlowEngine) resume(wfName string, flowId string) {
-	flowCtx, err := f.cluster.GetStorage().GetFlowContext(wfName, flowId)
+	flowCtx, err := f.storage.GetFlowContext(wfName, flowId)
 	if err != nil {
 		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return
@@ -394,20 +414,20 @@ func (f *FlowEngine) MarkRunning(wfName string, flowId string) {
 }
 
 func (f *FlowEngine) changeState(wfName string, flowId string, state model.FlowState) {
-	flowCtx, err := f.cluster.GetStorage().GetFlowContext(wfName, flowId)
+	flowCtx, err := f.storage.GetFlowContext(wfName, flowId)
 	if err != nil {
 		logger.Debug("flow already completed", zap.Error(fmt.Errorf("workflow complted")))
 		return
 	}
 	flowCtx.State = state
-	f.cluster.GetStorage().SaveFlowContext(wfName, flowId, flowCtx)
+	f.storage.SaveFlowContext(wfName, flowId, flowCtx)
 	if state == model.FAILED {
 		flow, err := f.metadataService.GetFlow(wfName, flowId)
 		if err != nil {
 			logger.Error("Workflow not found", zap.String("Workflow", wfName), zap.Error(err))
 			return
 		}
-		failureHandler := f.cluster.GetStateHandler().GetHandler(flow.FailureHandler)
+		failureHandler := f.stateHandler.GetHandler(flow.FailureHandler)
 		err = failureHandler(wfName, flowId)
 		if err != nil {
 			logger.Error("error in running failure handler", zap.Error(err))
@@ -419,7 +439,7 @@ func (f *FlowEngine) changeState(wfName string, flowId string, state model.FlowS
 			logger.Error("Workflow not found", zap.String("Workflow", wfName), zap.Error(err))
 			return
 		}
-		successHandler := f.cluster.GetStateHandler().GetHandler(flow.SuccessHandler)
+		successHandler := f.stateHandler.GetHandler(flow.SuccessHandler)
 		err = successHandler(wfName, flowId)
 		if err != nil {
 			logger.Error("error in running success handler", zap.Error(err))

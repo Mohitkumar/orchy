@@ -7,10 +7,8 @@ import (
 
 	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/config"
-	"github.com/mohitkumar/orchy/server/engine"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/metadata"
-	"github.com/mohitkumar/orchy/server/model"
 	rd "github.com/mohitkumar/orchy/server/persistence/redis"
 	"github.com/mohitkumar/orchy/server/rest"
 	"github.com/mohitkumar/orchy/server/rpc"
@@ -22,11 +20,9 @@ import (
 
 type Agent struct {
 	Config                   config.Config
-	executionChannel         chan model.FlowExecutionRequest
 	cluster                  *cluster.Cluster
 	metadataService          metadata.MetadataService
 	jsvm                     *v8.Isolate
-	flowEngine               *engine.FlowEngine
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
 	actionExecutionService   *service.ActionExecutionService
@@ -43,11 +39,9 @@ func New(config config.Config) (*Agent, error) {
 		shutdowns: make(chan struct{}),
 	}
 	setup := []func() error{
-		a.setupExecutionChannel,
 		a.setupJsVm,
 		a.setupMetadataService,
 		a.setupCluster,
-		a.setupFlowEngine,
 		a.setupWorkflowExecutionService,
 		a.setupActionExecutorService,
 		a.setupHttpServer,
@@ -81,29 +75,19 @@ func (a *Agent) setupMetadataService() error {
 	return nil
 }
 
-func (a *Agent) setupExecutionChannel() error {
-	a.executionChannel = make(chan model.FlowExecutionRequest, 100)
-	return nil
-}
 func (a *Agent) setupCluster() error {
-	a.cluster = cluster.NewCluster(a.Config, a.metadataService, a.executionChannel, &a.wg)
+	a.cluster = cluster.NewCluster(a.Config, a.metadataService, &a.wg)
 	a.cluster.Start()
 	return nil
 }
 
-func (a *Agent) setupFlowEngine() error {
-	a.flowEngine = engine.NewFlowEngine(a.cluster, a.executionChannel, a.metadataService, &a.wg)
-	a.flowEngine.Start()
-	return nil
-}
-
 func (a *Agent) setupWorkflowExecutionService() error {
-	a.workflowExecutionService = service.NewWorkflowExecutionService(a.flowEngine)
+	a.workflowExecutionService = service.NewWorkflowExecutionService(a.cluster)
 	return nil
 }
 
 func (a *Agent) setupActionExecutorService() error {
-	a.actionExecutionService = service.NewActionExecutionService(a.cluster, a.metadataService, a.flowEngine)
+	a.actionExecutionService = service.NewActionExecutionService(a.cluster, a.metadataService)
 	return nil
 }
 
@@ -168,7 +152,6 @@ func (a *Agent) Shutdown() error {
 	close(a.shutdowns)
 
 	shutdown := []func() error{
-		a.flowEngine.Stop,
 		a.cluster.Stop,
 		a.httpServer.Stop,
 		func() error {

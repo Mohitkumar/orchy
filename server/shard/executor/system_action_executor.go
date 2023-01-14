@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/mohitkumar/orchy/server/logger"
-	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/shard"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
@@ -14,23 +13,23 @@ import (
 var _ shard.Executor = new(systemActionExecutor)
 
 type systemActionExecutor struct {
-	shardId          string
-	storage          shard.Storage
-	executionChannel chan<- model.FlowExecutionRequest
-	tw               *util.TickWorker
-	wg               *sync.WaitGroup
-	batchSize        int
-	stop             chan struct{}
+	shardId   string
+	storage   shard.Storage
+	engine    *shard.FlowEngine
+	tw        *util.TickWorker
+	wg        *sync.WaitGroup
+	batchSize int
+	stop      chan struct{}
 }
 
-func NewSystemActionExecutor(shardId string, storage shard.Storage, executionChannel chan<- model.FlowExecutionRequest, batchSize int, wg *sync.WaitGroup) *systemActionExecutor {
+func NewSystemActionExecutor(shardId string, storage shard.Storage, engine *shard.FlowEngine, batchSize int, wg *sync.WaitGroup) *systemActionExecutor {
 	ex := &systemActionExecutor{
-		shardId:          shardId,
-		storage:          storage,
-		executionChannel: executionChannel,
-		stop:             make(chan struct{}),
-		batchSize:        batchSize,
-		wg:               wg,
+		shardId:   shardId,
+		storage:   storage,
+		engine:    engine,
+		stop:      make(chan struct{}),
+		batchSize: batchSize,
+		wg:        wg,
 	}
 	ex.tw = util.NewTickWorker("system-action-executor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
 	return ex
@@ -60,13 +59,7 @@ func (ex *systemActionExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions {
-		req := model.FlowExecutionRequest{
-			WorkflowName: action.WorkflowName,
-			FlowId:       action.FlowId,
-			ActionId:     action.ActionId,
-			RequestType:  model.SYSTEM_FLOW_EXECUTION,
-		}
-		ex.executionChannel <- req
+		ex.engine.ExecuteSystemAction(action.WorkflowName, action.FlowId, action.ActionId)
 	}
 	if len(actions) != 0 {
 		err = ex.storage.Ack("system", actions)

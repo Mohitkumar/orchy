@@ -16,19 +16,20 @@ var _ shard.Executor = new(systemActionExecutor)
 type delayExecutor struct {
 	shardId          string
 	storage          shard.Storage
+	engine           *shard.FlowEngine
 	wg               *sync.WaitGroup
 	tw               *util.TickWorker
 	executionChannel chan<- model.FlowExecutionRequest
 	stop             chan struct{}
 }
 
-func NewDelayExecutor(shardId string, storage shard.Storage, executionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *delayExecutor {
+func NewDelayExecutor(shardId string, storage shard.Storage, engine *shard.FlowEngine, wg *sync.WaitGroup) *delayExecutor {
 	ex := &delayExecutor{
-		shardId:          shardId,
-		storage:          storage,
-		executionChannel: executionChannel,
-		stop:             make(chan struct{}),
-		wg:               wg,
+		shardId: shardId,
+		storage: storage,
+		engine:  engine,
+		stop:    make(chan struct{}),
+		wg:      wg,
 	}
 	ex.tw = util.NewTickWorker("delay-executor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
 	return ex
@@ -58,14 +59,6 @@ func (ex *delayExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions {
-		req := model.FlowExecutionRequest{
-			WorkflowName: action.WorkflowName,
-			FlowId:       action.FlowId,
-			ActionId:     action.ActionId,
-			Event:        "default",
-			DataMap:      nil,
-			RequestType:  model.NEW_FLOW_EXECUTION,
-		}
-		ex.executionChannel <- req
+		ex.engine.ExecuteDelay(action.WorkflowName, action.FlowId, action.ActionId)
 	}
 }

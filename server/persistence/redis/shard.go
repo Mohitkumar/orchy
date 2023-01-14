@@ -146,8 +146,8 @@ func (r *redisShardStorage) Ack(actionType string, actions []model.ActionExecuti
 	return nil
 }
 
-func (r *redisShardStorage) Retry(wfName string, flowId string, actionId int, delay time.Duration) error {
-	message := fmt.Sprintf("%s:%s:%d", wfName, flowId, actionId)
+func (r *redisShardStorage) Retry(wfName string, flowId string, actionName string, actionId int, delay time.Duration) error {
+	message := fmt.Sprintf("%s:%s:%s:%d", wfName, flowId, actionName, actionId)
 	queueName := r.getNamespaceKey("retry", r.shardId)
 	return r.addToSortedSet(queueName, []string{message}, delay)
 }
@@ -171,8 +171,8 @@ func (r *redisShardStorage) PollRetry() ([]model.ActionExecutionRequest, error) 
 	}
 	return resList, nil
 }
-func (r *redisShardStorage) Delay(wfName string, flowId string, actionId int, delay time.Duration) error {
-	message := fmt.Sprintf("%s:%s:%d", wfName, flowId, actionId)
+func (r *redisShardStorage) Delay(wfName string, flowId string, actionName string, actionId int, delay time.Duration) error {
+	message := fmt.Sprintf("%s:%s:%s:%d", wfName, flowId, actionName, actionId)
 	queueName := r.getNamespaceKey("delay", r.shardId)
 	return r.addToSortedSet(queueName, []string{message}, delay)
 }
@@ -197,8 +197,8 @@ func (r *redisShardStorage) PollDelay() ([]model.ActionExecutionRequest, error) 
 	return resList, nil
 }
 
-func (r *redisShardStorage) Timeout(wfName string, flowId string, actionId int, delay time.Duration) error {
-	message := fmt.Sprintf("%s:%s:%d", wfName, flowId, actionId)
+func (r *redisShardStorage) Timeout(wfName string, flowId string, actionName string, actionId int, delay time.Duration) error {
+	message := fmt.Sprintf("%s:%s:%s:%d", wfName, flowId, actionName, actionId)
 	queueName := r.getNamespaceKey("timeout", r.shardId)
 	return r.addToSortedSet(queueName, []string{message}, delay)
 }

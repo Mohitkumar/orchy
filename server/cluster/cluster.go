@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/mohitkumar/orchy/server/metadata"
@@ -16,15 +17,13 @@ import (
 )
 
 type Cluster struct {
-	storage      Storage
-	ring         *Ring
-	membership   *Membership
-	shards       map[int]*shard.Shard
-	stateHandler *StateHandlerContainer
-	mu           sync.Mutex
+	ring       *Ring
+	membership *Membership
+	shards     map[int]*shard.Shard
+	mu         sync.Mutex
 }
 
-func NewCluster(conf config.Config, metadataService metadata.MetadataService, flowExecutionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *Cluster {
+func NewCluster(conf config.Config, metadataService metadata.MetadataService, wg *sync.WaitGroup) *Cluster {
 	cluserConfig := conf.ClusterConfig
 	batchSize := conf.BatchSize
 	shards := make(map[int]*shard.Shard)
@@ -57,26 +56,23 @@ func NewCluster(conf config.Config, metadataService metadata.MetadataService, fl
 			}
 			externalQueue = rd.NewRedisQueue(rdConf, shardId)
 		}
-		sh := shard.NewShard(shardId, externalQueue, shardStorage)
+		stateHandler := shard.NewStateHandlerContainer(shardStorage)
+		engine := shard.NewFlowEngine(shardStorage, metadataService, wg)
+		sh := shard.NewShard(shardId, externalQueue, shardStorage, engine, stateHandler)
 
 		sh.RegisterExecutor("user-action", executor.NewUserActionExecutor(shardId, shardStorage, metadataService, externalQueue, batchSize, wg))
-		sh.RegisterExecutor("system-action", executor.NewSystemActionExecutor(shardId, shardStorage, flowExecutionChannel, batchSize, wg))
-		sh.RegisterExecutor("delay", executor.NewDelayExecutor(shardId, shardStorage, flowExecutionChannel, wg))
-		sh.RegisterExecutor("retry", executor.NewRetryExecutor(shardId, shardStorage, flowExecutionChannel, wg))
-		sh.RegisterExecutor("timeout", executor.NewTimeoutExecutor(shardId, shardStorage, flowExecutionChannel, wg))
+		sh.RegisterExecutor("system-action", executor.NewSystemActionExecutor(shardId, shardStorage, engine, batchSize, wg))
+		sh.RegisterExecutor("delay", executor.NewDelayExecutor(shardId, shardStorage, engine, wg))
+		sh.RegisterExecutor("retry", executor.NewRetryExecutor(shardId, shardStorage, engine, wg))
+		sh.RegisterExecutor("timeout", executor.NewTimeoutExecutor(shardId, shardStorage, engine, wg))
 		shards[i] = sh
 	}
 
 	ring := NewRing(cluserConfig.PartitionCount)
 
-	clusterStorage := NewClusterStorage(shards, ring)
-	stateHandler := NewStateHandlerContainer(clusterStorage)
-
 	c := &Cluster{
-		storage:      clusterStorage,
-		ring:         ring,
-		stateHandler: stateHandler,
-		shards:       shards,
+		ring:   ring,
+		shards: shards,
 	}
 	ring.SetRebalancer(c.Rebalance)
 	membership, err := NewMemberShip(ring, cluserConfig)
@@ -113,21 +109,23 @@ func contains(s []int, e int) bool {
 	return false
 }
 
-func (c *Cluster) Start() {
-
-}
-
 func (c *Cluster) Stop() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, sh := range c.shards {
 		sh.Stop()
+		sh.StopEngine()
 	}
 	return nil
 }
 
-func (c *Cluster) GetStorage() Storage {
-	return c.storage
+func (c *Cluster) Start() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, sh := range c.shards {
+		sh.StartEngine()
+	}
+	return nil
 }
 
 func (c *Cluster) Poll(queuName string, batchSize int) (*api.Actions, error) {
@@ -147,25 +145,41 @@ func (c *Cluster) Poll(queuName string, batchSize int) (*api.Actions, error) {
 	return &api.Actions{Actions: result}, nil
 }
 
-func (c *Cluster) GetClusterRefersher() *Membership {
-	return c.membership
-}
-
 func (c *Cluster) GetServerer() *Ring {
 	return c.ring
 }
 
-func (c *Cluster) GetStateHandler() *StateHandlerContainer {
-	return c.stateHandler
+func (c *Cluster) ExecuteAction(wfName string, flowId string, event string, actionId int, data map[string]any) {
+	shard := c.shards[c.ring.GetPartition(flowId)]
+	shard.GetEngine().ExecuteAction(wfName, flowId, event, actionId, data)
 }
 
-type Storage interface {
-	SaveFlowContext(wfName string, flowId string, flowCtx *model.FlowContext) error
-	GetFlowContext(wfName string, flowId string) (*model.FlowContext, error)
-	DeleteFlowContext(wfName string, flowId string) error
+func (c *Cluster) RetryAction(wfName string, flowId string, actionName string, actionId int, reason string) {
+	shard := c.shards[c.ring.GetPartition(flowId)]
+	shard.GetEngine().RetryAction(wfName, flowId, actionName, actionId, reason)
+}
 
-	SaveFlowContextAndDispatchAction(wfName string, flowId string, flowCtx *model.FlowContext, actions []model.ActionExecutionRequest) error
-	Retry(wfName string, flowId string, actionId int, delay time.Duration) error
-	Delay(wfName string, flowId string, actionId int, delay time.Duration) error
-	Timeout(wfName string, flowId string, actionId int, delay time.Duration) error
+func (c *Cluster) Init(wfName string, input map[string]any) (string, error) {
+	flowId := uuid.New().String()
+	shard := c.shards[c.ring.GetPartition(flowId)]
+	err := shard.GetEngine().Init(wfName, flowId, input)
+	if err != nil {
+		return "", nil
+	}
+	return flowId, nil
+}
+
+func (c *Cluster) ExecuteResume(wfName string, flowId string, event string) {
+	shard := c.shards[c.ring.GetPartition(flowId)]
+	shard.GetEngine().ExecuteResume(wfName, flowId, event)
+}
+
+func (c *Cluster) MarkPaused(wfName string, flowId string) {
+	shard := c.shards[c.ring.GetPartition(flowId)]
+	shard.GetEngine().MarkPaused(wfName, flowId)
+}
+
+func (c *Cluster) Timeout(wfName string, flowId string, actionName string, actionId int, delay time.Duration) error {
+	shard := c.shards[c.ring.GetPartition(flowId)]
+	return shard.GetStorage().Timeout(wfName, flowId, actionName, actionId, delay)
 }

@@ -5,7 +5,6 @@ import (
 
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/cluster"
-	"github.com/mohitkumar/orchy/server/engine"
 	"github.com/mohitkumar/orchy/server/metadata"
 	"github.com/mohitkumar/orchy/server/util"
 )
@@ -13,14 +12,12 @@ import (
 type ActionExecutionService struct {
 	cluster         *cluster.Cluster
 	metadataService metadata.MetadataService
-	flowEngine      *engine.FlowEngine
 }
 
-func NewActionExecutionService(cluster *cluster.Cluster, metadataService metadata.MetadataService, flowEngine *engine.FlowEngine) *ActionExecutionService {
+func NewActionExecutionService(cluster *cluster.Cluster, metadataService metadata.MetadataService) *ActionExecutionService {
 	return &ActionExecutionService{
 		cluster:         cluster,
 		metadataService: metadataService,
-		flowEngine:      flowEngine,
 	}
 }
 func (ts *ActionExecutionService) Poll(actionName string, batchSize int) (*api.Actions, error) {
@@ -31,7 +28,7 @@ func (ts *ActionExecutionService) Poll(actionName string, batchSize int) (*api.A
 	for _, action := range actions.Actions {
 		actionDef, _ := ts.metadataService.GetMetadataStorage().GetActionDefinition(action.ActionName)
 		if actionDef.RetryCount > 1 {
-			ts.cluster.GetStorage().Timeout(action.WorkflowName, action.FlowId, int(action.ActionId), time.Duration(actionDef.TimeoutSeconds)*time.Second)
+			ts.cluster.Timeout(action.WorkflowName, action.FlowId, action.ActionName, int(action.ActionId), time.Duration(actionDef.TimeoutSeconds)*time.Second)
 		}
 	}
 	return actions, nil
@@ -44,13 +41,14 @@ func (ts *ActionExecutionService) Push(res *api.ActionResult) error {
 func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResult) error {
 	wfName := actionResult.WorkflowName
 	wfId := actionResult.FlowId
+	actionName := actionResult.ActionName
 	data := util.ConvertFromProto(actionResult.Data)
 
 	switch actionResult.Status {
 	case api.ActionResult_SUCCESS:
-		s.flowEngine.ExecuteAction(wfName, wfId, "default", int(actionResult.ActionId), data)
+		s.cluster.ExecuteAction(wfName, wfId, "default", int(actionResult.ActionId), data)
 	case api.ActionResult_FAIL:
-		s.flowEngine.RetryAction(wfName, wfId, int(actionResult.ActionId), "failed")
+		s.cluster.RetryAction(wfName, wfId, actionName, int(actionResult.ActionId), "failed")
 	}
 	return nil
 }

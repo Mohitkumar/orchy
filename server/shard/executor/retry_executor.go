@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/mohitkumar/orchy/server/logger"
-	"github.com/mohitkumar/orchy/server/model"
 	"github.com/mohitkumar/orchy/server/shard"
 	"github.com/mohitkumar/orchy/server/util"
 	"go.uber.org/zap"
@@ -14,21 +13,21 @@ import (
 var _ shard.Executor = new(systemActionExecutor)
 
 type retryExecutor struct {
-	shardId          string
-	storage          shard.Storage
-	executionChannel chan<- model.FlowExecutionRequest
-	tw               *util.TickWorker
-	wg               *sync.WaitGroup
-	stop             chan struct{}
+	shardId string
+	storage shard.Storage
+	engine  *shard.FlowEngine
+	tw      *util.TickWorker
+	wg      *sync.WaitGroup
+	stop    chan struct{}
 }
 
-func NewRetryExecutor(shardId string, stoarge shard.Storage, executionChannel chan<- model.FlowExecutionRequest, wg *sync.WaitGroup) *retryExecutor {
+func NewRetryExecutor(shardId string, stoarge shard.Storage, engine *shard.FlowEngine, wg *sync.WaitGroup) *retryExecutor {
 	ex := &retryExecutor{
-		shardId:          shardId,
-		storage:          stoarge,
-		executionChannel: executionChannel,
-		stop:             make(chan struct{}),
-		wg:               wg,
+		shardId: shardId,
+		storage: stoarge,
+		engine:  engine,
+		stop:    make(chan struct{}),
+		wg:      wg,
 	}
 	ex.tw = util.NewTickWorker("retryexecutor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
 	return ex
@@ -58,13 +57,6 @@ func (ex *retryExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions {
-
-		req := model.FlowExecutionRequest{
-			WorkflowName: action.WorkflowName,
-			FlowId:       action.FlowId,
-			ActionId:     action.ActionId,
-			RequestType:  model.RETRY_FLOW_EXECUTION,
-		}
-		ex.executionChannel <- req
+		ex.engine.ExecuteRetry(action.WorkflowName, action.FlowId, action.ActionId)
 	}
 }

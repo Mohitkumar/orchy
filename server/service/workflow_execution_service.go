@@ -1,23 +1,23 @@
 package service
 
 import (
-	"github.com/mohitkumar/orchy/server/engine"
+	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/logger"
 	"go.uber.org/zap"
 )
 
 type WorkflowExecutionService struct {
-	flowEngine *engine.FlowEngine
+	cluster *cluster.Cluster
 }
 
-func NewWorkflowExecutionService(flowEngine *engine.FlowEngine) *WorkflowExecutionService {
+func NewWorkflowExecutionService(cluster *cluster.Cluster) *WorkflowExecutionService {
 	return &WorkflowExecutionService{
-		flowEngine: flowEngine,
+		cluster: cluster,
 	}
 }
 
 func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) (string, error) {
-	flowId, err := s.flowEngine.Init(name, input)
+	flowId, err := s.cluster.Init(name, input)
 	if err != nil {
 		return "", err
 	}
@@ -27,17 +27,17 @@ func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) 
 
 func (s *WorkflowExecutionService) ResumeFlow(name string, flowId string) error {
 	logger.Info("resuming workflow", zap.String("workflow", name), zap.String("id", flowId))
-	s.flowEngine.ExecuteResume(name, flowId, "default")
+	s.cluster.ExecuteResume(name, flowId, "default")
 	return nil
 }
 
 func (s *WorkflowExecutionService) PauseFlow(name string, flowId string) error {
 	logger.Info("pausing workflow", zap.String("workflow", name), zap.String("id", flowId))
-	s.flowEngine.MarkPaused(name, flowId)
+	s.cluster.MarkPaused(name, flowId)
 	return nil
 }
 
 func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, event string) error {
-	s.flowEngine.ExecuteResume(name, flowId, event)
+	s.cluster.ExecuteResume(name, flowId, event)
 	return nil
 }
