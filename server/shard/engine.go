@@ -2,7 +2,6 @@ package shard
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/mohitkumar/orchy/server/action"
@@ -14,87 +13,31 @@ import (
 )
 
 type FlowEngine struct {
-	storage            Storage
-	metadataService    metadata.MetadataService
-	stateHandler       *StateHandlerContainer
-	executionChannel   chan model.FlowExecutionRequest
-	stateChangeChannel chan model.FlowStateChangeRequest
-	stop               chan struct{}
-	wg                 *sync.WaitGroup
+	storage               Storage
+	metadataService       metadata.MetadataService
+	stateHandler          *StateHandlerContainer
+	stateMachineContainer *FlowStateMachineContainer
 }
 
-func NewFlowEngine(storage Storage, metadadataService metadata.MetadataService, wg *sync.WaitGroup) *FlowEngine {
+func NewFlowEngine(storage Storage, metadadataService metadata.MetadataService, stateMachineContainer *FlowStateMachineContainer) *FlowEngine {
 	return &FlowEngine{
-		storage:            storage,
-		stateHandler:       NewStateHandlerContainer(storage),
-		metadataService:    metadadataService,
-		executionChannel:   make(chan model.FlowExecutionRequest, 1000),
-		stateChangeChannel: make(chan model.FlowStateChangeRequest, 1000),
-		stop:               make(chan struct{}),
-		wg:                 wg,
+		storage:               storage,
+		stateHandler:          NewStateHandlerContainer(storage),
+		metadataService:       metadadataService,
+		stateMachineContainer: stateMachineContainer,
 	}
 }
 
 func (f *FlowEngine) ExecuteAction(wfName string, wfId string, event string, actionId int, data map[string]any) {
-	req := model.FlowExecutionRequest{
-		WorkflowName: wfName,
-		FlowId:       wfId,
-		ActionId:     actionId,
-		Event:        event,
-		DataMap:      data,
-		RequestType:  model.NEW_FLOW_EXECUTION,
-	}
-	f.executionChannel <- req
-}
-
-func (f *FlowEngine) Stop() error {
-	f.stop <- struct{}{}
-	return nil
-}
-
-func (f *FlowEngine) Start() {
-	f.wg.Add(1)
-	go func() {
-		defer f.wg.Done()
-		for {
-			select {
-			case req := <-f.executionChannel:
-				switch req.RequestType {
-				case model.RETRY_FLOW_EXECUTION:
-					f.retry(req.WorkflowName, req.FlowId, req.ActionId)
-				case model.RESUME_FLOW_EXECUTION:
-					f.resume(req.WorkflowName, req.FlowId)
-				case model.SYSTEM_FLOW_EXECUTION:
-					f.executeSystemAction(req.WorkflowName, req.FlowId, req.ActionId)
-				default:
-					f.execute(req)
-				}
-			case req := <-f.stateChangeChannel:
-				f.changeState(req.WorkflowName, req.FlowId, req.State)
-			case <-f.stop:
-				logger.Info("stopping flow execution service")
-				return
-			}
-		}
-	}()
+	f.execute(wfName, wfId, actionId, event, data)
 }
 
 func (f *FlowEngine) Init(wfName string, flowId string, input map[string]any) error {
-	flow, err := f.metadataService.GetFlow(wfName, flowId)
+	stateMachine, err := f.stateMachineContainer.Init(wfName, flowId, input)
 	if err != nil {
-		logger.Error("Workflow not found", zap.String("Workflow", wfName), zap.Error(err))
 		return err
 	}
-	dataMap := make(map[string]any)
-	dataMap["input"] = input
-	flowCtx := &model.FlowContext{
-		Id:               flowId,
-		State:            model.RUNNING,
-		Data:             dataMap,
-		ExecutedActions:  map[int]bool{},
-		CurrentActionIds: map[int]int{flow.RootAction: 1},
-	}
-	f.saveContextAndDispatchAction(wfName, flowId, []int{flow.RootAction}, flow, flowCtx)
+	f.saveContextAndDispatchAction(wfName, flowId, []int{stateMachine.flow.RootAction}, stateMachine.flow, stateMachine.context)
 	if err != nil {
 		logger.Error("error executiong flow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(err))
 		return err
@@ -102,77 +45,27 @@ func (f *FlowEngine) Init(wfName string, flowId string, input map[string]any) er
 	return nil
 }
 
-func (f *FlowEngine) execute(req model.FlowExecutionRequest) {
-	flow, flowCtx, err := f.validateAndGetFlow(req.WorkflowName, req.FlowId, req.ActionId)
+func (f *FlowEngine) execute(wfName string, flowId string, actionId int, event string, dataMap map[string]any) {
+	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
 	if err != nil {
 		return
 	}
-	currentAction := flow.Actions[req.ActionId]
-	nextActionMap := currentAction.GetNext()
-	if len(flowCtx.ExecutedActions) == 0 {
-		flowCtx.ExecutedActions = make(map[int]bool)
-	}
-	flowCtx.ExecutedActions[req.ActionId] = true
-	delete(flowCtx.CurrentActionIds, req.ActionId)
-	if f.isComplete(flow, flowCtx) {
-		f.markComplete(req.WorkflowName, req.FlowId, flow, flowCtx)
-	}
-	actionIdsToDispatch := nextActionMap[req.Event]
-	for _, actionId := range actionIdsToDispatch {
-		flowCtx.CurrentActionIds[actionId] = 1
-	}
-	data := flowCtx.Data
-	if req.DataMap != nil || len(req.DataMap) > 0 {
-		output := make(map[string]any)
-		output["output"] = req.DataMap
-		data[fmt.Sprintf("%d", req.ActionId)] = output
-	}
-	flowCtx.Data = data
-	err = f.saveContextAndDispatchAction(req.WorkflowName, req.FlowId, actionIdsToDispatch, flow, flowCtx)
+	err = stateMachine.Validate(actionId)
 	if err != nil {
-		logger.Error("error executiong flow", zap.Any("Flow", req), zap.Error(err))
+		return
 	}
-
+	complete, actionIdsToDispatch := stateMachine.MoveForward(actionId, event, dataMap)
+	if complete {
+		f.storage.SaveFlowContext(wfName, flowId, stateMachine.context)
+		f.markComplete(wfName, flowId, stateMachine.flow.SuccessHandler)
+		return
+	}
+	err = f.saveContextAndDispatchAction(wfName, flowId, actionIdsToDispatch, stateMachine.flow, stateMachine.context)
+	if err != nil {
+		logger.Error("error executiong flow", zap.Any("Workflow", wfName), zap.String("flowId", flowId), zap.Int("action", actionId), zap.Error(err))
+	}
 }
 
-func (f *FlowEngine) validateFlow(wfName string, flowId string, actionId int) error {
-	flowCtx, err := f.storage.GetFlowContext(wfName, flowId)
-	if err != nil {
-		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
-		return fmt.Errorf("flow already completed")
-	}
-	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
-		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
-		return fmt.Errorf("flow already completed")
-	}
-	if _, ok := flowCtx.ExecutedActions[actionId]; ok {
-		logger.Error("Action already executed", zap.String("Workflow", wfName), zap.String("Id", flowId), zap.Int("action", actionId))
-		return fmt.Errorf("action %d already executed", actionId)
-	}
-	return nil
-}
-
-func (f *FlowEngine) validateAndGetFlow(wfName string, flowId string, actionId int) (*flow.Flow, *model.FlowContext, error) {
-	flow, err := f.metadataService.GetFlow(wfName, flowId)
-	if err != nil {
-		logger.Error("Workflow not found", zap.String("Workflow", wfName), zap.Error(err))
-		return nil, nil, err
-	}
-	flowCtx, err := f.storage.GetFlowContext(wfName, flowId)
-	if err != nil {
-		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
-		return nil, nil, fmt.Errorf("flow already completed")
-	}
-	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
-		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
-		return nil, nil, fmt.Errorf("flow already completed")
-	}
-	if _, ok := flowCtx.ExecutedActions[actionId]; ok {
-		logger.Error("Action already executed", zap.String("Workflow", wfName), zap.String("Id", flowId), zap.Int("action", actionId))
-		return nil, nil, fmt.Errorf("action %d already executed", actionId)
-	}
-	return flow, flowCtx, nil
-}
 func (f *FlowEngine) saveContextAndDispatchAction(wfName string, flowId string, actionIds []int, flow *flow.Flow, flowCtx *model.FlowContext) error {
 	var actions []model.ActionExecutionRequest
 	for _, actionId := range actionIds {
@@ -197,23 +90,8 @@ func (f *FlowEngine) saveContextAndDispatchAction(wfName string, flowId string, 
 	return nil
 }
 
-func (f *FlowEngine) isComplete(flow *flow.Flow, flowCtx *model.FlowContext) bool {
-	allActions := make([]int, 0, len(flow.Actions))
-	for k := range flow.Actions {
-		allActions = append(allActions, k)
-	}
-	for _, actionId := range allActions {
-		if _, ok := flowCtx.ExecutedActions[actionId]; !ok {
-			return false
-		}
-	}
-	return true
-}
-
-func (f *FlowEngine) markComplete(wfName string, flowId string, flow *flow.Flow, flowCtx *model.FlowContext) {
-	flowCtx.State = model.COMPLETED
-	f.storage.SaveFlowContext(wfName, flowId, flowCtx)
-	successHandler := f.stateHandler.GetHandler(flow.SuccessHandler)
+func (f *FlowEngine) markComplete(wfName string, flowId string, successhandler flow.Statehandler) {
+	successHandler := f.stateHandler.GetHandler(successhandler)
 	err := successHandler(wfName, flowId)
 	if err != nil {
 		logger.Error("error in running success handler", zap.Error(err))
@@ -221,11 +99,17 @@ func (f *FlowEngine) markComplete(wfName string, flowId string, flow *flow.Flow,
 	logger.Info("workflow completed", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 }
 
-func (f *FlowEngine) executeSystemAction(wfName string, flowId string, actionId int) {
-	flow, flowCtx, err := f.validateAndGetFlow(wfName, flowId, actionId)
+func (f *FlowEngine) ExecuteSystemAction(wfName string, flowId string, actionId int) {
+	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
 	if err != nil {
 		return
 	}
+	err = stateMachine.Validate(actionId)
+	if err != nil {
+		return
+	}
+	flow := stateMachine.flow
+	flowCtx := stateMachine.context
 	currentAction := flow.Actions[actionId]
 	event, dataMap, err := currentAction.Execute(wfName, flowCtx, 1)
 	if err != nil {
@@ -249,10 +133,17 @@ func (f *FlowEngine) executeSystemAction(wfName string, flowId string, actionId 
 }
 
 func (f *FlowEngine) RetryAction(wfName string, flowId string, actionName string, actionId int, reason string) {
-	flow, flowCtx, err := f.validateAndGetFlow(wfName, flowId, actionId)
+	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
 	if err != nil {
 		return
 	}
+	err = stateMachine.Validate(actionId)
+	if err != nil {
+		return
+	}
+	flow := stateMachine.flow
+	flowCtx := stateMachine.context
+
 	action := flow.Actions[actionId]
 	actionDefinition, err := f.metadataService.GetMetadataStorage().GetActionDefinition(action.GetName())
 	if err != nil {
@@ -284,10 +175,15 @@ func (f *FlowEngine) RetryAction(wfName string, flowId string, actionName string
 }
 
 func (f *FlowEngine) DelayAction(wfName string, flowId string, actionName string, actionId int, delay time.Duration) {
-	err := f.validateFlow(wfName, flowId, actionId)
+	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
 	if err != nil {
 		return
 	}
+	err = stateMachine.Validate(actionId)
+	if err != nil {
+		return
+	}
+
 	err = f.storage.Delay(wfName, flowId, actionName, actionId, delay)
 
 	if err != nil {
@@ -295,52 +191,21 @@ func (f *FlowEngine) DelayAction(wfName string, flowId string, actionName string
 	}
 }
 
-func (f *FlowEngine) ExecuteRetry(wfName string, flowId string, actionId int) {
-	req := model.FlowExecutionRequest{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		ActionId:     actionId,
-		RequestType:  model.RETRY_FLOW_EXECUTION,
-	}
-	f.executionChannel <- req
-}
-
 func (f *FlowEngine) ExecuteDelay(wfName string, flowId string, actionId int) {
-	req := model.FlowExecutionRequest{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		ActionId:     actionId,
-		Event:        "default",
-		DataMap:      nil,
-		RequestType:  model.NEW_FLOW_EXECUTION,
-	}
-	f.executionChannel <- req
-}
-func (f *FlowEngine) ExecuteResume(wfName string, flowId string, event string) {
-	req := model.FlowExecutionRequest{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		Event:        event,
-		RequestType:  model.RESUME_FLOW_EXECUTION,
-	}
-	f.executionChannel <- req
+	f.ExecuteAction(wfName, flowId, "default", actionId, nil)
 }
 
-func (f *FlowEngine) ExecuteSystemAction(wfName string, flowId string, actionId int) {
-	req := model.FlowExecutionRequest{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		ActionId:     actionId,
-		RequestType:  model.SYSTEM_FLOW_EXECUTION,
-	}
-	f.executionChannel <- req
-}
-
-func (f *FlowEngine) retry(wfName string, flowId string, actionId int) {
-	flow, flowCtx, err := f.validateAndGetFlow(wfName, flowId, actionId)
+func (f *FlowEngine) ExecuteRetry(wfName string, flowId string, actionId int) {
+	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
 	if err != nil {
 		return
 	}
+	err = stateMachine.Validate(actionId)
+	if err != nil {
+		return
+	}
+	flow := stateMachine.flow
+	flowCtx := stateMachine.context
 	flowCtx.CurrentActionIds[actionId] = flowCtx.CurrentActionIds[actionId] + 1
 	err = f.saveContextAndDispatchAction(wfName, flowId, []int{actionId}, flow, flowCtx)
 	if err != nil {
@@ -348,85 +213,53 @@ func (f *FlowEngine) retry(wfName string, flowId string, actionId int) {
 	}
 }
 
-func (f *FlowEngine) resume(wfName string, flowId string) {
-	flowCtx, err := f.storage.GetFlowContext(wfName, flowId)
+func (f *FlowEngine) ExecuteResume(wfName string, flowId string, event string) {
+	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
 	if err != nil {
-		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return
 	}
+	flowCtx := stateMachine.context
 	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
 		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
 		return
 	}
 	for k := range flowCtx.CurrentActionIds {
-		req := model.FlowExecutionRequest{
-			WorkflowName: wfName,
-			FlowId:       flowId,
-			Event:        "default",
-			ActionId:     k,
-			RequestType:  model.NEW_FLOW_EXECUTION,
-		}
-		f.execute(req)
+		f.ExecuteAction(wfName, flowId, event, k, nil)
 	}
 }
 
 func (f *FlowEngine) MarkFailed(wfName string, flowId string) {
-	f.stateChangeChannel <- model.FlowStateChangeRequest{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		State:        model.FAILED,
-	}
+	f.changeState(wfName, flowId, model.FAILED)
 }
 
 func (f *FlowEngine) MarkPaused(wfName string, flowId string) {
-	f.stateChangeChannel <- model.FlowStateChangeRequest{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		State:        model.PAUSED,
-	}
+	f.changeState(wfName, flowId, model.PAUSED)
 }
 
 func (f *FlowEngine) MarkWaitingDelay(wfName string, flowId string) {
-	f.stateChangeChannel <- model.FlowStateChangeRequest{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		State:        model.WAITING_DELAY,
-	}
+	f.changeState(wfName, flowId, model.WAITING_DELAY)
 	logger.Info("workflow waiting delay", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 }
 
 func (f *FlowEngine) MarkWaitingEvent(wfName string, flowId string) {
-	f.stateChangeChannel <- model.FlowStateChangeRequest{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		State:        model.WAITING_EVENT,
-	}
+	f.changeState(wfName, flowId, model.WAITING_EVENT)
 	logger.Info("workflow waiting for event", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 }
 
 func (f *FlowEngine) MarkRunning(wfName string, flowId string) {
-	f.stateChangeChannel <- model.FlowStateChangeRequest{
-		WorkflowName: wfName,
-		FlowId:       flowId,
-		State:        model.RUNNING,
-	}
+	f.changeState(wfName, flowId, model.RUNNING)
 	logger.Info("workflow running", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 }
 
 func (f *FlowEngine) changeState(wfName string, flowId string, state model.FlowState) {
-	flowCtx, err := f.storage.GetFlowContext(wfName, flowId)
+	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
 	if err != nil {
-		logger.Debug("flow already completed", zap.Error(fmt.Errorf("workflow complted")))
 		return
 	}
-	flowCtx.State = state
-	f.storage.SaveFlowContext(wfName, flowId, flowCtx)
+	stateMachine.ChangeState(state)
+	flow := stateMachine.flow
+	f.storage.SaveFlowContext(wfName, flowId, stateMachine.context)
 	if state == model.FAILED {
-		flow, err := f.metadataService.GetFlow(wfName, flowId)
-		if err != nil {
-			logger.Error("Workflow not found", zap.String("Workflow", wfName), zap.Error(err))
-			return
-		}
 		failureHandler := f.stateHandler.GetHandler(flow.FailureHandler)
 		err = failureHandler(wfName, flowId)
 		if err != nil {
@@ -434,11 +267,6 @@ func (f *FlowEngine) changeState(wfName string, flowId string, state model.FlowS
 		}
 		logger.Info("workflow failed", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 	} else if state == model.COMPLETED {
-		flow, err := f.metadataService.GetFlow(wfName, flowId)
-		if err != nil {
-			logger.Error("Workflow not found", zap.String("Workflow", wfName), zap.Error(err))
-			return
-		}
 		successHandler := f.stateHandler.GetHandler(flow.SuccessHandler)
 		err = successHandler(wfName, flowId)
 		if err != nil {
