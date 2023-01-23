@@ -57,7 +57,7 @@ func NewCluster(conf config.Config, metadataService metadata.MetadataService, wg
 			externalQueue = rd.NewRedisQueue(rdConf, shardId)
 		}
 		stateHandler := shard.NewStateHandlerContainer(shardStorage)
-		container := shard.NewFlowStateMachineContainer()
+		container := shard.NewFlowStateMachineContainer(shardStorage, metadataService)
 		engine := shard.NewFlowEngine(shardStorage, metadataService, container)
 		sh := shard.NewShard(shardId, externalQueue, shardStorage, engine, stateHandler)
 

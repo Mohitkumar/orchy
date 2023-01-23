@@ -18,9 +18,11 @@ type FlowStateMachineContainer struct {
 	mu              sync.Mutex
 }
 
-func NewFlowStateMachineContainer() *FlowStateMachineContainer {
+func NewFlowStateMachineContainer(storage Storage, metadataService metadata.MetadataService) *FlowStateMachineContainer {
 	return &FlowStateMachineContainer{
-		stateMachines: make(map[string]*FlowStateMachine),
+		stateMachines:   make(map[string]*FlowStateMachine),
+		storage:         storage,
+		metadataService: metadataService,
 	}
 }
 
