@@ -57,7 +57,8 @@ func NewCluster(conf config.Config, metadataService metadata.MetadataService, wg
 			externalQueue = rd.NewRedisQueue(rdConf, shardId)
 		}
 		stateHandler := shard.NewStateHandlerContainer(shardStorage)
-		engine := shard.NewFlowEngine(shardStorage, metadataService, wg)
+		container := shard.NewFlowStateMachineContainer()
+		engine := shard.NewFlowEngine(shardStorage, metadataService, container)
 		sh := shard.NewShard(shardId, externalQueue, shardStorage, engine, stateHandler)
 
 		sh.RegisterExecutor("user-action", executor.NewUserActionExecutor(shardId, shardStorage, metadataService, externalQueue, batchSize, wg))
@@ -114,7 +115,6 @@ func (c *Cluster) Stop() error {
 	defer c.mu.Unlock()
 	for _, sh := range c.shards {
 		sh.Stop()
-		sh.StopEngine()
 	}
 	return nil
 }
@@ -123,7 +123,7 @@ func (c *Cluster) Start() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, sh := range c.shards {
-		sh.StartEngine()
+		sh.Start()
 	}
 	return nil
 }

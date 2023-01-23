@@ -79,14 +79,6 @@ func (s *Shard) Start() {
 	}
 }
 
-func (s *Shard) StartEngine() {
-	s.engine.Start()
-}
-
-func (s *Shard) StopEngine() {
-	s.engine.Stop()
-}
-
 func (s *Shard) Stop() {
 	for _, executor := range s.executors {
 		executor.Stop()

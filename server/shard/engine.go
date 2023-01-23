@@ -56,10 +56,10 @@ func (f *FlowEngine) execute(wfName string, flowId string, actionId int, event s
 	}
 	complete, actionIdsToDispatch := stateMachine.MoveForward(actionId, event, dataMap)
 	if complete {
-		f.storage.SaveFlowContext(wfName, flowId, stateMachine.context)
-		f.markComplete(wfName, flowId, stateMachine.flow.SuccessHandler)
+		f.MarkComplete(wfName, flowId, stateMachine.flow.SuccessHandler)
 		return
 	}
+	stateMachine.context.State = model.RUNNING
 	err = f.saveContextAndDispatchAction(wfName, flowId, actionIdsToDispatch, stateMachine.flow, stateMachine.context)
 	if err != nil {
 		logger.Error("error executiong flow", zap.Any("Workflow", wfName), zap.String("flowId", flowId), zap.Int("action", actionId), zap.Error(err))
@@ -88,15 +88,6 @@ func (f *FlowEngine) saveContextAndDispatchAction(wfName string, flowId string, 
 		return err
 	}
 	return nil
-}
-
-func (f *FlowEngine) markComplete(wfName string, flowId string, successhandler flow.Statehandler) {
-	successHandler := f.stateHandler.GetHandler(successhandler)
-	err := successHandler(wfName, flowId)
-	if err != nil {
-		logger.Error("error in running success handler", zap.Error(err))
-	}
-	logger.Info("workflow completed", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 }
 
 func (f *FlowEngine) ExecuteSystemAction(wfName string, flowId string, actionId int) {
@@ -228,6 +219,10 @@ func (f *FlowEngine) ExecuteResume(wfName string, flowId string, event string) {
 	}
 }
 
+func (f *FlowEngine) MarkComplete(wfName string, flowId string, successhandler flow.Statehandler) {
+	f.changeState(wfName, flowId, model.COMPLETED)
+}
+
 func (f *FlowEngine) MarkFailed(wfName string, flowId string) {
 	f.changeState(wfName, flowId, model.FAILED)
 }
@@ -259,6 +254,9 @@ func (f *FlowEngine) changeState(wfName string, flowId string, state model.FlowS
 	stateMachine.ChangeState(state)
 	flow := stateMachine.flow
 	f.storage.SaveFlowContext(wfName, flowId, stateMachine.context)
+	if state != model.RUNNING {
+		f.stateMachineContainer.Delete(wfName, flowId)
+	}
 	if state == model.FAILED {
 		failureHandler := f.stateHandler.GetHandler(flow.FailureHandler)
 		err = failureHandler(wfName, flowId)

@@ -77,7 +77,6 @@ func (a *Agent) setupMetadataService() error {
 
 func (a *Agent) setupCluster() error {
 	a.cluster = cluster.NewCluster(a.Config, a.metadataService, &a.wg)
-	a.cluster.Start()
 	return nil
 }
 
