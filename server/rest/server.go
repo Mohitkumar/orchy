@@ -25,7 +25,8 @@ func NewServer(httpPort int, metadataService metadata.MetadataService, executorS
 
 	s := &Server{
 		Server: http.Server{
-			Addr: fmt.Sprintf(":%d", httpPort),
+			Addr:        fmt.Sprintf(":%d", httpPort),
+			IdleTimeout: 2 * time.Second,
 		},
 		metadataService: metadataService,
 		executorService: executorService,
@@ -78,7 +79,6 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 }
 
 func respondOK(w http.ResponseWriter, message map[string]any) {
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	res, _ := json.Marshal(message)

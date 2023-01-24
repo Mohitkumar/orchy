@@ -12,9 +12,10 @@ type baseDao struct {
 	namespace   string
 }
 
-func newBaseDao(conf Config) *baseDao {
+func NewBaseDao(conf Config) *baseDao {
 	redisClient := rd.NewUniversalClient(&rd.UniversalOptions{
-		Addrs: conf.Addrs,
+		Addrs:    conf.Addrs,
+		PoolSize: conf.PoolSize,
 	})
 	return &baseDao{
 		redisClient: redisClient,

@@ -34,27 +34,24 @@ func NewCluster(conf config.Config, metadataService metadata.MetadataService, wg
 	default:
 		flowCtxEncoder = util.NewJsonEncoderDecoder[model.FlowContext]()
 	}
+	rdConf := rd.Config{
+		Addrs:     conf.RedisConfig.Addrs,
+		Namespace: conf.RedisConfig.Namespace,
+		PoolSize:  100,
+	}
+	baseDao := rd.NewBaseDao(rdConf)
 	for i := 0; i < cluserConfig.PartitionCount; i++ {
 		shardId := strconv.FormatInt(int64(i), 10)
 		var shardStorage shard.Storage
 		var externalQueue shard.ExternalQueue
 		switch conf.StorageType {
 		case config.STORAGE_TYPE_REDIS:
-			rdConf := rd.Config{
-				Addrs:     conf.RedisConfig.Addrs,
-				Namespace: conf.RedisConfig.Namespace,
-			}
-			shardStorage = rd.NewRedisStorage(rdConf, flowCtxEncoder, shardId)
-
+			shardStorage = rd.NewRedisStorage(baseDao, flowCtxEncoder, shardId)
 		case config.STORAGE_TYPE_INMEM:
 		}
 		switch conf.QueueType {
 		case config.QUEUE_TYPE_REDIS:
-			rdConf := rd.Config{
-				Addrs:     conf.RedisConfig.Addrs,
-				Namespace: conf.RedisConfig.Namespace,
-			}
-			externalQueue = rd.NewRedisQueue(rdConf, shardId)
+			externalQueue = rd.NewRedisQueue(baseDao, shardId)
 		}
 		stateHandler := shard.NewStateHandlerContainer(shardStorage)
 		container := shard.NewFlowStateMachineContainer(shardStorage, metadataService)

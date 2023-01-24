@@ -20,10 +20,10 @@ type redisQueue struct {
 	shardId string
 }
 
-func NewRedisQueue(config Config, shardId string) *redisQueue {
+func NewRedisQueue(baseDao *baseDao, shardId string) *redisQueue {
 	return &redisQueue{
 		shardId: shardId,
-		baseDao: newBaseDao(config),
+		baseDao: baseDao,
 	}
 }
 func (rq *redisQueue) Push(action *api.Action) error {

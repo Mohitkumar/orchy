@@ -67,6 +67,7 @@ func (a *Agent) setupMetadataService() error {
 		rdConf := rd.Config{
 			Addrs:     a.Config.RedisConfig.Addrs,
 			Namespace: a.Config.RedisConfig.Namespace,
+			PoolSize:  4,
 		}
 		metadataStorage = rd.NewRedisMetadataStorage(rdConf)
 	case config.STORAGE_TYPE_INMEM:
