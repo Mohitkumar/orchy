@@ -105,6 +105,8 @@ func (f *FlowEngine) ExecuteSystemAction(wfName string, flowId string, actionId 
 	event, dataMap, err := currentAction.Execute(wfName, flowCtx, 1)
 	if err != nil {
 		logger.Error("error executing workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId), zap.Error(err))
+		f.MarkFailed(wfName, flowId)
+		return
 	}
 
 	if currentAction.GetType() == action.ACTION_TYPE_SYSTEM {
