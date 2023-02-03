@@ -1,4 +1,4 @@
-![alt orchy](https://github.com/Mohitkumar/orchy/blob/main/docs/orchy.png?raw=true)
+![alt orchy](https://github.com/Mohitkumar/orchy/blob/main/docs/orchy.jpg?raw=true)
 
 Orchy uses hashicorp serf, which is an implementation of gossip protocol, to discover the new nodes and remove inactive and unreachable nodes from the cluster.<br />
 Consistent hasing is used to devide the workflow instance and its task among the partitions. Partitions are distributed among the nodes in the cluster.<br />
