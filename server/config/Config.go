@@ -3,8 +3,6 @@ package config
 import (
 	"fmt"
 	"net"
-
-	"github.com/mohitkumar/orchy/server/cluster"
 )
 
 type StorageType string
@@ -33,8 +31,16 @@ type Config struct {
 	StorageType        StorageType
 	QueueType          QueueType
 	EncoderDecoderType EncoderDecoderType
-	ClusterConfig      cluster.Config
-	RingConfig         cluster.RingConfig
+	ClusterConfig      ClusterConfig
+	BatchSize          int
+}
+
+type ClusterConfig struct {
+	NodeName       string
+	BindAddr       string
+	Tags           map[string]string
+	StartJoinAddrs []string
+	PartitionCount int
 }
 
 func (c Config) RPCAddr() (string, error) {

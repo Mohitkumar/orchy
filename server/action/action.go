@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/model"
 	"github.com/oliveagle/jsonpath"
 )
@@ -50,10 +49,9 @@ type baseAction struct {
 	inputParams map[string]any
 	nextMap     map[string][]int
 	params      map[string]any
-	container   *container.DIContiner
 }
 
-func NewBaseAction(id int, Type ActionType, name string, inputParams map[string]any, nextMap map[string][]int, container *container.DIContiner) *baseAction {
+func NewBaseAction(id int, Type ActionType, name string, inputParams map[string]any, nextMap map[string][]int) *baseAction {
 	return &baseAction{
 		id:          id,
 		name:        name,
@@ -61,7 +59,6 @@ func NewBaseAction(id int, Type ActionType, name string, inputParams map[string]
 		params:      make(map[string]any),
 		actType:     Type,
 		nextMap:     nextMap,
-		container:   container,
 	}
 
 }

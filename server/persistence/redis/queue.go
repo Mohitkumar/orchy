@@ -8,21 +8,26 @@ import (
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/persistence"
+	"github.com/mohitkumar/orchy/server/shard"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
+var _ shard.ExternalQueue = new(redisQueue)
+
 type redisQueue struct {
 	*baseDao
+	shardId string
 }
 
-func NewRedisQueue(config Config) *redisQueue {
+func NewRedisQueue(baseDao *baseDao, shardId string) *redisQueue {
 	return &redisQueue{
-		baseDao: newBaseDao(config),
+		shardId: shardId,
+		baseDao: baseDao,
 	}
 }
 func (rq *redisQueue) Push(action *api.Action) error {
-	queueName := rq.getNamespaceKey(action.ActionName)
+	queueName := rq.getNamespaceKey(action.ActionName, rq.shardId)
 	msg, err := proto.Marshal(action)
 	if err != nil {
 		return err
@@ -38,7 +43,7 @@ func (rq *redisQueue) Push(action *api.Action) error {
 }
 
 func (rq *redisQueue) Poll(actionName string, batchSize int) (*api.Actions, error) {
-	queueName := rq.getNamespaceKey(actionName)
+	queueName := rq.getNamespaceKey(actionName, rq.shardId)
 	ctx := context.Background()
 	var out []*api.Action
 	values, err := rq.redisClient.LPopCount(ctx, queueName, batchSize).Result()

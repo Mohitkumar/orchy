@@ -7,7 +7,6 @@ import (
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
-	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
 )
@@ -18,13 +17,13 @@ func (s *Server) HandleCreateFlow(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 	defer r.Body.Close()
-	err := flow.Validate(&fl, s.container)
+	err := s.metadataService.ValidateFlow(fl)
 	if err != nil {
 		logger.Error("error validating workflow", zap.Error(err))
 		respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	err = s.container.GetMetadataStorage().SaveWorkflowDefinition(fl)
+	err = s.metadataService.GetMetadataStorage().SaveWorkflowDefinition(fl)
 	if err != nil {
 		logger.Error("error creating workflow", zap.Error(err))
 		respondWithError(w, http.StatusBadRequest, "error creating workflow")
@@ -39,7 +38,7 @@ func (s *Server) HandleGetFlow(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
 	}
-	wf, err := s.container.GetMetadataStorage().GetWorkflowDefinition(flowName)
+	wf, err := s.metadataService.GetMetadataStorage().GetWorkflowDefinition(flowName)
 	if err != nil {
 		logger.Info("wokflow does not exist", zap.String("name", flowName))
 		respondWithError(w, http.StatusBadRequest, "wokflow does not exist")

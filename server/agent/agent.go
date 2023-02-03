@@ -6,29 +6,27 @@ import (
 	"sync"
 
 	"github.com/mohitkumar/orchy/server/cluster"
-	"github.com/mohitkumar/orchy/server/cluster/executor"
 	"github.com/mohitkumar/orchy/server/config"
-	"github.com/mohitkumar/orchy/server/container"
-	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/metadata"
+	rd "github.com/mohitkumar/orchy/server/persistence/redis"
 	"github.com/mohitkumar/orchy/server/rest"
 	"github.com/mohitkumar/orchy/server/rpc"
 	"github.com/mohitkumar/orchy/server/service"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	v8 "rogchap.com/v8go"
 )
 
 type Agent struct {
 	Config                   config.Config
-	ring                     *cluster.Ring
-	membership               *cluster.Membership
-	diContainer              *container.DIContiner
-	flowService              *flow.FlowService
+	cluster                  *cluster.Cluster
+	metadataService          metadata.MetadataService
+	jsvm                     *v8.Isolate
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
 	actionExecutionService   *service.ActionExecutionService
 	workflowExecutionService *service.WorkflowExecutionService
-	executors                *executor.Executors
 	shutdown                 bool
 	shutdowns                chan struct{}
 	shutdownLock             sync.Mutex
@@ -41,12 +39,11 @@ func New(config config.Config) (*Agent, error) {
 		shutdowns: make(chan struct{}),
 	}
 	setup := []func() error{
+		a.setupJsVm,
+		a.setupMetadataService,
 		a.setupCluster,
-		a.setupDiContainer,
-		a.setupFlowService,
 		a.setupWorkflowExecutionService,
 		a.setupActionExecutorService,
-		a.setupExecutors,
 		a.setupHttpServer,
 		a.setupGrpcServer,
 	}
@@ -58,48 +55,45 @@ func New(config config.Config) (*Agent, error) {
 	return a, nil
 }
 
-func (a *Agent) setupCluster() error {
-	r := cluster.NewRing(a.Config.RingConfig)
-	a.ring = r
-	mem, err := cluster.New(r, a.Config.ClusterConfig)
-	if err != nil {
-		return err
+func (a *Agent) setupJsVm() error {
+	a.jsvm = v8.NewIsolate()
+	return nil
+}
+
+func (a *Agent) setupMetadataService() error {
+	var metadataStorage metadata.MetadataStorage
+	switch a.Config.StorageType {
+	case config.STORAGE_TYPE_REDIS:
+		rdConf := rd.Config{
+			Addrs:     a.Config.RedisConfig.Addrs,
+			Namespace: a.Config.RedisConfig.Namespace,
+			PoolSize:  4,
+		}
+		metadataStorage = rd.NewRedisMetadataStorage(rdConf)
+	case config.STORAGE_TYPE_INMEM:
 	}
-	a.membership = mem
+	a.metadataService = metadata.NewMetadataService(metadataStorage, a.jsvm)
 	return nil
 }
 
-func (a *Agent) setupDiContainer() error {
-	a.diContainer = container.NewDiContainer(a.ring)
-	a.diContainer.Init(a.Config)
-	return nil
-}
-
-func (a *Agent) setupFlowService() error {
-	a.flowService = flow.NewFlowService(a.diContainer, &a.wg)
-	a.flowService.Start()
+func (a *Agent) setupCluster() error {
+	a.cluster = cluster.NewCluster(a.Config, a.metadataService, &a.wg)
 	return nil
 }
 
 func (a *Agent) setupWorkflowExecutionService() error {
-	a.workflowExecutionService = service.NewWorkflowExecutionService(a.flowService)
+	a.workflowExecutionService = service.NewWorkflowExecutionService(a.cluster)
 	return nil
 }
 
 func (a *Agent) setupActionExecutorService() error {
-	a.actionExecutionService = service.NewActionExecutionService(a.diContainer, a.flowService)
+	a.actionExecutionService = service.NewActionExecutionService(a.cluster, a.metadataService)
 	return nil
 }
 
-func (a *Agent) setupExecutors() error {
-	a.executors = executor.NewExecutors(a.diContainer.GetShards())
-	a.executors.InitExecutors(a.Config.RingConfig.PartitionCount, a.diContainer, a.flowService, &a.wg)
-	a.executors.StartAll()
-	return nil
-}
 func (a *Agent) setupHttpServer() error {
 	var err error
-	a.httpServer, err = rest.NewServer(a.Config.HttpPort, a.diContainer, a.workflowExecutionService)
+	a.httpServer, err = rest.NewServer(a.Config.HttpPort, a.metadataService, a.workflowExecutionService)
 	if err != nil {
 		return err
 	}
@@ -110,9 +104,8 @@ func (a *Agent) setupGrpcServer() error {
 	var err error
 	conf := &rpc.GrpcConfig{
 		ActionService:           a.actionExecutionService,
-		ActionDefinitionService: a.diContainer.GetMetadataStorage(),
-		GetServerer:             a.ring,
-		ClusterRefresher:        a.membership,
+		ActionDefinitionService: a.metadataService.GetMetadataStorage(),
+		GetServerer:             a.cluster.GetServerer(),
 	}
 	a.grpcServer, err = rpc.NewGrpcServer(conf)
 	if err != nil {
@@ -159,8 +152,7 @@ func (a *Agent) Shutdown() error {
 	close(a.shutdowns)
 
 	shutdown := []func() error{
-		a.executors.StopAll,
-		a.flowService.Stop,
+		a.cluster.Stop,
 		a.httpServer.Stop,
 		func() error {
 			logger.Info("stopping grpc server")

@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/keepalive"
 )
 
 type ActionService interface {
@@ -38,7 +37,6 @@ type GrpcConfig struct {
 	ActionService           ActionService
 	ActionDefinitionService ActionDefinitionService
 	GetServerer             GetServerer
-	ClusterRefresher        ClusterRefresher
 }
 
 type grpcServer struct {
@@ -74,9 +72,6 @@ func NewGrpcServer(config *GrpcConfig) (*grpc.Server, error) {
 			grpc_zap.UnaryServerInterceptor(logger, zapOpts...),
 		)),
 		grpc.StatsHandler(&ocgrpc.ServerHandler{}),
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			MaxConnectionAge: time.Minute * 1,
-		}),
 	)
 
 	gsrv := grpc.NewServer(grpcOpts...)

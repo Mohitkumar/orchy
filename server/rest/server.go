@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/mohitkumar/orchy/server/container"
 	"github.com/mohitkumar/orchy/server/logger"
+	"github.com/mohitkumar/orchy/server/metadata"
 	"github.com/mohitkumar/orchy/server/service"
 	"go.uber.org/zap"
 )
@@ -17,17 +17,18 @@ import (
 type Server struct {
 	http.Server
 	Port            int
-	container       *container.DIContiner
+	metadataService metadata.MetadataService
 	executorService *service.WorkflowExecutionService
 }
 
-func NewServer(httpPort int, container *container.DIContiner, executorService *service.WorkflowExecutionService) (*Server, error) {
+func NewServer(httpPort int, metadataService metadata.MetadataService, executorService *service.WorkflowExecutionService) (*Server, error) {
 
 	s := &Server{
 		Server: http.Server{
-			Addr: fmt.Sprintf(":%d", httpPort),
+			Addr:        fmt.Sprintf(":%d", httpPort),
+			IdleTimeout: 2 * time.Second,
 		},
-		container:       container,
+		metadataService: metadataService,
 		executorService: executorService,
 		Port:            httpPort,
 	}
@@ -78,7 +79,6 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 }
 
 func respondOK(w http.ResponseWriter, message map[string]any) {
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	res, _ := json.Marshal(message)

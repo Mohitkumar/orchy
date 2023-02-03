@@ -6,33 +6,26 @@ import (
 	"net"
 
 	"github.com/hashicorp/serf/serf"
+	"github.com/mohitkumar/orchy/server/config"
 	"go.uber.org/zap"
 )
-
-type Config struct {
-	NodeName       string
-	BindAddr       string
-	Tags           map[string]string
-	StartJoinAddrs []string
-}
 
 type Handler interface {
 	Join(name, addr string, isLocal bool) error
 	Leave(name string) error
-	RefreshCluster()
 }
 
 type Membership struct {
-	Config
+	conf    config.ClusterConfig
 	handler Handler
 	serf    *serf.Serf
 	events  chan serf.Event
 	logger  *zap.Logger
 }
 
-func New(handler Handler, config Config) (*Membership, error) {
+func NewMemberShip(handler Handler, conf config.ClusterConfig) (*Membership, error) {
 	c := &Membership{
-		Config:  config,
+		conf:    conf,
 		handler: handler,
 		logger:  zap.L().Named("membership"),
 	}
@@ -42,7 +35,7 @@ func New(handler Handler, config Config) (*Membership, error) {
 	return c, nil
 }
 func (m *Membership) setupSerf() (err error) {
-	addr, err := net.ResolveTCPAddr("tcp", m.BindAddr)
+	addr, err := net.ResolveTCPAddr("tcp", m.conf.BindAddr)
 	if err != nil {
 		return err
 	}
@@ -52,8 +45,8 @@ func (m *Membership) setupSerf() (err error) {
 	config.MemberlistConfig.BindPort = addr.Port
 	m.events = make(chan serf.Event)
 	config.EventCh = m.events
-	config.Tags = m.Tags
-	config.NodeName = m.Config.NodeName
+	config.Tags = m.conf.Tags
+	config.NodeName = m.conf.NodeName
 	logger := log.Default()
 	logger.SetOutput(ioutil.Discard)
 	config.Logger = logger
@@ -62,8 +55,8 @@ func (m *Membership) setupSerf() (err error) {
 		return err
 	}
 	go m.eventHandler()
-	if m.StartJoinAddrs != nil {
-		_, err = m.serf.Join(m.StartJoinAddrs, true)
+	if m.conf.StartJoinAddrs != nil {
+		_, err = m.serf.Join(m.conf.StartJoinAddrs, true)
 		if err != nil {
 			return err
 		}
@@ -84,11 +77,6 @@ func (m *Membership) eventHandler() {
 					return
 				}
 				m.handleLeave(member)
-			}
-		case serf.EventUser:
-			event := e.(serf.UserEvent)
-			if event.Name == "REFRESH_CLUSTER" {
-				m.handler.RefreshCluster()
 			}
 		}
 	}
@@ -122,10 +110,6 @@ func (m *Membership) Members() []serf.Member {
 
 func (m *Membership) Leave() error {
 	return m.serf.Leave()
-}
-
-func (m *Membership) RefreshCluster() {
-	m.serf.UserEvent("REFRESH_CLUSTER", []byte{}, false)
 }
 
 func (m *Membership) logError(err error, msg string, member serf.Member) {

@@ -10,8 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var _ persistence.MetadataStorage = new(redisMetadataStorage)
-
 const WORKFLOW_DEF string = "WORKFLOW"
 const ACTION_DEF string = "ACTION"
 
@@ -23,7 +21,7 @@ type redisMetadataStorage struct {
 
 func NewRedisMetadataStorage(conf Config) *redisMetadataStorage {
 	return &redisMetadataStorage{
-		baseDao:                newBaseDao(conf),
+		baseDao:                NewBaseDao(conf),
 		workflowEncoderDecoder: util.NewJsonEncoderDecoder[model.Workflow](),
 		actionEencoderDecoder:  util.NewJsonEncoderDecoder[model.ActionDefinition](),
 	}

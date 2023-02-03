@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"sync"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -15,18 +16,21 @@ type RpcClient struct {
 	serverUrl           string
 	conn                *grpc.ClientConn
 	actionServiceClient api.ActionServiceClient
+	mu                  sync.Mutex
 }
 
-func NewRpcClient(serverAddress string) (*RpcClient, error) {
+func NewRpcClient(serverAddress string, clusterConf *ClusterConf) (*RpcClient, error) {
 	conn, err := grpc.Dial(fmt.Sprintf("orchy:///%s", serverAddress), grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
-	return &RpcClient{
+	client := &RpcClient{
 		serverUrl:           serverAddress,
 		conn:                conn,
 		actionServiceClient: api.NewActionServiceClient(conn),
-	}, nil
+	}
+	clusterConf.add(client)
+	return client, nil
 }
 
 func (c *RpcClient) Close() error {
@@ -34,6 +38,8 @@ func (c *RpcClient) Close() error {
 }
 
 func (c *RpcClient) Refresh() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	oldConn := c.conn
 	conn, err := grpc.Dial(fmt.Sprintf("orchy:///%s", c.serverUrl), grpc.WithInsecure())
 	if err != nil {
@@ -47,5 +53,7 @@ func (c *RpcClient) Refresh() error {
 }
 
 func (c *RpcClient) GetApiClient() api.ActionServiceClient {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.actionServiceClient
 }

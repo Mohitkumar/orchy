@@ -13,20 +13,22 @@ type WorkerConfigurer struct {
 	config       WorkerConfiguration
 	actionPoller *actionPoller
 	client       *client.RpcClient
+	clusterConf  *client.ClusterConf
 	wg           *sync.WaitGroup
 }
 
 func NewWorkerConfigurer(conf WorkerConfiguration, wg *sync.WaitGroup) *WorkerConfigurer {
-	client, err := client.NewRpcClient(conf.ServerUrl)
+	clusterConf := client.NewclusterConf(conf.ServerUrl, wg)
+	actionPoller := newActionPoller(conf, clusterConf)
+	client, err := client.NewRpcClient(conf.ServerUrl, clusterConf)
 	if err != nil {
 		panic(err)
 	}
-	actionPoller := newActionPoller(conf)
-
 	wc := &WorkerConfigurer{
 		config:       conf,
 		actionPoller: actionPoller,
 		client:       client,
+		clusterConf:  clusterConf,
 		wg:           wg,
 	}
 	return wc
@@ -50,9 +52,11 @@ func (wc *WorkerConfigurer) RegisterWorker(w *WorkerWrapper, name string, pollIn
 }
 
 func (wc *WorkerConfigurer) Start() {
+	wc.clusterConf.Start()
 	wc.actionPoller.start(wc.wg)
 }
 
 func (wc *WorkerConfigurer) Stop() {
 	wc.actionPoller.stop()
+	wc.clusterConf.Stop()
 }

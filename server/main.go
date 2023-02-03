@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/mohitkumar/orchy/server/agent"
-	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -35,6 +34,7 @@ func setupFlags(cmd *cobra.Command) error {
 	cmd.Flags().String("queue-impl", "redis", "implementation of underline queue ")
 	cmd.Flags().String("data-serializer", "JSON", "encoder decoder used to serialzie data")
 	cmd.Flags().Int("partitions", 7, "number of partition")
+	cmd.Flags().Int("batch-size", 100, "batch size for internal queue")
 	cmd.Flags().String("bind-addr", "127.0.0.1:8400", "address for cluster events")
 	cmd.Flags().StringSlice("cluster-address", nil, "cluster address to join.")
 	cmd.Flags().String("node-name", hostname, "name of the node")
@@ -64,12 +64,12 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 	c.cfg.StorageType = config.StorageType(viper.GetString("storage-impl"))
 	c.cfg.QueueType = config.QueueType(viper.GetString("queue-impl"))
 	c.cfg.EncoderDecoderType = config.EncoderDecoderType(viper.GetString("data-serializer"))
-	c.cfg.RingConfig = cluster.RingConfig{PartitionCount: viper.GetInt("partitions")}
-
-	c.cfg.ClusterConfig = cluster.Config{
+	c.cfg.BatchSize = viper.GetInt("batch-size")
+	c.cfg.ClusterConfig = config.ClusterConfig{
 		NodeName:       viper.GetString("node-name"),
 		BindAddr:       viper.GetString("bind-addr"),
 		StartJoinAddrs: viper.GetStringSlice("cluster-address"),
+		PartitionCount: viper.GetInt("partitions"),
 	}
 	rpcAddr, err := c.cfg.RPCAddr()
 	if err != nil {

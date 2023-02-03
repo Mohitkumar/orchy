@@ -18,21 +18,17 @@ func NewHasher() *hasher {
 	return &hasher{}
 }
 
-type RingConfig struct {
-	PartitionCount int
-}
-
 func (h hasher) Sum64(data []byte) uint64 {
 	return murmur3.Sum64(data)
 }
 
 type Ring struct {
-	RingConfig
-	hring     *consistent.Consistent
-	nodes     map[string]Node
-	temp      map[string]Node
-	localNode Node
-	mu        sync.Mutex
+	partitionCount int
+	hring          *consistent.Consistent
+	nodes          map[string]Node
+	localNode      Node
+	rebalancer     func([]int)
+	mu             sync.Mutex
 }
 
 type Node struct {
@@ -44,20 +40,23 @@ func (n Node) String() string {
 	return n.name
 }
 
-func NewRing(c RingConfig) *Ring {
+func NewRing(paritionCount int) *Ring {
 	cfg := consistent.Config{
-		PartitionCount:    c.PartitionCount,
+		PartitionCount:    paritionCount,
 		ReplicationFactor: 20,
 		Load:              1.25,
 		Hasher:            NewHasher(),
 	}
 	hr := consistent.New(nil, cfg)
 	return &Ring{
-		RingConfig: c,
-		hring:      hr,
-		nodes:      make(map[string]Node),
-		temp:       make(map[string]Node),
+		partitionCount: paritionCount,
+		hring:          hr,
+		nodes:          make(map[string]Node),
 	}
+}
+
+func (r *Ring) SetRebalancer(reb func([]int)) {
+	r.rebalancer = reb
 }
 
 func (r *Ring) Join(name, addr string, isLocal bool) error {
@@ -70,24 +69,23 @@ func (r *Ring) Join(name, addr string, isLocal bool) error {
 		name: name,
 		addr: addr,
 	}
+	logger.Info("adding member to cluster", zap.String("node", name), zap.String("address", addr))
 	if isLocal {
-		logger.Info("adding member to cluster", zap.String("node", name), zap.String("address", addr))
 		r.localNode = node
-		r.nodes[name] = node
-		r.hring.Add(node)
-	} else {
-		r.temp[name] = node
 	}
+	r.nodes[name] = node
+	r.hring.Add(node)
+	r.rebalancer(r.GetPartitions())
 	return nil
 }
 
 func (r *Ring) Leave(name string) error {
-	logger.Info("removing member from cluster", zap.String("node", name))
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	logger.Info("removing member from cluster", zap.String("node", name))
 	delete(r.nodes, name)
-	delete(r.temp, name)
 	r.hring.Remove(name)
+	r.rebalancer(r.GetPartitions())
 	return nil
 }
 
@@ -98,7 +96,7 @@ func (r *Ring) GetPartition(key string) int {
 func (r *Ring) GetPartitions() []int {
 	i := 0
 	partitions := make([]int, 0)
-	for i < r.PartitionCount {
+	for i < r.partitionCount {
 		owner := r.hring.GetPartitionOwner(i)
 		if owner.String() == r.localNode.name {
 			partitions = append(partitions, i)
@@ -120,21 +118,4 @@ func (r *Ring) GetServers() ([]*api_v1.Server, error) {
 		servers = append(servers, srv)
 	}
 	return servers, nil
-}
-
-func (r *Ring) RefreshCluster() {
-	r.copyNodes()
-}
-
-func (r *Ring) copyNodes() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for name, node := range r.temp {
-		logger.Info("adding member to cluster", zap.String("node", name), zap.String("address", node.addr))
-		r.nodes[name] = node
-		r.hring.Add(node)
-	}
-	for k := range r.temp {
-		delete(r.temp, k)
-	}
 }

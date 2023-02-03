@@ -2,35 +2,46 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"sort"
+	"sync"
 	"time"
 
-	api_v1 "github.com/mohitkumar/orchy/api/v1"
+	api "github.com/mohitkumar/orchy/api/v1"
+	"google.golang.org/grpc"
 )
 
-type clusterConf struct {
-	servers  []*api_v1.Server
-	stopChan chan struct{}
-	clients  []*RpcClient
-	client   *RpcClient
+type ClusterConf struct {
+	servers             []*api.Server
+	stopChan            chan struct{}
+	clients             []*RpcClient
+	actionServiceClient api.ActionServiceClient
+	wg                  *sync.WaitGroup
 }
 
-func newclusterConf(serverUrl string) *clusterConf {
-	client, err := NewRpcClient(serverUrl)
+func NewclusterConf(serverUrl string, wg *sync.WaitGroup) *ClusterConf {
+	conn, err := grpc.Dial(fmt.Sprintf("orchy:///%s", serverUrl), grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
-	return &clusterConf{
-		stopChan: make(chan struct{}),
-		client:   client,
+	actionServiceClient := api.NewActionServiceClient(conn)
+	servers, err := actionServiceClient.GetServers(context.Background(), &api.GetServersRequest{})
+	if err != nil {
+		panic(err)
+	}
+	return &ClusterConf{
+		stopChan:            make(chan struct{}),
+		actionServiceClient: actionServiceClient,
+		wg:                  wg,
+		servers:             servers.Servers,
 	}
 }
 
-func (c *clusterConf) add(client *RpcClient) {
+func (c *ClusterConf) add(client *RpcClient) {
 	c.clients = append(c.clients, client)
 }
 
-func (c *clusterConf) equals(srvs []*api_v1.Server) bool {
+func (c *ClusterConf) equals(srvs []*api.Server) bool {
 	if len(c.servers) != len(srvs) {
 		return false
 	}
@@ -47,26 +58,31 @@ func (c *clusterConf) equals(srvs []*api_v1.Server) bool {
 	}
 	return true
 }
-func (c *clusterConf) start() {
+func (c *ClusterConf) Start() {
 	ticker := time.NewTicker(5 * time.Second)
-	for {
-		select {
-		case <-c.stopChan:
-			return
-		case <-ticker.C:
-			req := &api_v1.GetServersRequest{}
-			res, err := c.client.GetApiClient().GetServers(context.Background(), req)
-			if err == nil {
-				if !c.equals(res.Servers) {
-					for _, cl := range c.clients {
-						cl.Refresh()
+	defer c.wg.Add(1)
+	go func() {
+		defer c.wg.Done()
+		for {
+			select {
+			case <-c.stopChan:
+				return
+			case <-ticker.C:
+				req := &api.GetServersRequest{}
+				res, err := c.actionServiceClient.GetServers(context.Background(), req)
+				if err == nil {
+					if !c.equals(res.Servers) {
+						c.servers = res.Servers
+						for _, cl := range c.clients {
+							cl.Refresh()
+						}
 					}
 				}
 			}
 		}
-	}
+	}()
 }
 
-func (c *clusterConf) stop() {
+func (c *ClusterConf) Stop() {
 	c.stopChan <- struct{}{}
 }
