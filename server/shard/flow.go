@@ -63,19 +63,21 @@ func (sc *FlowStateMachineContainer) Get(wf string, flowId string) (*FlowStateMa
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
 	sm, ok := sc.stateMachines[fmt.Sprintf("%s:%s", wf, flowId)]
+	flowCtx, err := sc.storage.GetFlowContext(wf, flowId)
+	if err != nil {
+		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wf), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
+		return nil, fmt.Errorf("flow already completed")
+	}
 	if !ok {
 		flow, err := sc.metadataService.GetFlow(wf, flowId)
 		if err != nil {
 			logger.Error("Workflow not found", zap.String("Workflow", wf), zap.Error(err))
 			return nil, err
 		}
-		flowCtx, err := sc.storage.GetFlowContext(wf, flowId)
-		if err != nil {
-			logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wf), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
-			return nil, fmt.Errorf("flow already completed")
-		}
 		sm = NewFlowStateMachine(wf, flowId, flowCtx, flow)
 		sc.stateMachines[fmt.Sprintf("%s:%s", wf, flowId)] = sm
+	} else {
+		sm.context = flowCtx
 	}
 	return sm, nil
 }
