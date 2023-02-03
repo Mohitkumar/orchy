@@ -125,7 +125,7 @@ func (f *FlowEngine) ExecuteSystemAction(wfName string, flowId string, actionId 
 	}
 }
 
-func (f *FlowEngine) RetryAction(wfName string, flowId string, actionName string, actionId int, reason string) {
+func (f *FlowEngine) RetryFailedAction(wfName string, flowId string, actionName string, actionId int) {
 	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
 	if err != nil {
 		return
@@ -144,7 +144,7 @@ func (f *FlowEngine) RetryAction(wfName string, flowId string, actionName string
 		return
 	}
 	tryCount := flowCtx.CurrentActionIds[actionId]
-	logger.Info("retrying action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.String("reason", reason), zap.Int("action", actionId), zap.Int("retry", tryCount+1))
+	logger.Info("retrying action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.String("reason", "failed"), zap.Int("action", actionId), zap.Int("retry", tryCount+1))
 	if tryCount < actionDefinition.RetryCount {
 		var retryAfter time.Duration
 		switch actionDefinition.RetryPolicy {
@@ -153,10 +153,39 @@ func (f *FlowEngine) RetryAction(wfName string, flowId string, actionName string
 		case model.RETRY_POLICY_BACKOFF:
 			retryAfter = time.Duration(actionDefinition.RetryAfterSeconds*(tryCount+1)) * time.Second
 		}
-		if "timeout" == reason {
-			retryAfter = 1 * time.Second
-		}
 		err = f.storage.Retry(wfName, flowId, actionName, actionId, retryAfter)
+		if err != nil {
+			logger.Error("error retrying workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
+		}
+	} else {
+		logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
+		f.MarkFailed(wfName, flowId)
+	}
+
+}
+
+func (f *FlowEngine) RetryTimedoutAction(wfName string, flowId string, actionName string, actionId int) {
+	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
+	if err != nil {
+		return
+	}
+	err = stateMachine.Validate(actionId)
+	if err != nil {
+		return
+	}
+	flow := stateMachine.flow
+	flowCtx := stateMachine.context
+
+	action := flow.Actions[actionId]
+	actionDefinition, err := f.metadataService.GetMetadataStorage().GetActionDefinition(action.GetName())
+	if err != nil {
+		logger.Error("action definition not found ", zap.String("action", action.GetName()), zap.Error(err))
+		return
+	}
+	tryCount := flowCtx.CurrentActionIds[actionId]
+	logger.Info("retrying action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.String("reason", "tinedout"), zap.Int("action", actionId), zap.Int("retry", tryCount+1))
+	if tryCount < actionDefinition.RetryCount {
+		err = f.storage.Retry(wfName, flowId, actionName, actionId, 1*time.Second)
 		if err != nil {
 			logger.Error("error retrying workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
 		}

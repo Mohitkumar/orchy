@@ -57,6 +57,6 @@ func (ex *timeoutExecutor) handle() {
 		logger.Error("error while polling user actions", zap.Error(err))
 	}
 	for _, action := range actions {
-		ex.engine.RetryAction(action.WorkflowName, action.FlowId, action.ActionName, action.ActionId, "timeout")
+		ex.engine.RetryTimedoutAction(action.WorkflowName, action.FlowId, action.ActionName, action.ActionId)
 	}
 }

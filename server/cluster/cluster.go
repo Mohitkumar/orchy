@@ -153,7 +153,7 @@ func (c *Cluster) ExecuteAction(wfName string, flowId string, event string, acti
 
 func (c *Cluster) RetryAction(wfName string, flowId string, actionName string, actionId int, reason string) {
 	shard := c.shards[c.ring.GetPartition(flowId)]
-	shard.GetEngine().RetryAction(wfName, flowId, actionName, actionId, reason)
+	shard.GetEngine().RetryFailedAction(wfName, flowId, actionName, actionId)
 }
 
 func (c *Cluster) Init(wfName string, input map[string]any) (string, error) {
