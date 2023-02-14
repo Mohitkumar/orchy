@@ -36,4 +36,4 @@ bin/orchy --bind-addr 127.0.0.1:8402 --grpc-port 8097 --http-port 8082 --node-na
 
 *namespace* - Used at persistence layer. IF redis is used at persistence layer prefix all the keys with this namespace while storing the data.
 
-*partitions* - Number of partition used by consistent hash ring. A fixed number of partitions are created when the server starts. Each partition is assigned to a node in the cluster. This equally distribute the load accros the nodes in cluster and also make system fault toelerance. If new node joins or an existing node leave the cluster, partitions are automatically rebalanced. All nodes in the clsuter should keep this value same, if value is different on each node the behaviour of cluster is undefined.
+*partitions* - Number of partition used by consistent hash ring. A fixed number of partitions are created when the server starts. All nodes in the clsuter should keep this value same, if value is different on each node the behaviour of cluster is undefined.
