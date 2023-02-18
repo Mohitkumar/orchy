@@ -158,11 +158,9 @@ func (fm *FlowStateMachine) SaveEvent(event string) {
 	fm.context.Event = event
 }
 func (fm *FlowStateMachine) isComplete() bool {
-	allActions := make([]int, 0, len(fm.flow.Actions))
-	for k := range fm.flow.Actions {
-		allActions = append(allActions, k)
-	}
-	for _, actionId := range allActions {
+	terminalActions := fm.flow.TerminalActions
+
+	for _, actionId := range terminalActions {
 		if _, ok := fm.context.ExecutedActions[actionId]; !ok {
 			return false
 		}

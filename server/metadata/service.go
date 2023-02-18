@@ -68,13 +68,19 @@ func (s *MetadataServiceImpl) GetFlow(name string, id string) (*flow.Flow, error
 	} else {
 		stateHandlerSuccess = flow.NOOP
 	}
-
+	var terminalActions []int
+	for _, act := range actionMap {
+		if act.GetNext() == nil {
+			terminalActions = append(terminalActions, act.GetId())
+		}
+	}
 	flow := &flow.Flow{
-		Id:             id,
-		RootAction:     wf.RootAction,
-		Actions:        actionMap,
-		FailureHandler: stateHandlerFailure,
-		SuccessHandler: stateHandlerSuccess,
+		Id:              id,
+		RootAction:      wf.RootAction,
+		Actions:         actionMap,
+		TerminalActions: terminalActions,
+		FailureHandler:  stateHandlerFailure,
+		SuccessHandler:  stateHandlerSuccess,
 	}
 	return flow, nil
 }
