@@ -2,6 +2,7 @@ package action
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/model"
@@ -12,14 +13,19 @@ var _ Action = new(delayAction)
 
 type waitAction struct {
 	baseAction
-	event string
+	event   string
+	timeout time.Duration
 }
 
-func NewWaitAction(eventName string, bAction baseAction) *waitAction {
-	return &waitAction{
+func NewWaitAction(eventName string, timeoutSeconds int, bAction baseAction) *waitAction {
+	act := &waitAction{
 		baseAction: bAction,
 		event:      eventName,
+		timeout:    time.Duration(timeoutSeconds) * time.Second,
 	}
+	act.baseAction.params["timeout"] = act.timeout
+	act.baseAction.params["event"] = act.event
+	return act
 }
 
 func (w *waitAction) GetNext() map[string][]int {

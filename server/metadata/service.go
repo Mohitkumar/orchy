@@ -47,7 +47,7 @@ func (s *MetadataServiceImpl) GetFlow(name string, id string) (*flow.Flow, error
 			} else if strings.EqualFold(actionDef.Name, "delay") {
 				flAct = action.NewDelayAction(actionDef.DelaySeconds, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "wait") {
-				flAct = action.NewWaitAction(actionDef.Event, *baseAction)
+				flAct = action.NewWaitAction(actionDef.Event, actionDef.TimeoutSeconds, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "javascript") {
 				flAct = action.NewJsAction(actionDef.Expression, *baseAction, s.jsVm)
 			}
@@ -136,7 +136,7 @@ func (s *MetadataServiceImpl) ValidateFlow(wf model.Workflow) error {
 			} else if strings.EqualFold(actionDef.Name, "delay") {
 				flAct = action.NewDelayAction(actionDef.DelaySeconds, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "wait") {
-				flAct = action.NewWaitAction(actionDef.Event, *baseAction)
+				flAct = action.NewWaitAction(actionDef.Event, actionDef.TimeoutSeconds, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "javascript") {
 				flAct = action.NewJsAction(actionDef.Expression, *baseAction, s.jsVm)
 			}

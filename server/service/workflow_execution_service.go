@@ -38,6 +38,5 @@ func (s *WorkflowExecutionService) PauseFlow(name string, flowId string) error {
 }
 
 func (s *WorkflowExecutionService) ConsumeEvent(name string, flowId string, event string) error {
-	s.cluster.ExecuteResume(name, flowId, event)
-	return nil
+	return s.cluster.ExecuteResumeAfterWait(name, flowId, event)
 }
