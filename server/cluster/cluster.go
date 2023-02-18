@@ -176,6 +176,10 @@ func (c *Cluster) MarkPaused(wfName string, flowId string) {
 	shard.GetEngine().MarkPaused(wfName, flowId)
 }
 
+func (c *Cluster) ExecuteResumeAfterWait(wfName string, flowId string, event string) error {
+	shard := c.shards[c.ring.GetPartition(flowId)]
+	return shard.GetEngine().ExecuteResumeAfterWait(wfName, flowId, event)
+}
 func (c *Cluster) Timeout(wfName string, flowId string, actionName string, actionId int, delay time.Duration) error {
 	shard := c.shards[c.ring.GetPartition(flowId)]
 	return shard.GetStorage().Timeout(wfName, flowId, actionName, actionId, delay)

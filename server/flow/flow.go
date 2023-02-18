@@ -21,9 +21,10 @@ func ValidateStateHandler(st string) error {
 }
 
 type Flow struct {
-	Id             string
-	RootAction     int
-	Actions        map[int]action.Action
-	FailureHandler Statehandler
-	SuccessHandler Statehandler
+	Id              string
+	RootAction      int
+	Actions         map[int]action.Action
+	FailureHandler  Statehandler
+	SuccessHandler  Statehandler
+	TerminalActions []int
 }

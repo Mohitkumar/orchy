@@ -116,7 +116,12 @@ func (f *FlowEngine) ExecuteSystemAction(wfName string, flowId string, actionId 
 			delay := currentAction.GetParams()["delay"].(time.Duration)
 			f.DelayAction(wfName, flowId, currentAction.GetName(), currentAction.GetId(), delay)
 		case "wait":
-			f.MarkWaitingEvent(wfName, flowId)
+			timeout := currentAction.GetParams()["timeout"].(time.Duration)
+			event := currentAction.GetParams()["event"].(string)
+			if timeout != 0 {
+				f.DelayAction(wfName, flowId, currentAction.GetName(), currentAction.GetId(), timeout)
+			}
+			f.MarkWaitingEvent(wfName, flowId, event)
 		default:
 			f.ExecuteAction(wfName, flowId, event, actionId, dataMap)
 		}
@@ -250,6 +255,26 @@ func (f *FlowEngine) ExecuteResume(wfName string, flowId string, event string) {
 	}
 }
 
+func (f *FlowEngine) ExecuteResumeAfterWait(wfName string, flowId string, event string) error {
+	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
+	if err != nil {
+		return err
+	}
+	flowCtx := stateMachine.context
+	if flowCtx.Event != event {
+		logger.Error("Workflow event mismatch", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.String("Event Received", event), zap.String("Workflow Event", flowCtx.Event))
+		return fmt.Errorf("can not consume event %s, workflow waiting on event %s", event, flowCtx.Event)
+	}
+	if flowCtx.State == model.COMPLETED || flowCtx.State == model.FAILED {
+		logger.Debug("flow already completed, can not dispatch next action", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(fmt.Errorf("workflow complted")))
+		return fmt.Errorf("flow already completed")
+	}
+	for k := range flowCtx.CurrentActionIds {
+		f.ExecuteAction(wfName, flowId, event, k, nil)
+	}
+	return nil
+}
+
 func (f *FlowEngine) MarkComplete(wfName string, flowId string, successhandler flow.Statehandler) {
 	f.changeState(wfName, flowId, model.COMPLETED)
 }
@@ -267,8 +292,8 @@ func (f *FlowEngine) MarkWaitingDelay(wfName string, flowId string) {
 	logger.Info("workflow waiting delay", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 }
 
-func (f *FlowEngine) MarkWaitingEvent(wfName string, flowId string) {
-	f.changeState(wfName, flowId, model.WAITING_EVENT)
+func (f *FlowEngine) MarkWaitingEvent(wfName string, flowId string, event string) {
+	f.changeStateWithEvent(wfName, flowId, model.WAITING_EVENT, event)
 	logger.Info("workflow waiting for event", zap.String("workflow", wfName), zap.String("FlowId", flowId))
 }
 
@@ -278,11 +303,18 @@ func (f *FlowEngine) MarkRunning(wfName string, flowId string) {
 }
 
 func (f *FlowEngine) changeState(wfName string, flowId string, state model.FlowState) {
+	f.changeStateWithEvent(wfName, flowId, state, "")
+}
+
+func (f *FlowEngine) changeStateWithEvent(wfName string, flowId string, state model.FlowState, event string) {
 	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
 	if err != nil {
 		return
 	}
 	stateMachine.ChangeState(state)
+	if len(event) != 0 {
+		stateMachine.SaveEvent(event)
+	}
 	flow := stateMachine.flow
 	f.storage.SaveFlowContext(wfName, flowId, stateMachine.context)
 	if state != model.RUNNING {
