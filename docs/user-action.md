@@ -10,6 +10,9 @@ User action are defined inside the worker process which then executed remotely b
         "k1" :23,
         "k2" : "$1.output.key1",
         "k3" :"$6.output.x"
+    },
+    "next":{
+        "default":[3]
     }
 }
 ```

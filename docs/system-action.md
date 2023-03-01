@@ -9,7 +9,7 @@ System actions are predefined actions which runs on server itself instead of wor
     "name":"delay",
     "delaySeconds":10,
     "next":{
-        "default": 2
+        "default": [2]
     }
 }
  ```
@@ -23,9 +23,9 @@ System actions are predefined actions which runs on server itself instead of wor
     "name":"switch",
     "expression":"$.1.output.key1",
     "next":{
-        "200": 3,
-        "300": 4,
-        "default":6
+        "200": [3],
+        "300": [4],
+        "default":[6]
     }
 }
  ```   
@@ -37,11 +37,11 @@ Switch action evalute the value of ```expression``` and that value is matched ag
     "id":6,
     "type":"system",
     "name":"javascript",
-    "expression":"if($['1'].output.key1 == '200') {$['x']='newValue'};",
-    "next":{"default":7}
+    "expression":"if($['1'].output.key1 == '200') {$['newKey']='newValue'};",
+    "next":{"default":[7]}
 }
 ```
-Javascript action can run any javascript expression. Input parameters and output of the previous action can be accessed using \$ alias inside javascipt expression. In above example ```$['1'].output.key1``` gets the key1 from the output of action id 1 and ```$['x']='newValue'``` adds a new key ```x``` with value ```newValue```
+Javascript action can run any javascript expression. Input parameters and output of the previous action can be accessed using \$ alias inside javascipt expression. In above example ```$['1'].output.key1``` gets the key1 from the output of action id 1 and ```$['newKey']='newValue'``` adds a new key ```newKey``` with value ```newValue```
 
 ### Wait Action
 ```
@@ -50,9 +50,11 @@ Javascript action can run any javascript expression. Input parameters and output
     "type":"system",
     "name":"wait",
     "event":"test",
+    "timeoutSeconds" : 20,
     "next":{
-        "default": 4
+        "default": [4],
+        "test" :[6]
     }
 }
 ```
-Wait action waits for an external event. For example above waits for an external event with name ```test```. On receiving the event it moves forward and run action with id 4.
+Wait action waits for an external event until timeout. If the event is received by workflow within 20 seconds then action against that event is executed, if it timesout then action against default is executed. For example above waits for an external event with name ```test```. On receiving the event it moves forward and run action with id 6. If workflow does not receive event within 20 seconds then action with id 4 is executed.

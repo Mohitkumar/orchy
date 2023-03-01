@@ -73,8 +73,10 @@ Example Workflow Definiton-
 			"type":"system",
 			"name":"wait",
 			"event":"test",
+			"timeoutSeconds" : 20,
 			"next":{
-				"default": [4,9]
+				"default":[9]
+				"test": [4,9]
 			}
 		},
 		{

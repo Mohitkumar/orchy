@@ -1,60 +1,76 @@
 {
-	"name" :"wf2",
+	"name" :"wf8",
 	"rootAction":1,
+	"onSuccess" :"DELETE",
+	"onFailure" :"DELETE",
 	"actions":[
-		{
-			"id":1,
-			"type":"user",
-			"name":"add-data-worker",
-			"parameters":{
-                "key1" : "200",
-                "key2" :39
-            },
-			"next":{"default":6}
+	  {
+		"id":1,
+		"type":"user",
+		"name":"enhanceData",
+		"parameters":{
+		  "param1":23,
+		  "param2":"jk",
+		  "param3":"$.input.k1",
+		  "nested":{
+			"key1":"d1",
+			"key2":"$.input.nest.k1",
+			"list":[23,{"nest":{"k":"$.input.nest.k1"}},"$.input.k2",{"list":["internal","$.input.nest.k1"]}]
+		  }
 		},
-        {
-			"id":6,
-			"type":"system",
-			"name":"javascript",
-            "expression":"if($['1'].output.key1 == '200') {$['x']='nesX'};",
-			"next":{"default":7}
-		},
-        {
-			"id":7,
-			"type":"system",
-			"name":"delay",
-			"delaySeconds":10,
-			"next":{
-				"default": 2
-			}
-		},
-		{
-			"id":2,
-			"type":"system",
-			"name":"switch",
-			"expression":"$.1.output.key1",
-			"next":{
-				"200": 3
-			}
-		},
-        {
-			"id":3,
-			"type":"system",
-			"name":"wait",
-			"event":"test",
-			"next":{
-				"default": 4
-			}
-		},
-		{
-			"id":4,
-			"type":"user",
-			"name":"print-worker",
-            "parameters" :{
-                "k1" :23,
-                "k2" : "$1.output.key1",
-                "k3" :"$6.output.x"
-            }
+		"next":{"default":[3]}
+	  },
+	  {
+		  "id":3,
+		  "type":"system",
+		  "name":"wait",
+		  "event":"test",
+		  "timeoutSeconds" : 20,
+		  "next":{
+			  "default": [4],
+			  "test" :[6]
+		  }
+	  },
+	  {
+		"id":6,
+		"type":"system",
+		"name":"javascript",
+		"expression":"if($['1'].output.key1 == '200') {$['x']='nesX'};",
+		"next":{"default":[2]}
+	  },
+	  {
+		"id":2,
+		"type":"system",
+		"name":"switch",
+		"expression":"$.1.output.newKey",
+		"next":{
+		  "newData": [5]
 		}
+	  },
+	  {
+		"id":5,
+		"type":"user",
+		"name":"smsAction",
+		"parameters":{
+		  "to":"+91121212121",
+		  "message":"$1.output.message"
+		},
+		"next":{
+		  "default": [4]
+		}
+	  },
+	  {
+		"id":4,
+		"type":"user",
+		"name":"logAction",
+		"parameters":{
+		  "smsStatus":"$.4.output.status",
+		  "param2" :"$.input.k2",
+		  "param3" :"$.1.output.newKey",
+		  "param4" :"$.1.output.nested.list",
+		  "list":"$.input.list[*]",
+		  "list2":"$.input.list[0:1]"
+		}
+	  }
 	]
-}
+  }
