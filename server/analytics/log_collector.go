@@ -16,6 +16,9 @@ func NewLogFileDataCollector(fileName string) (*LogFileDataCollector, error) {
 	enccoderConfig := zap.NewProductionEncoderConfig()
 	enccoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	enccoderConfig.StacktraceKey = "" // to hide stacktrace info
+	enccoderConfig.CallerKey = ""
+	enccoderConfig.MessageKey = ""
+	enccoderConfig.LevelKey = ""
 	fileEncoder := zapcore.NewJSONEncoder(enccoderConfig)
 	logFile, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {

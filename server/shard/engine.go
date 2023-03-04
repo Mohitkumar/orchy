@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mohitkumar/orchy/server/action"
+	"github.com/mohitkumar/orchy/server/analytics"
 	"github.com/mohitkumar/orchy/server/flow"
 	"github.com/mohitkumar/orchy/server/logger"
 	"github.com/mohitkumar/orchy/server/metadata"
@@ -105,6 +106,7 @@ func (f *FlowEngine) ExecuteSystemAction(wfName string, flowId string, actionId 
 	event, dataMap, err := currentAction.Execute(wfName, flowCtx, 1)
 	if err != nil {
 		logger.Error("error executing workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId), zap.Error(err))
+		analytics.RecordActionFailure(wfName, flowId, currentAction.GetName(), actionId, "action failed")
 		f.MarkFailed(wfName, flowId)
 		return
 	}
@@ -125,6 +127,7 @@ func (f *FlowEngine) ExecuteSystemAction(wfName string, flowId string, actionId 
 		default:
 			f.ExecuteAction(wfName, flowId, event, actionId, dataMap)
 		}
+		analytics.RecordActionSuccess(wfName, flowId, currentAction.GetName(), actionId, dataMap)
 	} else {
 		logger.Error("should be system action")
 	}
@@ -195,6 +198,7 @@ func (f *FlowEngine) RetryTimedoutAction(wfName string, flowId string, actionNam
 			logger.Error("error retrying workflow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Int("action", actionId))
 		}
 	} else {
+		analytics.RecordActionFailure(wfName, flowId, actionName, actionId, "action timedout")
 		logger.Error("action max retry exhausted, failing workflow", zap.Int("maxRetry", actionDefinition.RetryCount))
 		f.MarkFailed(wfName, flowId)
 	}
