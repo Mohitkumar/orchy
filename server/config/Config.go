@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"net"
+
+	"github.com/mohitkumar/orchy/server/analytics"
 )
 
 type StorageType string
@@ -33,6 +35,7 @@ type Config struct {
 	EncoderDecoderType EncoderDecoderType
 	ClusterConfig      ClusterConfig
 	BatchSize          int
+	AnalyticsConfig    analytics.DataCollectorConfig
 }
 
 type ClusterConfig struct {

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	api "github.com/mohitkumar/orchy/api/v1"
+	"github.com/mohitkumar/orchy/server/analytics"
 	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/metadata"
 	"github.com/mohitkumar/orchy/server/util"
@@ -46,8 +47,10 @@ func (s *ActionExecutionService) HandleActionResult(actionResult *api.ActionResu
 
 	switch actionResult.Status {
 	case api.ActionResult_SUCCESS:
+		analytics.RecordActionSuccess(wfName, wfId, actionName, int(actionResult.ActionId), data)
 		s.cluster.ExecuteAction(wfName, wfId, "default", int(actionResult.ActionId), data)
 	case api.ActionResult_FAIL:
+		analytics.RecordActionFailure(wfName, wfId, actionName, int(actionResult.ActionId), "worker failed")
 		s.cluster.RetryAction(wfName, wfId, actionName, int(actionResult.ActionId), "failed")
 	}
 	return nil

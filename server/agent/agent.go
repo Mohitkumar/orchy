@@ -5,6 +5,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/mohitkumar/orchy/server/analytics"
 	"github.com/mohitkumar/orchy/server/cluster"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/mohitkumar/orchy/server/logger"
@@ -39,6 +40,7 @@ func New(config config.Config) (*Agent, error) {
 		shutdowns: make(chan struct{}),
 	}
 	setup := []func() error{
+		a.setupAnalytics,
 		a.setupJsVm,
 		a.setupMetadataService,
 		a.setupCluster,
@@ -55,6 +57,9 @@ func New(config config.Config) (*Agent, error) {
 	return a, nil
 }
 
+func (a *Agent) setupAnalytics() error {
+	return analytics.InitDataCollector(a.Config.AnalyticsConfig)
+}
 func (a *Agent) setupJsVm() error {
 	a.jsvm = v8.NewIsolate()
 	return nil

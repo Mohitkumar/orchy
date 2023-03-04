@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/mohitkumar/orchy/server/agent"
+	"github.com/mohitkumar/orchy/server/analytics"
 	"github.com/mohitkumar/orchy/server/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -38,6 +39,7 @@ func setupFlags(cmd *cobra.Command) error {
 	cmd.Flags().String("bind-addr", "127.0.0.1:8400", "address for cluster events")
 	cmd.Flags().StringSlice("cluster-address", nil, "cluster address to join.")
 	cmd.Flags().String("node-name", hostname, "name of the node")
+	cmd.Flags().String("anlytics-output", "LOG_FILE", "output source where anlytics will be pushed")
 	return viper.BindPFlags(cmd.Flags())
 }
 
@@ -78,6 +80,13 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 	c.cfg.ClusterConfig.Tags = map[string]string{
 		"rpc_addr": rpcAddr,
 	}
+	analyticsOut := viper.GetString("anlytics-output")
+	switch analyticsOut {
+	case "LOG_FILE":
+		c.cfg.AnalyticsConfig.CollectorType = analytics.LOG_FILE_DATA_COLLECTOR
+		c.cfg.AnalyticsConfig.FileName = "analytics.log"
+	}
+
 	return nil
 }
 
