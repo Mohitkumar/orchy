@@ -26,6 +26,7 @@ Currently supports redis for managing tasks(actions).
 
 ## Workflow
 
+![alt workflow](docs/use_case_1.svg?raw=true)
 Workflow assembles actions in a DAG. Output of each action becomes the input for next action.<br />
 Example Workflow Definiton-
 ```

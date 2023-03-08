@@ -1,0 +1,29 @@
+
+js: javascript(transform input json)
+
+queryDb : query database
+switch: switch{
+    shape :diamond
+}
+http: make http request(quote){
+    icon : https://icons.terrastruct.com/aws%2FInternet%20of%20Things%2FIoT_HTTP-protocol_light-bg.svg
+}
+
+wait : wait for lable gneration event{
+    icon :https://icons.terrastruct.com/essentials%2F226-alarm%20clock.svg
+}
+
+email : send email{
+    icon : https://icons.terrastruct.com/aws%2F_General%2FAWS-Email_light-bg.svg
+}
+
+
+js ->queryDb -> switch
+
+switch -> http : yes
+switch -> Fail : no
+http -> email 
+email -> wait
+wait -> Send to Carrier : on event recieve
+wait -> generate error logs : timeout
+
