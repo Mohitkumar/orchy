@@ -1,0 +1,39 @@
+
+js: javascript
+queryDb : query database
+switch: switch{
+    shape :diamond
+}
+wait : wait for open event{
+    icon :https://icons.terrastruct.com/essentials%2F226-alarm%20clock.svg
+}
+delay : delay 1 day{
+    icon:https://icons.terrastruct.com/essentials%2Ftime.svg
+}
+email : send email{
+    icon : https://icons.terrastruct.com/aws%2F_General%2FAWS-Email_light-bg.svg
+}
+sms : send sms{
+    icon :https://icons.terrastruct.com/essentials%2F213-alarm.svg
+}
+whatsapp : send message{
+    icon : https://icons.terrastruct.com/social%2F007-whatsapp.svg
+}
+
+sms2 : send another sms{
+    icon :https://icons.terrastruct.com/essentials%2F213-alarm.svg
+}
+
+email2 : send another email{
+    icon : https://icons.terrastruct.com/aws%2F_General%2FAWS-Email_light-bg.svg
+}
+queryDb ->js -> switch
+
+switch -> sms : yes
+switch -> email : no
+email -> wait
+sms -> delay
+delay -> whatsapp
+wait -> sms2 : on event recieve
+wait -> email2 : timeout
+
