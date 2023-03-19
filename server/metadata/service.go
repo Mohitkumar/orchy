@@ -50,6 +50,8 @@ func (s *MetadataServiceImpl) GetFlow(name string, id string) (*flow.Flow, error
 				flAct = action.NewWaitAction(actionDef.Event, actionDef.TimeoutSeconds, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "javascript") {
 				flAct = action.NewJsAction(actionDef.Expression, *baseAction, s.jsVm)
+			} else if strings.EqualFold(actionDef.Name, "jsonmapper") {
+				flAct = action.NewJsonMapAction(*baseAction)
 			}
 		} else {
 			flAct = action.NewUserAction(*baseAction)
@@ -145,6 +147,8 @@ func (s *MetadataServiceImpl) ValidateFlow(wf model.Workflow) error {
 				flAct = action.NewWaitAction(actionDef.Event, actionDef.TimeoutSeconds, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "javascript") {
 				flAct = action.NewJsAction(actionDef.Expression, *baseAction, s.jsVm)
+			} else if strings.EqualFold(actionDef.Name, "jsonmapper") {
+				flAct = action.NewJsonMapAction(*baseAction)
 			}
 		} else {
 			flAct = action.NewUserAction(*baseAction)
