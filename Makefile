@@ -4,13 +4,13 @@ GOPATH ?= $(shell go env GOPATH)
 
 GO                  := GO111MODULE=on go
 build:
-	go build -o bin/${BINARY_NAME} server/main.go
+	go build -o bin/${BINARY_NAME} main.go
 
 run:
 	./bin/${BINARY_NAME}
 
 test:
-	go test ./server/...
+	go test ./...
 
 compile:
 	protoc api/v1/*.proto \
