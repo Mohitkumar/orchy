@@ -2,7 +2,6 @@ package executor
 
 import (
 	"sync"
-	"time"
 
 	"github.com/mohitkumar/orchy/logger"
 	"github.com/mohitkumar/orchy/model"
@@ -18,7 +17,7 @@ type delayExecutor struct {
 	storage          shard.Storage
 	engine           *shard.FlowEngine
 	wg               *sync.WaitGroup
-	tw               *util.TickWorker
+	tw               *util.Worker
 	executionChannel chan<- model.FlowExecutionRequest
 	stop             chan struct{}
 }
@@ -31,7 +30,7 @@ func NewDelayExecutor(shardId string, storage shard.Storage, engine *shard.FlowE
 		stop:    make(chan struct{}),
 		wg:      wg,
 	}
-	ex.tw = util.NewTickWorker("delay-executor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
+	ex.tw = util.NewWorker("delay-executor-"+shardId, ex.stop, ex.handle, ex.wg)
 	return ex
 }
 
@@ -53,12 +52,17 @@ func (ex *delayExecutor) Stop() {
 	ex.stop <- struct{}{}
 }
 
-func (ex *delayExecutor) handle() {
+func (ex *delayExecutor) handle() bool {
 	actions, err := ex.storage.PollDelay()
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
+		return false
+	}
+	if len(actions) == 0 {
+		return false
 	}
 	for _, action := range actions {
 		ex.engine.ExecuteDelay(action.WorkflowName, action.FlowId, action.ActionId)
 	}
+	return true
 }

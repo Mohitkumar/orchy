@@ -2,7 +2,6 @@ package executor
 
 import (
 	"sync"
-	"time"
 
 	api "github.com/mohitkumar/orchy/api/v1"
 	"github.com/mohitkumar/orchy/logger"
@@ -20,7 +19,7 @@ type userActionExecutor struct {
 	externalQueue   shard.ExternalQueue
 	metadataService metadata.MetadataService
 	wg              *sync.WaitGroup
-	tw              *util.TickWorker
+	tw              *util.Worker
 	stop            chan struct{}
 	batchSize       int
 }
@@ -35,7 +34,7 @@ func NewUserActionExecutor(shardId string, storage shard.Storage, metadataServic
 		batchSize:       batchSize,
 		wg:              wg,
 	}
-	ex.tw = util.NewTickWorker("user-action-executor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
+	ex.tw = util.NewWorker("user-action-executor-"+shardId, ex.stop, ex.handle, ex.wg)
 	return ex
 }
 
@@ -57,10 +56,14 @@ func (ex *userActionExecutor) Stop() {
 	ex.stop <- struct{}{}
 }
 
-func (ex *userActionExecutor) handle() {
+func (ex *userActionExecutor) handle() bool {
 	actions, err := ex.storage.PollAction("user", ex.batchSize)
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
+		return false
+	}
+	if len(actions) == 0 {
+		return false
 	}
 	for _, action := range actions {
 		flowCtx, err := ex.storage.GetFlowContext(action.WorkflowName, action.FlowId)
@@ -88,4 +91,5 @@ func (ex *userActionExecutor) handle() {
 			logger.Error("error while ack user actions", zap.Error(err))
 		}
 	}
+	return true
 }

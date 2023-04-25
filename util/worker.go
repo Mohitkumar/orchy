@@ -2,6 +2,7 @@ package util
 
 import (
 	"sync"
+	"time"
 
 	"github.com/mohitkumar/orchy/logger"
 	"go.uber.org/zap"
@@ -10,50 +11,47 @@ import (
 type Action any
 
 type Worker struct {
-	name       string
-	capacity   int
-	stop       chan struct{}
-	wg         *sync.WaitGroup
-	handler    func(Action) error
-	actionChan chan Action
+	name    string
+	stop    chan struct{}
+	wg      *sync.WaitGroup
+	handler func() bool
+	running bool
 }
 
 func (w *Worker) Start() {
 	w.wg.Add(1)
 	go func() {
 		defer w.wg.Done()
-
 		for {
 			select {
-			case action := <-w.actionChan:
-				err := w.handler(action)
-				if err != nil {
-					logger.Error("error in executing action in worker", zap.String("worker", w.name), zap.Any("action", action), zap.Error(err))
-				}
 			case <-w.stop:
+				w.running = false
 				logger.Info("stopping worker", zap.String("worker", w.name))
 				return
+			default:
+				if !w.handler() {
+					time.Sleep(1 * time.Second)
+				}
 			}
 		}
 	}()
-}
-
-func (w *Worker) Sender() chan<- Action {
-	return w.actionChan
+	w.running = true
+	logger.Info("executor started", zap.String("worker", w.name))
 }
 
 func (w *Worker) Stop() {
 	w.stop <- struct{}{}
 }
 
-func NewWorker(name string, wg *sync.WaitGroup, handler func(Action) error, capacity int) *Worker {
-	ch := make(chan Action, capacity)
-	stop := make(chan struct{})
+func (w *Worker) IsRunning() bool {
+	return w.running
+}
+
+func NewWorker(name string, stop chan struct{}, handler func() bool, wg *sync.WaitGroup) *Worker {
 	return &Worker{
-		actionChan: ch,
-		name:       name,
-		wg:         wg,
-		stop:       stop,
-		handler:    handler,
+		stop:    stop,
+		wg:      wg,
+		handler: handler,
+		name:    name,
 	}
 }

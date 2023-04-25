@@ -2,7 +2,6 @@ package executor
 
 import (
 	"sync"
-	"time"
 
 	"github.com/mohitkumar/orchy/logger"
 	"github.com/mohitkumar/orchy/shard"
@@ -16,7 +15,7 @@ type systemActionExecutor struct {
 	shardId   string
 	storage   shard.Storage
 	engine    *shard.FlowEngine
-	tw        *util.TickWorker
+	tw        *util.Worker
 	wg        *sync.WaitGroup
 	batchSize int
 	stop      chan struct{}
@@ -31,7 +30,7 @@ func NewSystemActionExecutor(shardId string, storage shard.Storage, engine *shar
 		batchSize: batchSize,
 		wg:        wg,
 	}
-	ex.tw = util.NewTickWorker("system-action-executor-"+shardId, 1*time.Second, ex.stop, ex.handle, ex.wg)
+	ex.tw = util.NewWorker("system-action-executor-"+shardId, ex.stop, ex.handle, ex.wg)
 	return ex
 }
 
@@ -53,10 +52,14 @@ func (ex *systemActionExecutor) IsRunning() bool {
 	return ex.tw.IsRunning()
 }
 
-func (ex *systemActionExecutor) handle() {
+func (ex *systemActionExecutor) handle() bool {
 	actions, err := ex.storage.PollAction("system", ex.batchSize)
 	if err != nil {
 		logger.Error("error while polling user actions", zap.Error(err))
+		return false
+	}
+	if len(actions) == 0 {
+		return false
 	}
 	for _, action := range actions {
 		ex.engine.ExecuteSystemAction(action.WorkflowName, action.FlowId, action.ActionId)
@@ -67,4 +70,5 @@ func (ex *systemActionExecutor) handle() {
 			logger.Error("error while ack system actions", zap.Error(err))
 		}
 	}
+	return true
 }
