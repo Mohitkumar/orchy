@@ -1,34 +1,21 @@
 # Orchy
-Distributed, Fault tolerant workflow orchestrator. Scalable at all layers-
-* Workers can scale independently
-* Servers can scale independently
-* Storage can scale independently
+Distributed, scalable and faault tolerant workflow orchestrator backed by Redis.
 
-To distribute workload any number of workres can be run independently polling the orchy servers for task.
+Multiple workers can run simultanously polling the orchy server for work distribution. Task/Work can be distributed at worker level by providing thread count, each worker runs N number of threads and tasks are executed by these threads.
 
-To mitigate single point of failure and distribute load a cluster of n number servers can be started
 
-Storage layer is backed by redis which can be scaled running in cluster mode.
+Orchy server itself runs as a cluster of n number of servers. Each server in cluster is responsible of handling the request and hosts some partitions. Partitions are automaticaly distributed equally among servers. If any server leaves or joins the cluster the partitiions are automatically redistributed.
+
+Redis is used to store the workflow and task definition and workflow run context data. Workflow context data is the input and output of each nodes in the worklow.
 ## Requirements
 * go 1.18 or above
-
-## Storage
-Currently supports redis for storing workflow definitions, metadata
-### TODO-
-- [ ] DynamoDB as storage for workflows and metadata
-- [ ] Cassandra as storage for workflows and metadata
-
-## Task Queue
-Currently supports redis for managing tasks(actions).
-### TODO
-- [ ] SQS as TaskQueue implementation
-- [ ] Kafka as TaskQueue implementation
+* Redis for storage
 
 ## Workflow
 
 ![alt workflow](docs/use_case_1.svg?raw=true)
 Workflow assembles actions in a DAG. Output of each action becomes the input for next action.<br />
-Example Workflow Definiton-
+## Workflow Definiton-
 ```
     {
 	"name" :"test_workflow",
