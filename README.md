@@ -13,7 +13,7 @@ Redis is used to store the workflow and task definition and workflow run context
 
 ## Workflow
 
-<img src="docs/use_case_1.svg?raw=true" width="500" height="350">
+<img src="docs/use_case_1.svg?raw=true" width="600" height="450">
 
 Workflow assembles actions in a DAG. Output of each action becomes the input for next action.<br />
 ## Workflow Definiton-
@@ -131,14 +131,35 @@ Endpoint-
 curl --location --request POST 'http://localhost:8080/flow/execute' \
 --header 'Content-Type: application/json' \
 --data-raw '{
-    "name":"test-workflow",
+    "name":"notificationWorkflow",
     "input":{
-        "age": 89
+        "userId": 1234,
+		"sms":{
+			"first":{
+				"message":"hi first sms"
+			},
+			"second":{
+				"message":"hi second sms"
+			}
+		},
+		"email":{
+			"first":{
+				"subject":"first email subject"
+				"message":"first email subject
+			},
+			"second":{
+				"subject":"second email subject"
+				"message":"second email subject
+			}
+		},
+		"whatsapp":{
+			"message":"wahtsapp message"
+		}
     }
 }'
 ```
-input provided to execute the workflow flows through each action any action can reference input using json-path expression i.e. ```$.input.age```.<br />
-Also output of previous action can be referenced in next action parameters. i.e ```$.1.output.key1``` . This reference the parameter ```key1``` from the output of action with id 1.
+input provided to execute the workflow flows through each action any action can reference input using json-path expression i.e. ```$.input.userId```.<br />
+Also output of previous action can be referenced in next action parameters. i.e ```$.1.output.user``` . This reference the parameter ```user``` from the output of action with id 1.
 ## Action(Task)
 There could be two types of actions in a workflow user defined action or system action.
 
