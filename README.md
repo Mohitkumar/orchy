@@ -13,7 +13,7 @@ Redis is used to store the workflow and task definition and workflow run context
 
 ## Workflow
 
-<img src="docs/use_case_1.svg?raw=true" width="200" height="250">
+<img src="docs/use_case_1.svg?raw=true" width="500" height="350">
 
 Workflow assembles actions in a DAG. Output of each action becomes the input for next action.<br />
 ## Workflow Definiton-
@@ -106,7 +106,7 @@ Workflow assembles actions in a DAG. Output of each action becomes the input for
 		{
 			"id":9,
 			"type":"user",
-			"name":"log-action",
+			"name":"sendSms",
             "parameters" :{
                 "phoneNumber" : "$.user.phone",
                 "message" : "$.input.sms.second.message"
