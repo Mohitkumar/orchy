@@ -16,14 +16,12 @@ import (
 	"github.com/mohitkumar/orchy/service"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	v8 "rogchap.com/v8go"
 )
 
 type Agent struct {
 	Config                   config.Config
 	cluster                  *cluster.Cluster
 	metadataService          metadata.MetadataService
-	jsvm                     *v8.Isolate
 	httpServer               *rest.Server
 	grpcServer               *grpc.Server
 	actionExecutionService   *service.ActionExecutionService
@@ -41,7 +39,6 @@ func New(config config.Config) (*Agent, error) {
 	}
 	setup := []func() error{
 		a.setupAnalytics,
-		a.setupJsVm,
 		a.setupMetadataService,
 		a.setupCluster,
 		a.setupWorkflowExecutionService,
@@ -60,10 +57,6 @@ func New(config config.Config) (*Agent, error) {
 func (a *Agent) setupAnalytics() error {
 	return analytics.InitDataCollector(a.Config.AnalyticsConfig)
 }
-func (a *Agent) setupJsVm() error {
-	a.jsvm = v8.NewIsolate()
-	return nil
-}
 
 func (a *Agent) setupMetadataService() error {
 	var metadataStorage metadata.MetadataStorage
@@ -77,7 +70,7 @@ func (a *Agent) setupMetadataService() error {
 		metadataStorage = rd.NewRedisMetadataStorage(rdConf)
 	case config.STORAGE_TYPE_INMEM:
 	}
-	a.metadataService = metadata.NewMetadataService(metadataStorage, a.jsvm)
+	a.metadataService = metadata.NewMetadataService(metadataStorage)
 	return nil
 }
 

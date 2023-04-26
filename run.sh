@@ -1,8 +1,7 @@
 #!/bin/bash
 set -B                  # enable brace expansion
-for i in {1..1000000}; do
-  sleep 0.0001
-  echo i	
+for i in {1..10000}; do
+  echo $i	
   curl --location --request POST 'http://localhost:8080/flow/execute' \
 --header 'Content-Type: application/json' \
 --data-raw '{

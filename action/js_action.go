@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/dop251/goja"
 	"github.com/mohitkumar/orchy/logger"
 	"github.com/mohitkumar/orchy/model"
 	"go.uber.org/zap"
-	v8 "rogchap.com/v8go"
 )
 
 var _ Action = new(jsAction)
@@ -15,14 +15,12 @@ var _ Action = new(jsAction)
 type jsAction struct {
 	baseAction
 	expression string
-	jsvM       *v8.Isolate
 }
 
-func NewJsAction(expression string, bAction baseAction, jsVm *v8.Isolate) *jsAction {
+func NewJsAction(expression string, bAction baseAction) *jsAction {
 	return &jsAction{
 		baseAction: bAction,
 		expression: expression,
-		jsvM:       jsVm,
 	}
 }
 
@@ -42,21 +40,20 @@ func (d *jsAction) Execute(wfName string, flowContext *model.FlowContext, retryC
 	data, _ := json.Marshal(flowContext.Data)
 	expression := fmt.Sprintf("var $ = %s;\n", data)
 	expression = expression + d.expression
-	fileName := fmt.Sprintf("%s_%s.js", wfName, flowContext.Id)
-	ctx := v8.NewContext(d.jsvM)
-	_, err := ctx.RunScript(expression, fileName)
+	vm := goja.New()
+	_, err := vm.RunString(expression)
 	if err != nil {
 		return "", nil, fmt.Errorf("error executing javascript %w", err)
 	}
-	val, err := ctx.RunScript("$", fileName)
+	val, err := vm.RunString("$")
 	if err != nil {
 		return "", nil, fmt.Errorf("error executing javascript %w", err)
 	}
-	js, err := val.MarshalJSON()
+	res, err := json.Marshal(val.Export())
 	if err != nil {
 		return "", nil, err
 	}
 	var output map[string]any
-	json.Unmarshal(js, &output)
+	json.Unmarshal(res, &output)
 	return "default", output, nil
 }

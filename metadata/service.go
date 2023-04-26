@@ -7,7 +7,6 @@ import (
 	"github.com/mohitkumar/orchy/action"
 	"github.com/mohitkumar/orchy/flow"
 	"github.com/mohitkumar/orchy/model"
-	v8 "rogchap.com/v8go"
 )
 
 type MetadataService interface {
@@ -18,13 +17,11 @@ type MetadataService interface {
 
 type MetadataServiceImpl struct {
 	storage MetadataStorage
-	jsVm    *v8.Isolate
 }
 
-func NewMetadataService(storage MetadataStorage, jsVm *v8.Isolate) MetadataService {
+func NewMetadataService(storage MetadataStorage) MetadataService {
 	return &MetadataServiceImpl{
 		storage: storage,
-		jsVm:    jsVm,
 	}
 }
 
@@ -49,7 +46,7 @@ func (s *MetadataServiceImpl) GetFlow(name string, id string) (*flow.Flow, error
 			} else if strings.EqualFold(actionDef.Name, "wait") {
 				flAct = action.NewWaitAction(actionDef.Event, actionDef.TimeoutSeconds, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "javascript") {
-				flAct = action.NewJsAction(actionDef.Expression, *baseAction, s.jsVm)
+				flAct = action.NewJsAction(actionDef.Expression, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "jsonmapper") {
 				flAct = action.NewJsonMapAction(*baseAction)
 			}
@@ -146,7 +143,7 @@ func (s *MetadataServiceImpl) ValidateFlow(wf model.Workflow) error {
 			} else if strings.EqualFold(actionDef.Name, "wait") {
 				flAct = action.NewWaitAction(actionDef.Event, actionDef.TimeoutSeconds, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "javascript") {
-				flAct = action.NewJsAction(actionDef.Expression, *baseAction, s.jsVm)
+				flAct = action.NewJsAction(actionDef.Expression, *baseAction)
 			} else if strings.EqualFold(actionDef.Name, "jsonmapper") {
 				flAct = action.NewJsonMapAction(*baseAction)
 			}
