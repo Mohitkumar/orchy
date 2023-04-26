@@ -1,4 +1,10 @@
-
+start: start{
+    style{
+        border-radius: 20
+        fill: yellow
+        stroke: "#F69E03"
+    }
+}
 js: javascript
 queryDb : query database
 switch: switch{
@@ -27,7 +33,7 @@ sms2 : send another sms{
 email2 : send another email{
     icon : https://icons.terrastruct.com/aws%2F_General%2FAWS-Email_light-bg.svg
 }
-queryDb ->js -> switch
+start ->queryDb ->js -> switch
 
 switch -> sms : yes
 switch -> email : no

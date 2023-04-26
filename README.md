@@ -13,68 +13,94 @@ Redis is used to store the workflow and task definition and workflow run context
 
 ## Workflow
 
-![alt workflow](docs/use_case_1.svg?raw=true)
+<img src="docs/use_case_1.svg?raw=true" width="200" height="250">
+
 Workflow assembles actions in a DAG. Output of each action becomes the input for next action.<br />
 ## Workflow Definiton-
 ```
     {
-	"name" :"test_workflow",
+	"name" :"notificationWorkflow",
 	"rootAction":1,
 	"actions":[
 		{
 			"id":1,
 			"type":"user",
-			"name":"add-params-action",
+			"name":"query-db",
 			"parameters":{
-                "key1" : "200",
-                "key2" :39
+                "userId" : "$.input.userId"
             },
-			"next":{"default":[6]}
+			"next":{"default":[2]}
 		},
         {
-			"id":6,
-			"type":"system",
-			"name":"javascript",
-            "expression":"if($['1'].output.key1 == '200') {$['x']='nesX'};",
-			"next":{"default":[7]}
-		},
-        {
-			"id":7,
-			"type":"system",
-			"name":"delay",
-			"delaySeconds":10,
-			"next":{
-				"default": [2]
-			}
-		},
-		{
 			"id":2,
 			"type":"system",
-			"name":"switch",
-			"expression":"$.1.output.key1",
-			"next":{
-				"200": [3]
-			}
+			"name":"javascript",
+            "expression":"$['user']=$['1'].output.user;if($['1'].output.user.age >= 20) {$['user']['discount']=20} else{$['user']['discount']=10};",
+			"next":{"default":[3]}
 		},
-        {
+		{
 			"id":3,
 			"type":"system",
-			"name":"wait",
-			"event":"test",
-			"timeoutSeconds" : 20,
+			"name":"switch",
+			"expression":"$.user.gender",
 			"next":{
-				"default":[9]
-				"test": [4,9]
+				"MALE": [4],
+				"FEMALE": [5]
 			}
 		},
 		{
 			"id":4,
 			"type":"user",
-			"name":"log-action",
+			"name":"sendSms",
             "parameters" :{
-                "k1" :23,
-                "k2" : "$1.output.key1",
-                "k3" :"$6.output.x"
+                "phoneNumber" : "$.user.phone",
+                "message" : "$.input.sms.first.message"
+            },
+			"next":{
+				"default": [6]
+			}
+		},
+		{
+			"id":5,
+			"type":"user",
+			"name":"sendEmail",
+            "parameters" :{
+                "to" :"$.user.email",
+                "subject" : "$.input.email.first.subject",
+                "message" :"$.input.email.first.message"
+            },
+			"next":{
+				"default": [7]
+			}
+		},
+        {
+			"id":6,
+			"type":"system",
+			"name":"delay",
+			"delaySeconds":10,
+			"next":{
+				"default": [8]
+			}
+		},
+		
+        {
+			"id":7,
+			"type":"system",
+			"name":"wait",
+			"event":"open",
+			"timeoutSeconds" : 20,
+			"next":{
+				"default":[10]
+				"open": [9]
+			}
+		},
+		{
+			"id":8,
+			"type":"user",
+			"name":"sendWahtsapp",
+            "parameters" :{
+               "phoneNumber" : "$.user.phone",
+               "message" : "$.input.whatsapp.message"
             }
 		},
 		{
@@ -82,12 +108,20 @@ Workflow assembles actions in a DAG. Output of each action becomes the input for
 			"type":"user",
 			"name":"log-action",
             "parameters" :{
-                "k1" :24,
-                "k2" : "$1.output.key2",
-                "k3" :"$6.output.x",
-				"k4" :"$.input.age"
+                "phoneNumber" : "$.user.phone",
+                "message" : "$.input.sms.second.message"
             }
-		}
+		},
+		{
+			"id":10,
+			"type":"user",
+			"name":"sendEmail",
+            "parameters" :{
+                "to" :"$.user.email",
+                "subject" : "$.input.email.second.subject",
+                "message" :"$.input.email.second.message"
+            }
+		},
 	]
 }
 ```
