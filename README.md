@@ -27,7 +27,7 @@ Workflow assembles actions in a DAG. Output of each action becomes the input for
 			"type":"user",
 			"name":"query-db",
 			"parameters":{
-                "userId" : "$.input.userId"
+                "userId" : "{$.input.userId}"
             },
 			"next":{"default":[2]}
 		},
@@ -42,7 +42,7 @@ Workflow assembles actions in a DAG. Output of each action becomes the input for
 			"id":3,
 			"type":"system",
 			"name":"switch",
-			"expression":"$.user.gender",
+			"expression":"{$.1.output.user.gender}",
 			"next":{
 				"MALE": [4],
 				"FEMALE": [5]
@@ -53,8 +53,8 @@ Workflow assembles actions in a DAG. Output of each action becomes the input for
 			"type":"user",
 			"name":"sendSms",
             "parameters" :{
-                "phoneNumber" : "$.user.phone",
-                "message" : "$.input.sms.first.message"
+                "phoneNumber" : "{$.1.output.user.phone}",
+                "message" : "Hi {$.input.sms.first.message} get discount {$.2.output.user.discount} %"
             },
 			"next":{
 				"default": [6]
@@ -65,9 +65,9 @@ Workflow assembles actions in a DAG. Output of each action becomes the input for
 			"type":"user",
 			"name":"sendEmail",
             "parameters" :{
-                "to" :"$.user.email",
-                "subject" : "$.input.email.first.subject",
-                "message" :"$.input.email.first.message"
+                "to" :"{$.1.output.email}",
+                "subject" : "{$.input.email.first.subject}",
+                "message" :"{$.input.email.first.message}"
             },
 			"next":{
 				"default": [7]
@@ -99,8 +99,8 @@ Workflow assembles actions in a DAG. Output of each action becomes the input for
 			"type":"user",
 			"name":"sendWahtsapp",
             "parameters" :{
-               "phoneNumber" : "$.user.phone",
-               "message" : "$.input.whatsapp.message"
+               "phoneNumber" : "{$.1.output.phone}",
+               "message" : "{$.input.whatsapp.message}"
             }
 		},
 		{
@@ -108,8 +108,8 @@ Workflow assembles actions in a DAG. Output of each action becomes the input for
 			"type":"user",
 			"name":"sendSms",
             "parameters" :{
-                "phoneNumber" : "$.user.phone",
-                "message" : "$.input.sms.second.message"
+                "phoneNumber" : "{$.1.output.phone}",
+                "message" : "{$.input.sms.second.message}"
             }
 		},
 		{
@@ -117,9 +117,9 @@ Workflow assembles actions in a DAG. Output of each action becomes the input for
 			"type":"user",
 			"name":"sendEmail",
             "parameters" :{
-                "to" :"$.user.email",
-                "subject" : "$.input.email.second.subject",
-                "message" :"$.input.email.second.message"
+                "to" :"{$.1.output.email}",
+                "subject" : "{$.input.email.second.subject}",
+                "message" :"{$.input.email.second.message}"
             }
 		},
 	]
@@ -158,7 +158,7 @@ curl --location --request POST 'http://localhost:8080/flow/execute' \
     }
 }'
 ```
-input provided to execute the workflow flows through each action any action can reference input using json-path expression i.e. ```$.input.userId```.<br />
+input provided to execute the workflow flows through each action any action can reference input using json-path expression enclosed within {} i.e. ```$.input.userId```.<br />
 Also output of previous action can be referenced in next action parameters. i.e ```$.1.output.user``` . This reference the parameter ```user``` from the output of action with id 1.
 ## Action(Task)
 There could be two types of actions in a workflow user defined action or system action.

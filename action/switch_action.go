@@ -3,6 +3,7 @@ package action
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/mohitkumar/orchy/logger"
 	"github.com/mohitkumar/orchy/model"
@@ -28,7 +29,12 @@ func (d *switchAction) Validate() error {
 	if len(d.expression) == 0 {
 		return fmt.Errorf("actionId=%d, expression can not be empty", d.id)
 	}
-	_, err := jsonpath.Compile(d.expression)
+	if !strings.HasPrefix(d.expression, "{") || !strings.HasSuffix(d.expression, "}") {
+		return fmt.Errorf("actionId=%d, expression should be enclosed in {}", d.id)
+	}
+	tmatch := strings.ReplaceAll(d.expression, "{", "")
+	tmatch = strings.ReplaceAll(tmatch, "}", "")
+	_, err := jsonpath.Compile(tmatch)
 	if err != nil {
 		return fmt.Errorf("actionId=%d, expression should be a valid jsonpath expression", d.id)
 	}
@@ -44,7 +50,9 @@ func (d *switchAction) GetNext() map[string][]int {
 func (d *switchAction) Execute(wfName string, flowContext *model.FlowContext, retryCount int) (string, map[string]any, error) {
 	logger.Info("running action", zap.String("name", d.name), zap.String("workflow", wfName), zap.String("id", flowContext.Id))
 	dataMap := flowContext.Data
-	expressionValue, err := jsonpath.JsonPathLookup(dataMap, d.expression)
+	tmatch := strings.ReplaceAll(d.expression, "{", "")
+	tmatch = strings.ReplaceAll(tmatch, "}", "")
+	expressionValue, err := jsonpath.JsonPathLookup(dataMap, tmatch)
 	event := "default"
 	if err != nil {
 		return event, nil, err
