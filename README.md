@@ -160,8 +160,6 @@ Field| Description
 |rootAction|Action from which the execution of workfow starts|
 |actions|actions is an array of actions which describe the DAG of actions(system/user) as workflow. It defines which action would run after the current action execution finishes.|
 
-A workflow is executed by hitting a rest endpoint to the orch server. When a workfow start executing an instance of workflow is created and a UUID is assigned to each execution.
-
 ### Action json
 
 Field| Description
