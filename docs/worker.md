@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mohitkumar/orchy/worker"
+	worker "github.com/mohitkumar/orchy-worker"
 )
 
 func main() {
