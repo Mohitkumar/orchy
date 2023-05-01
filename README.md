@@ -64,14 +64,14 @@ Workflows are represented using json, above worklfow is represented as below
 			"id":2,
 			"type":"system",
 			"name":"javascript",
-            "expression":"$['user']=$['1'].output.user;if($['1'].output.user.Age >= 20) {$['user']['discount']=20} else{$['user']['discount']=10};",
+            "expression":"$['user']=$['1'].output.user;if($['1'].output.user.age >= 20) {$['user']['discount']=20} else{$['user']['discount']=10};",
 			"next":{"default":[3]}
 		},
 		{
 			"id":3,
 			"type":"system",
 			"name":"switch",
-			"expression":"{$.1.output.user.Gender}",
+			"expression":"{$.1.output.user.gender}",
 			"next":{
 				"MALE": [4],
 				"FEMALE": [5]
@@ -82,7 +82,7 @@ Workflows are represented using json, above worklfow is represented as below
 			"type":"user",
 			"name":"sendSms",
             "parameters" :{
-                "phoneNumber" : "{$.1.output.user.Phone}",
+                "phoneNumber" : "{$.1.output.user.phone}",
                 "message" : "Hi {$.input.sms.first.message} get discount {$.2.output.user.discount}%"
             },
 			"next":{
@@ -94,7 +94,7 @@ Workflows are represented using json, above worklfow is represented as below
 			"type":"user",
 			"name":"sendEmail",
             "parameters" :{
-                "to" :"{$.1.output.user.Email}",
+                "to" :"{$.1.output.user.email}",
                 "subject" : "{$.input.email.first.subject}",
                 "message" :"{$.input.email.first.message} get discount {$.2.output.user.discount}%"
             },
@@ -128,7 +128,7 @@ Workflows are represented using json, above worklfow is represented as below
 			"type":"user",
 			"name":"sendWahtsapp",
             "parameters" :{
-               "phoneNumber" : "{$.1.output.user.Phone}",
+               "phoneNumber" : "{$.1.output.user.phone}",
                "message" : "{$.input.whatsapp.message} get discount {$.2.output.user.discount}%"
             }
 		},
@@ -137,8 +137,8 @@ Workflows are represented using json, above worklfow is represented as below
 			"type":"user",
 			"name":"sendSms",
             "parameters" :{
-                "phoneNumber" : "{$.1.output.user.Phone}",
-                "message" : "{$.input.sms.second.message} get discount {$.2.output.user.discount}% {$.1.output.user.Address.Country}"
+                "phoneNumber" : "{$.1.output.user.phone}",
+                "message" : "{$.input.sms.second.message} get discount {$.2.output.user.discount}% {$.1.output.user.address.country}"
             }
 		},
 		{
@@ -146,9 +146,9 @@ Workflows are represented using json, above worklfow is represented as below
 			"type":"user",
 			"name":"sendEmail",
             "parameters" :{
-                "to" :"{$.1.output.user.Email}",
+                "to" :"{$.1.output.user.email}",
                 "subject" : "{$.input.email.second.subject}",
-                "message" :"{$.input.email.second.message} get discount {$.2.output.user.discount}% {$.1.output.user.Address.Country}"
+                "message" :"{$.input.email.second.message} get discount {$.2.output.user.discount}% {$.1.output.user.address.country}"
             }
 		}
 	]
