@@ -46,9 +46,11 @@ Workflow assembles actions in a DAG. Output of each action becomes the input for
 Workflows are represented using json, above worklfow is represented as below
 ```
     {
-	"name" :"notificationWorkflow",
-	"rootAction":1,
-	"actions":[
+  "name" :"notificationWorkflow",
+  "rootAction":1,
+  "onSuccess" :"DELETE",
+  "onFailure" :"DELETE",
+  "actions":[
 		{
 			"id":1,
 			"type":"user",
@@ -62,14 +64,14 @@ Workflows are represented using json, above worklfow is represented as below
 			"id":2,
 			"type":"system",
 			"name":"javascript",
-            "expression":"$['user']=$['1'].output.user;if($['1'].output.user.age >= 20) {$['user']['discount']=20} else{$['user']['discount']=10};",
+            "expression":"$['user']=$['1'].output.user;if($['1'].output.user.Age >= 20) {$['user']['discount']=20} else{$['user']['discount']=10};",
 			"next":{"default":[3]}
 		},
 		{
 			"id":3,
 			"type":"system",
 			"name":"switch",
-			"expression":"{$.1.output.user.gender}",
+			"expression":"{$.1.output.user.Gender}",
 			"next":{
 				"MALE": [4],
 				"FEMALE": [5]
@@ -80,8 +82,8 @@ Workflows are represented using json, above worklfow is represented as below
 			"type":"user",
 			"name":"sendSms",
             "parameters" :{
-                "phoneNumber" : "{$.1.output.user.phone}",
-                "message" : "Hi {$.input.sms.first.message} get discount {$.2.output.user.discount} %"
+                "phoneNumber" : "{$.1.output.user.Phone}",
+                "message" : "Hi {$.input.sms.first.message} get discount {$.2.output.user.discount}%"
             },
 			"next":{
 				"default": [6]
@@ -92,9 +94,9 @@ Workflows are represented using json, above worklfow is represented as below
 			"type":"user",
 			"name":"sendEmail",
             "parameters" :{
-                "to" :"{$.1.output.email}",
+                "to" :"{$.1.output.user.Email}",
                 "subject" : "{$.input.email.first.subject}",
-                "message" :"{$.input.email.first.message}"
+                "message" :"{$.input.email.first.message} get discount {$.2.output.user.discount}%"
             },
 			"next":{
 				"default": [7]
@@ -115,9 +117,9 @@ Workflows are represented using json, above worklfow is represented as below
 			"type":"system",
 			"name":"wait",
 			"event":"open",
-			"timeoutSeconds" : 20,
+			"timeoutSeconds" : 10,
 			"next":{
-				"default":[10]
+				"default":[10],
 				"open": [9]
 			}
 		},
@@ -126,8 +128,8 @@ Workflows are represented using json, above worklfow is represented as below
 			"type":"user",
 			"name":"sendWahtsapp",
             "parameters" :{
-               "phoneNumber" : "{$.1.output.phone}",
-               "message" : "{$.input.whatsapp.message}"
+               "phoneNumber" : "{$.1.output.user.Phone}",
+               "message" : "{$.input.whatsapp.message} get discount {$.2.output.user.discount}%"
             }
 		},
 		{
@@ -135,8 +137,8 @@ Workflows are represented using json, above worklfow is represented as below
 			"type":"user",
 			"name":"sendSms",
             "parameters" :{
-                "phoneNumber" : "{$.1.output.phone}",
-                "message" : "{$.input.sms.second.message}"
+                "phoneNumber" : "{$.1.output.user.Phone}",
+                "message" : "{$.input.sms.second.message} get discount {$.2.output.user.discount}% {$.1.output.user.Address.Country}"
             }
 		},
 		{
@@ -144,11 +146,11 @@ Workflows are represented using json, above worklfow is represented as below
 			"type":"user",
 			"name":"sendEmail",
             "parameters" :{
-                "to" :"{$.1.output.email}",
+                "to" :"{$.1.output.user.Email}",
                 "subject" : "{$.input.email.second.subject}",
-                "message" :"{$.input.email.second.message}"
+                "message" :"{$.input.email.second.message} get discount {$.2.output.user.discount}% {$.1.output.user.Address.Country}"
             }
-		},
+		}
 	]
 }
 ```

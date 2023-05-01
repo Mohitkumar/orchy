@@ -1,76 +1,108 @@
 {
-	"name" :"wf8",
+	"name" :"notificationWorkflow",
 	"rootAction":1,
 	"onSuccess" :"DELETE",
 	"onFailure" :"DELETE",
 	"actions":[
-	  {
-		"id":1,
-		"type":"user",
-		"name":"enhanceData",
-		"parameters":{
-		  "param1":23,
-		  "param2":"jk",
-		  "param3":"$.input.k1",
-		  "nested":{
-			"key1":"d1",
-			"key2":"$.input.nest.k1",
-			"list":[23,{"nest":{"k":"$.input.nest.k1"}},"$.input.k2",{"list":["internal","$.input.nest.k1"]}]
+		  {
+			  "id":1,
+			  "type":"user",
+			  "name":"query-db",
+			  "parameters":{
+				  "userId" : "{$.input.userId}"
+			  },
+			  "next":{"default":[2]}
+		  },
+		  {
+			  "id":2,
+			  "type":"system",
+			  "name":"javascript",
+			  "expression":"$['user']=$['1'].output.user;if($['1'].output.user.Age >= 20) {$['user']['discount']=20} else{$['user']['discount']=10};",
+			  "next":{"default":[3]}
+		  },
+		  {
+			  "id":3,
+			  "type":"system",
+			  "name":"switch",
+			  "expression":"{$.1.output.user.Gender}",
+			  "next":{
+				  "MALE": [4],
+				  "FEMALE": [5]
+			  }
+		  },
+		  {
+			  "id":4,
+			  "type":"user",
+			  "name":"sendSms",
+			  "parameters" :{
+				  "phoneNumber" : "{$.1.output.user.Phone}",
+				  "message" : "Hi {$.input.sms.first.message} get discount {$.2.output.user.discount}%"
+			  },
+			  "next":{
+				  "default": [6]
+			  }
+		  },
+		  {
+			  "id":5,
+			  "type":"user",
+			  "name":"sendEmail",
+			  "parameters" :{
+				  "to" :"{$.1.output.user.Email}",
+				  "subject" : "{$.input.email.first.subject}",
+				  "message" :"{$.input.email.first.message} get discount {$.2.output.user.discount}%"
+			  },
+			  "next":{
+				  "default": [7]
+			  }
+		  },
+		  {
+			  "id":6,
+			  "type":"system",
+			  "name":"delay",
+			  "delaySeconds":10,
+			  "next":{
+				  "default": [8]
+			  }
+		  },
+		  
+		  {
+			  "id":7,
+			  "type":"system",
+			  "name":"wait",
+			  "event":"open",
+			  "timeoutSeconds" : 10,
+			  "next":{
+				  "default":[10],
+				  "open": [9]
+			  }
+		  },
+		  {
+			  "id":8,
+			  "type":"user",
+			  "name":"sendWahtsapp",
+			  "parameters" :{
+				 "phoneNumber" : "{$.1.output.user.Phone}",
+				 "message" : "{$.input.whatsapp.message} get discount {$.2.output.user.discount}%"
+			  }
+		  },
+		  {
+			  "id":9,
+			  "type":"user",
+			  "name":"sendSms",
+			  "parameters" :{
+				  "phoneNumber" : "{$.1.output.user.Phone}",
+				  "message" : "{$.input.sms.second.message} get discount {$.2.output.user.discount}% {$.1.output.user.Address.Country}"
+			  }
+		  },
+		  {
+			  "id":10,
+			  "type":"user",
+			  "name":"sendEmail",
+			  "parameters" :{
+				  "to" :"{$.1.output.user.Email}",
+				  "subject" : "{$.input.email.second.subject}",
+				  "message" :"{$.input.email.second.message} get discount {$.2.output.user.discount}% {$.1.output.user.Address.Country}"
+			  }
 		  }
-		},
-		"next":{"default":[3]}
-	  },
-	  {
-		  "id":3,
-		  "type":"system",
-		  "name":"wait",
-		  "event":"test",
-		  "timeoutSeconds" : 20,
-		  "next":{
-			  "default": [4],
-			  "test" :[6]
-		  }
-	  },
-	  {
-		"id":6,
-		"type":"system",
-		"name":"javascript",
-		"expression":"if($['1'].output.key1 == '200') {$['x']='nesX'};",
-		"next":{"default":[2]}
-	  },
-	  {
-		"id":2,
-		"type":"system",
-		"name":"switch",
-		"expression":"$.1.output.newKey",
-		"next":{
-		  "newData": [5]
-		}
-	  },
-	  {
-		"id":5,
-		"type":"user",
-		"name":"smsAction",
-		"parameters":{
-		  "to":"+91121212121",
-		  "message":"$1.output.message"
-		},
-		"next":{
-		  "default": [4]
-		}
-	  },
-	  {
-		"id":4,
-		"type":"user",
-		"name":"logAction",
-		"parameters":{
-		  "smsStatus":"$.4.output.status",
-		  "param2" :"$.input.k2",
-		  "param3" :"$.1.output.newKey",
-		  "param4" :"$.1.output.nested.list",
-		  "list":"$.input.list[*]",
-		  "list2":"$.input.list[0:1]"
-		}
-	  }
-	]
+	  ]
   }
