@@ -39,7 +39,7 @@ Option    | Description
 | partitions| Number of partition used by consistent hash ring. A fixed number of partitions are created when the server starts. All nodes in the cluster should keep this value same, if value is different on each node the behavior of cluster is undefined. |
 ## Workflow
 
-<img src="docs/use_case_1.svg?raw=true" width="600" height="450">
+<img src="docs/use_case_1.svg?raw=true" width="800" height="500">
 
 Workflow assembles actions in a DAG. Output of each action becomes the input for next action.<br />
 ## Workflow Definition
