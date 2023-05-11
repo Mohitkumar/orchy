@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 BINARY_NAME=orchy
 GOPATH ?= $(shell go env GOPATH)
+TAG ?= v0.0.1
 
 GO                  := GO111MODULE=on go
 build:
@@ -19,3 +20,6 @@ compile:
 		--go_opt=paths=source_relative \
 		--go-grpc_opt=paths=source_relative \
 		--proto_path=.
+
+build-docker:
+	docker build -t github.com/mohitkumar/orchy:$(TAG) .
