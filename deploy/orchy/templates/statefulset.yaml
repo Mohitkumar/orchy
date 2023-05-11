@@ -1,0 +1,61 @@
+# START: annotations
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "orchy.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "orchy.labels" . | nindent 4 }}
+  {{ if .Values.service.lb }}
+  annotations:
+    service-per-pod-label: "statefulset.kubernetes.io/pod-name"
+    service-per-pod-ports: "{{.Values.rpcPort}}:{{.Values.rpcPort}}:{{.Values.httpPort}}"
+  {{ end }}
+spec:
+  # ...
+  # END: annotations
+  selector:
+    matchLabels: {{ include "orchy.selectorLabels" . | nindent 6 }}
+  serviceName: {{ include "orchy.fullname" . }}
+  replicas: {{ .Values.replicas }}
+  template:
+    metadata:
+      name: {{ include "orchy.fullname" . }}
+      labels: {{ include "orchy.labels" . | nindent 8 }}
+    spec:
+      initContainers:      
+      - name: {{ include "orchy.fullname" . }}-config-init
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command:          
+          - /bin/sh
+          - -c
+          - |-
+            cat > /var/run/orchy/config.yaml <<EOD
+            namespace: orchy
+            partitions: {{.Values.partitions}}
+            grpc-port: {{.Values.rpcPort}}
+            http-port: {{.Values.httpPort}}
+            node-name: "$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local"
+            bind-addr: "$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
+            cluster-address: "orchy-0.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
+            EOD
+      containers:
+      - name: {{ include "orchy.fullname" . }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        ports:
+        - containerPort: {{ .Values.rpcPort }}
+          name: rpc
+        - containerPort: {{ .Values.serfPort }}
+          name: serf
+        - containerPort: {{ .Values.httpPort }}
+          name: http 
+        args:
+          - --config-file=/var/run/orchy/config.yaml
+        readinessProbe:
+          exec:
+            command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
+          initialDelaySeconds: 5
+        livenessProbe:
+          exec:
+            command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
+          initialDelaySeconds: 10

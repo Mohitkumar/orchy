@@ -14,6 +14,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 type ActionService interface {
@@ -75,6 +77,9 @@ func NewGrpcServer(config *GrpcConfig) (*grpc.Server, error) {
 	)
 
 	gsrv := grpc.NewServer(grpcOpts...)
+	hsrv := health.NewServer()
+	hsrv.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+	healthpb.RegisterHealthServer(gsrv, hsrv)
 	srv := &grpcServer{
 		GrpcConfig: config,
 	}
