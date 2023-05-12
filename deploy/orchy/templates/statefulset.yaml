@@ -22,26 +22,10 @@ spec:
       name: {{ include "orchy.fullname" . }}
       labels: {{ include "orchy.labels" . | nindent 8 }}
     spec:
-      initContainers:      
-      - name: {{ include "orchy.fullname" . }}-config-init
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        command:          
-          - /bin/sh
-          - -c
-          - |-
-            cat > /var/run/orchy/config.yaml <<EOD
-            namespace: orchy
-            partitions: {{.Values.partitions}}
-            grpc-port: {{.Values.rpcPort}}
-            http-port: {{.Values.httpPort}}
-            node-name: "$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local"
-            bind-addr: "$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
-            cluster-address: "orchy-0.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
-            EOD
       containers:
       - name: {{ include "orchy.fullname" . }}
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - containerPort: {{ .Values.rpcPort }}
           name: rpc
@@ -50,7 +34,14 @@ spec:
         - containerPort: {{ .Values.httpPort }}
           name: http 
         args:
-          - --config-file=/var/run/orchy/config.yaml
+          - --namespace=orchy
+          - --partitions={{.Values.partitions}}
+          - --grpc-port={{.Values.rpcPort}}
+          - --http-port={{.Values.httpPort}}
+          - --node-name="$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local"
+          - --bind-addr="$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
+          - --cluster-address="orchy-0.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
+          - --redis-addr={{.Values.redisHost}}:{{.Values.redisPort}}
         readinessProbe:
           exec:
             command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]

@@ -1,12 +1,13 @@
 image:
   repository: github.com/mohitkumar/orchy
-  tag: v0.0.1
+  tag: 1.0.0
   pullPolicy: IfNotPresent
 serfPort: 8401
 rpcPort: 8400
 httpPort: 8080
 replicas: 3
 partitions: 71
-storage: 1Gi
+redisHost: redis-host
+redisPort: 6379
 service:
   lb: true

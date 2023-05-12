@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 BINARY_NAME=orchy
 GOPATH ?= $(shell go env GOPATH)
-TAG ?= v0.0.1
+TAG ?= 1.0.0
 
 GO                  := GO111MODULE=on go
 build:
