@@ -37,6 +37,7 @@ func NewCluster(conf config.Config, metadataService metadata.MetadataService, wg
 	rdConf := rd.Config{
 		Addrs:     conf.RedisConfig.Addrs,
 		Namespace: conf.RedisConfig.Namespace,
+		Password:  conf.RedisConfig.Password,
 		PoolSize:  100,
 	}
 	baseDao := rd.NewBaseDao(rdConf)

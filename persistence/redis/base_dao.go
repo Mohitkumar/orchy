@@ -16,6 +16,7 @@ func NewBaseDao(conf Config) *baseDao {
 	redisClient := rd.NewUniversalClient(&rd.UniversalOptions{
 		Addrs:    conf.Addrs,
 		PoolSize: conf.PoolSize,
+		Password: conf.Password,
 	})
 	return &baseDao{
 		redisClient: redisClient,

@@ -7,7 +7,8 @@ rpcPort: 8400
 httpPort: 8080
 replicas: 3
 partitions: 71
-redisHost: redis-host
+redisHost: my-release-redis-cluster.default.svc.cluster.local
+redisPassword: lp9pZnj2Xl
 redisPort: 6379
 service:
   lb: true
