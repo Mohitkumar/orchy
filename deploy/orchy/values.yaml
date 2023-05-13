@@ -11,5 +11,9 @@ redisHost: my-release-redis-cluster.default.svc.cluster.local:6379,my-release-re
 redisPassword: lp9pZnj2Xl
 redisPort: 6379
 storage: 1Gi
+ingress:
+  enabled: true
+  tls: false
+  secretName: "dx"
 service:
   lb: true
