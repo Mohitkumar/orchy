@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -37,6 +38,7 @@ func NewCluster(conf config.Config, metadataService metadata.MetadataService, wg
 	rdConf := rd.Config{
 		Addrs:     conf.RedisConfig.Addrs,
 		Namespace: conf.RedisConfig.Namespace,
+		Password:  conf.RedisConfig.Password,
 		PoolSize:  100,
 	}
 	baseDao := rd.NewBaseDao(rdConf)
@@ -75,7 +77,8 @@ func NewCluster(conf config.Config, metadataService metadata.MetadataService, wg
 	ring.SetRebalancer(c.Rebalance)
 	membership, err := NewMemberShip(ring, cluserConfig)
 	if err != nil {
-		panic("can not start cluster")
+		fmt.Println(err)
+		panic(err)
 	}
 	c.membership = membership
 	return c

@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "orchy.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "orchy.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: rpc
+      port: {{ .Values.rpcPort }}
+      targetPort: rpc
+    - name: serf-tcp
+      protocol: "TCP"
+      port: {{ .Values.serfPort }}
+      targetPort: serf
+    - name: serf-udp
+      protocol: "UDP"
+      port: {{ .Values.serfPort }}
+      targetPort: serf
+    - name: http
+      port: {{ .Values.httpPort }}
+      targetPort: http
+  selector: {{ include "orchy.selectorLabels" . | nindent 4 }}

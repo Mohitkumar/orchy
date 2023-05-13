@@ -57,11 +57,13 @@ func (c Config) RPCAddr() (string, error) {
 type RedisStorageConfig struct {
 	Addrs     []string
 	Namespace string
+	Password  string
 }
 
 type RedisQueueConfig struct {
 	Addrs     []string
 	Namespace string
+	Password  string
 }
 
 type InmemStorageConfig struct {

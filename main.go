@@ -28,6 +28,7 @@ func setupFlags(cmd *cobra.Command) error {
 	}
 	cmd.Flags().String("config-file", "", "Path to config file.")
 	cmd.Flags().String("redis-addr", "localhost:6379", "comma separated list of redis host:port")
+	cmd.Flags().String("redis-passwd", "", "redis server password")
 	cmd.Flags().String("namespace", "orchy", "namespace used in storage")
 	cmd.Flags().Int("http-port", 8080, "http port for rest endpoints")
 	cmd.Flags().Int("grpc-port", 8099, "grpc port for worker connection")
@@ -60,6 +61,7 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 	}
 
 	c.cfg.RedisConfig.Addrs = strings.Split(viper.GetString("redis-addr"), ",")
+	c.cfg.RedisConfig.Password = viper.GetString("redis-passwd")
 	c.cfg.RedisConfig.Namespace = viper.GetString("namespace")
 	c.cfg.HttpPort = viper.GetInt("http-port")
 	c.cfg.GrpcPort = viper.GetInt("grpc-port")
