@@ -8,11 +8,9 @@ metadata:
   {{ if .Values.service.lb }}
   annotations:
     service-per-pod-label: "statefulset.kubernetes.io/pod-name"
-    service-per-pod-ports: "{{.Values.rpcPort}}:{{.Values.rpcPort}}:{{.Values.httpPort}}"
+    service-per-pod-ports: "{{.Values.rpcPort}}:{{.Values.serfPort}}:{{.Values.httpPort}}"
   {{ end }}
 spec:
-  # ...
-  # END: annotations
   selector:
     matchLabels: {{ include "orchy.selectorLabels" . | nindent 6 }}
   serviceName: {{ include "orchy.fullname" . }}
@@ -22,6 +20,29 @@ spec:
       name: {{ include "orchy.fullname" . }}
       labels: {{ include "orchy.labels" . | nindent 8 }}
     spec:
+      initContainers:      
+      - name: {{ include "orchy.fullname" . }}-config-init
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command:          
+          - /bin/sh
+          - -c
+          - |-
+            ID=$(echo $HOSTNAME | rev | cut -d- -f1 | rev)
+            cat > /var/run/orchy/config.yaml <<EOD
+            partitions: {{.Values.partitions}}
+            grpc-port: {{.Values.rpcPort}}
+            rpc-port: {{.Values.rpcPort}}
+            http-port: {{.Values.httpPort}}
+            node-name: "$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local"
+            bind-addr: "$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
+            redis-addr: {{.Values.redisHost}}
+            redis-passwd: {{.Values.redisPassword}}
+            $([ $ID != 0 ] && echo 'cluster-address: "orchy-0.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"')
+            EOD
+        volumeMounts:
+        - name: datadir
+          mountPath: /var/run/orchy
       containers:
       - name: {{ include "orchy.fullname" . }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
@@ -34,15 +55,7 @@ spec:
         - containerPort: {{ .Values.httpPort }}
           name: http 
         args:
-          - --namespace=orchy
-          - --partitions={{.Values.partitions}}
-          - --grpc-port={{.Values.rpcPort}}
-          - --http-port={{.Values.httpPort}}
-          - --node-name="$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local"
-          - --bind-addr="$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
-          - --cluster-address="orchy-0.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
-          - --redis-addr={{.Values.redisHost}}
-          - --redis-passwd={{.Values.redisPassword}}
+          - --config-file=/var/run/orchy/config.yaml
         readinessProbe:
           exec:
             command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
@@ -51,3 +64,14 @@ spec:
           exec:
             command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
           initialDelaySeconds: 10
+        volumeMounts:
+        - name: datadir
+          mountPath: /var/run/orchy   
+  volumeClaimTemplates:
+  - metadata:
+      name: datadir
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: {{ .Values.storage }}    

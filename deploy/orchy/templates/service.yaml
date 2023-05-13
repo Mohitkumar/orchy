@@ -10,16 +10,16 @@ spec:
   ports:
     - name: rpc
       port: {{ .Values.rpcPort }}
-      targetPort: {{ .Values.rpcPort }}
+      targetPort: rpc
     - name: serf-tcp
       protocol: "TCP"
       port: {{ .Values.serfPort }}
-      targetPort: {{ .Values.serfPort }}
+      targetPort: serf
     - name: serf-udp
       protocol: "UDP"
       port: {{ .Values.serfPort }}
-      targetPort: {{ .Values.serfPort }}
+      targetPort: serf
     - name: http
       port: {{ .Values.httpPort }}
-      targetPort: {{ .Values.httpPort }}  
+      targetPort: http
   selector: {{ include "orchy.selectorLabels" . | nindent 4 }}
