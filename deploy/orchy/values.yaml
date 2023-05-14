@@ -8,8 +8,12 @@ httpPort: 8080
 replicas: 3
 partitions: 71
 redisHost: my-release-redis-cluster.default.svc.cluster.local:6379,my-release-redis-cluster.default.svc.cluster.local:6379
-redisPassword: lp9pZnj2Xl
+redisPassword: nh5yHbFKHh
 redisPort: 6379
 storage: 1Gi
+ingress:
+  enabled: true
+  tls: false
+  secretName: "dx"
 service:
   lb: true
