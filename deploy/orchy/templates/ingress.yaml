@@ -3,13 +3,9 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ template "orchy.fullname" . }}
-  labels:
-    app: {{ template "orchy.fullname" . }}
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
-    heritage: "{{ .Release.Service }}"
+  labels: {{ include "orchy.labels" . | nindent 4 }}
   annotations:
-    kubernetes.io/ingress.class: nginx  
+    kubernetes.io/ingress.class: nginx
 spec:
   {{- if .Values.ingress.tls }}
   tls:
