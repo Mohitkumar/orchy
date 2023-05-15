@@ -7,6 +7,10 @@ Multiple workers run simultaneously polling the Orchy server for work distributi
 Orchy server itself runs as a cluster of n number of servers. Each server in cluster is responsible of handling the request and hosts some partitions. Partitions are automatically distributed equally among servers. If any server leaves or joins the cluster the partitions are automatically redistributed.
 
 Redis is used to store the workflow and task definition and workflow run context data. Workflow context data is the input and output of each nodes in the workflow.
+
+# Table Of Contents
+* [Design](docs/design.md)
+* [REST API](docs/rest.md)
 ## Requirements
 * go 1.18 or above
 * Redis for storage
@@ -16,24 +20,24 @@ Redis is used to store the workflow and task definition and workflow run context
 
 ### Start single node server
 ```
-bin/orchy --bind-addr 127.0.0.1:8400 --grpc-port 8099 --http-port 8080 --node-name node1 --storage-impl redis --queue-impl redis --redis-addr localhost:6379
+bin/orchy --bind-address 127.0.0.1:8400 --grpc-port 8099 --http-port 8080 --node-name node1 --redis-address localhost:6379
 ```
 
 ### Starting 3 nodes cluster of orchy server
 ```
-bin/orchy --bind-addr 127.0.0.1:8400 --grpc-port 8099 --http-port 8080 --node-name node1 --storage-impl redis --queue-impl redis --redis-addr localhost:6379 --cluster-address localhost:8400
+bin/orchy --bind-address 127.0.0.1:8400 --grpc-port 8099 --http-port 8080 --node-name node1 --redis-address localhost:6379 --cluster-address localhost:8400
 
-bin/orchy --bind-addr 127.0.0.1:8401 --grpc-port 8098 --http-port 8081 --node-name node2 --storage-impl redis --queue-impl redis --redis-addr localhost:6379 --cluster-address localhost:8400
+bin/orchy --bind-address 127.0.0.1:8401 --grpc-port 8098 --http-port 8081 --node-name node2 --redis-address localhost:6379 --cluster-address localhost:8400
 
-bin/orchy --bind-addr 127.0.0.1:8402 --grpc-port 8097 --http-port 8082 --node-name node3 --storage-impl redis --queue-impl redis --redis-addr localhost:6379 --cluster-address localhost:8400
+bin/orchy --bind-address 127.0.0.1:8402 --grpc-port 8097 --http-port 8082 --node-name node3 --redis-address localhost:6379 --cluster-address localhost:8400
 ```
 Option    | Description 
 | :---    | :--- |
-| bind-addr | Used to communicate the cluster events- join/leave of nodes. This is used by underline gossip protocol to send/receive events. |
+| bind-address | Used to communicate the cluster events- join/leave of nodes. This is used by underline gossip protocol to send/receive events. |
 | grpc-port | Workers communicates with server using grpc. This port is required to receive grpc call from workers. |
 | http-port | This port is used to receive rest request to make CRUD for workflow, workflow execution, event etc. |
 | node-name | Unique identifier of a node in multi node cluster setup. |
-| redis-addr | This specifies the address of redis instance/cluster. Redis cluster nodes can be specified in comma separated format. |
+| redis-address | This specifies the address of redis instance/cluster. Redis cluster nodes can be specified in comma separated format. |
 | cluster-address | Address of a node of a existing orchy cluster. New node with this option will join the cluster. |
 | namespace | Used at persistence layer. All redis keys are prefixed with this namespace while storing the data.|
 | partitions| Number of partition used by consistent hash ring. A fixed number of partitions are created when the server starts. All nodes in the cluster should keep this value same, if value is different on each node the behavior of cluster is undefined. |
@@ -174,7 +178,7 @@ A workflow is executed by hitting a rest endpoint to the orch server. When a wor
 
 Endpoint-
 ```
-curl --location --request POST 'http://localhost:8080/flow/execute' \
+curl --location --request POST 'http://localhost:8080/execution' \
 --header 'Content-Type: application/json' \
 --data-raw '{
     "name":"notificationWorkflow",
@@ -408,5 +412,3 @@ public class Main implements CommandLineRunner
 ```
 
 Working example Java- (https://github.com/Mohitkumar/orchy-worker-example-java)
-#
-* [Design](docs/design.md)
