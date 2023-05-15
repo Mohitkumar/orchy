@@ -35,9 +35,9 @@ spec:
             rpc-port: {{.Values.rpcPort}}
             http-port: {{.Values.httpPort}}
             node-name: "$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local"
-            bind-addr: "$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
-            redis-addr: {{.Values.redisHost}}
-            redis-passwd: {{.Values.redisPassword}}
+            bind-address: "$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
+            redis-address: {{.Values.redisHost}}
+            redis-password: {{.Values.redisPassword}}
             $([ $ID != 0 ] && echo 'cluster-address: "orchy-0.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"')
             EOD
         volumeMounts:
