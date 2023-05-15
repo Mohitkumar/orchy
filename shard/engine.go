@@ -29,6 +29,10 @@ func NewFlowEngine(storage Storage, metadadataService metadata.MetadataService, 
 	}
 }
 
+func (f *FlowEngine) GetFlow(wfName string, flowId string) (*model.FlowContext, error) {
+	return f.storage.GetFlowContext(wfName, flowId)
+}
+
 func (f *FlowEngine) ExecuteAction(wfName string, wfId string, event string, actionId int, data map[string]any) {
 	f.execute(wfName, wfId, actionId, event, data)
 }
@@ -40,7 +44,7 @@ func (f *FlowEngine) Init(wfName string, flowId string, input map[string]any) er
 	}
 	f.saveContextAndDispatchAction(wfName, flowId, []int{stateMachine.flow.RootAction}, stateMachine.flow, stateMachine.context)
 	if err != nil {
-		logger.Error("error executiong flow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(err))
+		logger.Error("error executing flow", zap.String("Workflow", wfName), zap.String("FlowId", flowId), zap.Error(err))
 		return err
 	}
 	return nil

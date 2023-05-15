@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/mohitkumar/orchy/cluster"
 	"github.com/mohitkumar/orchy/logger"
+	"github.com/mohitkumar/orchy/model"
 	"go.uber.org/zap"
 )
 
@@ -23,6 +24,10 @@ func (s *WorkflowExecutionService) StartFlow(name string, input map[string]any) 
 	}
 	logger.Info("started workflow", zap.String("workflow", name), zap.Any("input", input))
 	return flowId, nil
+}
+
+func (s *WorkflowExecutionService) GetFlow(name string, flowId string) (*model.FlowContext, error) {
+	return s.cluster.GetFlow(name, flowId)
 }
 
 func (s *WorkflowExecutionService) ResumeFlow(name string, flowId string) error {

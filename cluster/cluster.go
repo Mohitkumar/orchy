@@ -174,6 +174,11 @@ func (c *Cluster) ExecuteResume(wfName string, flowId string, event string) {
 	shard.GetEngine().ExecuteResume(wfName, flowId, event)
 }
 
+func (c *Cluster) GetFlow(wfName string, flowId string) (*model.FlowContext, error) {
+	shard := c.shards[c.ring.GetPartition(flowId)]
+	return shard.GetEngine().GetFlow(wfName, flowId)
+}
+
 func (c *Cluster) MarkPaused(wfName string, flowId string) {
 	shard := c.shards[c.ring.GetPartition(flowId)]
 	shard.GetEngine().MarkPaused(wfName, flowId)

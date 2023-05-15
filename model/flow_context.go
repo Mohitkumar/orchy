@@ -17,3 +17,12 @@ type FlowContext struct {
 	Event            string         `json:"event"`
 	ExecutedActions  map[int]bool   `json:"executedActions"`
 }
+
+type FlowExecution struct {
+	Id              string         `json:"id"`
+	RunningActions  []int          `json:"runningActions"`
+	Data            map[string]any `json:"data"`
+	State           string         `json:"state"`
+	Event           string         `json:"waitingOnEvent"`
+	ExecutedActions []int          `json:"completedActions"`
+}
