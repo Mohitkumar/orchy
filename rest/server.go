@@ -34,19 +34,26 @@ func NewServer(httpPort int, metadataService metadata.MetadataService, executorS
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/workflow", s.HandleCreateFlow).Methods(http.MethodPost)
-	router.HandleFunc("/workflow/{name}", s.HandleGetFlow).Methods(http.MethodGet)
-	router.HandleFunc("/flow/execute", s.HandleRunFlow).Methods(http.MethodPost)
-	router.HandleFunc("/flow/event", s.HandleEvent).Methods(http.MethodPost)
-	router.HandleFunc("/flow/pause", s.HandlePauseFlow).Methods(http.MethodPost)
-	router.HandleFunc("/flow/resume", s.HandleResumeFlow).Methods(http.MethodPost)
+	router.HandleFunc("/metadata/workflow", s.HandleCreateFlow).Methods(http.MethodPost)
+	router.HandleFunc("/metadata/workflow/{name}", s.HandleGetFlow).Methods(http.MethodGet)
+
+	router.HandleFunc("/metadata/action", s.HandleCreateActionDefinition).Methods(http.MethodPost)
+	router.HandleFunc("/metadata/action/{name}", s.HandleGetActionDefinition).Methods(http.MethodGet)
+
+	router.HandleFunc("/execution", s.HandleRunFlow).Methods(http.MethodPost)
+	router.HandleFunc("/execution/{name}/{id}", s.HandleGetFlowExecution).Methods(http.MethodGet)
+	router.HandleFunc("/execution/{name}/{id}/pause", s.HandlePauseFlow).Methods(http.MethodGet)
+	router.HandleFunc("/execution/{name}/{id}/resume", s.HandleResumeFlow).Methods(http.MethodGet)
+
+	router.HandleFunc("/event", s.HandleEvent).Methods(http.MethodPost)
+
 	router.Use(loggingMiddleware)
 	s.Handler = router
 	return s, nil
 }
 
 func (s *Server) Start() error {
-	logger.Info("startting http server on", zap.Int("port", s.Port))
+	logger.Info("starting http server on", zap.Int("port", s.Port))
 	if err := s.ListenAndServe(); err != nil {
 		return err
 	}

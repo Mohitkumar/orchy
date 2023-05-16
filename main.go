@@ -27,20 +27,20 @@ func setupFlags(cmd *cobra.Command) error {
 		log.Fatal(err)
 	}
 	cmd.Flags().String("config-file", "", "Path to config file.")
-	cmd.Flags().String("redis-addr", "localhost:6379", "comma separated list of redis host:port")
-	cmd.Flags().String("redis-passwd", "", "redis server password")
+	cmd.Flags().String("redis-address", "localhost:6379", "comma separated list of redis host:port")
+	cmd.Flags().String("redis-password", "", "redis server password")
 	cmd.Flags().String("namespace", "orchy", "namespace used in storage")
 	cmd.Flags().Int("http-port", 8080, "http port for rest endpoints")
 	cmd.Flags().Int("grpc-port", 8099, "grpc port for worker connection")
 	cmd.Flags().String("storage-impl", "redis", "implementation of underline storage")
 	cmd.Flags().String("queue-impl", "redis", "implementation of underline queue ")
-	cmd.Flags().String("data-serializer", "JSON", "encoder decoder used to serialzie data")
+	cmd.Flags().String("data-serializer", "JSON", "encoder decoder used to serialize data")
 	cmd.Flags().Int("partitions", 7, "number of partition")
 	cmd.Flags().Int("batch-size", 100, "batch size for internal queue")
-	cmd.Flags().String("bind-addr", "127.0.0.1:8400", "address for cluster events")
+	cmd.Flags().String("bind-address", "127.0.0.1:8400", "address for cluster events")
 	cmd.Flags().StringSlice("cluster-address", nil, "cluster address to join.")
 	cmd.Flags().String("node-name", hostname, "name of the node")
-	cmd.Flags().String("anlytics-output", "LOG_FILE", "output source where anlytics will be pushed")
+	cmd.Flags().String("analytics-output", "LOG_FILE", "output source where analytics will be pushed")
 	return viper.BindPFlags(cmd.Flags())
 }
 
@@ -60,8 +60,8 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	c.cfg.RedisConfig.Addrs = strings.Split(viper.GetString("redis-addr"), ",")
-	c.cfg.RedisConfig.Password = viper.GetString("redis-passwd")
+	c.cfg.RedisConfig.Addrs = strings.Split(viper.GetString("redis-address"), ",")
+	c.cfg.RedisConfig.Password = viper.GetString("redis-password")
 	c.cfg.RedisConfig.Namespace = viper.GetString("namespace")
 	c.cfg.HttpPort = viper.GetInt("http-port")
 	c.cfg.GrpcPort = viper.GetInt("grpc-port")
@@ -71,7 +71,7 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 	c.cfg.BatchSize = viper.GetInt("batch-size")
 	c.cfg.ClusterConfig = config.ClusterConfig{
 		NodeName:       viper.GetString("node-name"),
-		BindAddr:       viper.GetString("bind-addr"),
+		BindAddr:       viper.GetString("bind-address"),
 		StartJoinAddrs: viper.GetStringSlice("cluster-address"),
 		PartitionCount: viper.GetInt("partitions"),
 	}
@@ -82,7 +82,7 @@ func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
 	c.cfg.ClusterConfig.Tags = map[string]string{
 		"rpc_addr": rpcAddr,
 	}
-	analyticsOut := viper.GetString("anlytics-output")
+	analyticsOut := viper.GetString("analytics-output")
 	switch analyticsOut {
 	case "LOG_FILE":
 		c.cfg.AnalyticsConfig.CollectorType = analytics.LOG_FILE_DATA_COLLECTOR
