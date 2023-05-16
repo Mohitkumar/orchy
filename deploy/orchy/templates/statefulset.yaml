@@ -32,7 +32,6 @@ spec:
             cat > /var/run/orchy/config.yaml <<EOD
             partitions: {{.Values.partitions}}
             grpc-port: {{.Values.rpcPort}}
-            rpc-port: {{.Values.rpcPort}}
             http-port: {{.Values.httpPort}}
             node-name: "$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local"
             bind-address: "$HOSTNAME.orchy.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
