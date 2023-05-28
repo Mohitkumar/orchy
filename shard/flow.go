@@ -8,6 +8,7 @@ import (
 	"github.com/mohitkumar/orchy/logger"
 	"github.com/mohitkumar/orchy/metadata"
 	"github.com/mohitkumar/orchy/model"
+	"github.com/mohitkumar/orchy/util"
 	"go.uber.org/zap"
 )
 
@@ -111,6 +112,10 @@ func (fm *FlowStateMachine) Validate(actionId int) error {
 	return nil
 }
 
+func (fm *FlowStateMachine) GetState() model.FlowState {
+	return fm.context.State
+}
+
 func (fm *FlowStateMachine) MoveForward(actionId int, event string, dataMap map[string]any) (bool, []int) {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
@@ -159,11 +164,15 @@ func (fm *FlowStateMachine) SaveEvent(event string) {
 }
 func (fm *FlowStateMachine) isComplete() bool {
 	terminalActions := fm.flow.TerminalActions
+	executedActions := make([]int, 0, len(fm.context.ExecutedActions))
+	for k := range fm.context.ExecutedActions {
+		executedActions = append(executedActions, k)
+	}
 
-	for _, actionId := range terminalActions {
-		if _, ok := fm.context.ExecutedActions[actionId]; !ok {
-			return false
+	for _, terminals := range terminalActions {
+		if util.Contains(executedActions, terminals) {
+			return true
 		}
 	}
-	return true
+	return false
 }

@@ -26,5 +26,5 @@ type Flow struct {
 	Actions         map[int]action.Action
 	FailureHandler  Statehandler
 	SuccessHandler  Statehandler
-	TerminalActions []int
+	TerminalActions [][]int
 }

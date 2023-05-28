@@ -59,15 +59,20 @@ func (f *FlowEngine) execute(wfName string, flowId string, actionId int, event s
 	if err != nil {
 		return
 	}
+	if stateMachine.GetState() == model.PAUSED {
+		logger.Error("error executing flow", zap.Any("Workflow", wfName), zap.String("flowId", flowId), zap.Int("action", actionId), zap.Error(fmt.Errorf("flow is in paused state")))
+		return
+	}
 	complete, actionIdsToDispatch := stateMachine.MoveForward(actionId, event, dataMap)
 	if complete {
+		f.storage.SaveFlowContext(wfName, flowId, stateMachine.context)
 		f.MarkComplete(wfName, flowId, stateMachine.flow.SuccessHandler)
 		return
 	}
 	stateMachine.context.State = model.RUNNING
 	err = f.saveContextAndDispatchAction(wfName, flowId, actionIdsToDispatch, stateMachine.flow, stateMachine.context)
 	if err != nil {
-		logger.Error("error executiong flow", zap.Any("Workflow", wfName), zap.String("flowId", flowId), zap.Int("action", actionId), zap.Error(err))
+		logger.Error("error executing flow", zap.Any("Workflow", wfName), zap.String("flowId", flowId), zap.Int("action", actionId), zap.Error(err))
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/mohitkumar/orchy/action"
 	"github.com/mohitkumar/orchy/flow"
 	"github.com/mohitkumar/orchy/model"
+	"github.com/mohitkumar/orchy/util"
 )
 
 type MetadataService interface {
@@ -67,12 +68,8 @@ func (s *MetadataServiceImpl) GetFlow(name string, id string) (*flow.Flow, error
 	} else {
 		stateHandlerSuccess = flow.NOOP
 	}
-	var terminalActions []int
-	for _, act := range actionMap {
-		if act.GetNext() == nil {
-			terminalActions = append(terminalActions, act.GetId())
-		}
-	}
+	terminalActions := s.walk(wf.RootAction, actionMap)
+
 	flow := &flow.Flow{
 		Id:              id,
 		RootAction:      wf.RootAction,
@@ -82,6 +79,28 @@ func (s *MetadataServiceImpl) GetFlow(name string, id string) (*flow.Flow, error
 		SuccessHandler:  stateHandlerSuccess,
 	}
 	return flow, nil
+}
+
+func (s *MetadataServiceImpl) walk(root int, actionMap map[int]action.Action) [][]int {
+	act := actionMap[root]
+	if act.GetNext() == nil {
+		return [][]int{{act.GetId()}}
+	}
+	var result [][]int
+	for _, nextActions := range act.GetNext() {
+		if len(nextActions) == 0 {
+			out := s.walk(nextActions[0], actionMap)
+			result = append(result, out...)
+		} else {
+			finalOut := make([][]int, 0)
+			for _, action := range nextActions {
+				out := s.walk(action, actionMap)
+				finalOut = util.Merge(out, finalOut)
+			}
+			result = append(result, finalOut...)
+		}
+	}
+	return result
 }
 
 func (s *MetadataServiceImpl) ValidateFlow(wf model.Workflow) error {
