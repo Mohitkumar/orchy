@@ -34,7 +34,11 @@ func (f *FlowEngine) GetFlow(wfName string, flowId string) (*model.FlowContext, 
 }
 
 func (f *FlowEngine) ExecuteAction(wfName string, wfId string, event string, actionId int, data map[string]any) {
-	f.execute(wfName, wfId, actionId, event, data)
+	f.execute(wfName, wfId, actionId, event, data, false)
+}
+
+func (f *FlowEngine) ExecuteActionResume(wfName string, wfId string, event string, actionId int, data map[string]any) {
+	f.execute(wfName, wfId, actionId, event, data, true)
 }
 
 func (f *FlowEngine) Init(wfName string, flowId string, input map[string]any) error {
@@ -50,7 +54,7 @@ func (f *FlowEngine) Init(wfName string, flowId string, input map[string]any) er
 	return nil
 }
 
-func (f *FlowEngine) execute(wfName string, flowId string, actionId int, event string, dataMap map[string]any) {
+func (f *FlowEngine) execute(wfName string, flowId string, actionId int, event string, dataMap map[string]any, resume bool) {
 	stateMachine, err := f.stateMachineContainer.Get(wfName, flowId)
 	if err != nil {
 		return
@@ -59,7 +63,7 @@ func (f *FlowEngine) execute(wfName string, flowId string, actionId int, event s
 	if err != nil {
 		return
 	}
-	if stateMachine.GetState() == model.PAUSED {
+	if !resume && stateMachine.GetState() == model.PAUSED {
 		logger.Error("error executing flow", zap.Any("Workflow", wfName), zap.String("flowId", flowId), zap.Int("action", actionId), zap.Error(fmt.Errorf("flow is in paused state")))
 		return
 	}
@@ -264,7 +268,7 @@ func (f *FlowEngine) ExecuteResume(wfName string, flowId string, event string) {
 		return
 	}
 	for k := range flowCtx.CurrentActionIds {
-		f.ExecuteAction(wfName, flowId, event, k, nil)
+		f.ExecuteActionResume(wfName, flowId, event, k, nil)
 	}
 }
 
