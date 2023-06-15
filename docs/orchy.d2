@@ -1,0 +1,80 @@
+direction: right
+classes: {
+    shard: {
+        width: 100
+        height: 200
+        style :{
+            stroke-dash: 3
+        }
+    }
+}   
+
+Worker :{
+    shape: rectangle
+    width :50
+    style.multiple: true
+}
+
+
+cluster : Orchy Cluseter {
+    direction: right
+    Metadata Service{
+        shape : square
+    }
+    Execution Service{
+        shape : square
+    }
+
+    Consistent Hash Ring :{
+        shape : image
+        icon :https://icons.terrastruct.com/essentials%2F091-share.svg
+    }
+    Shards :{
+        shard1 : {
+            class : shard
+            state machine engine
+            executor
+        }
+        shard2 : {
+            class : shard
+            state machine engine
+            executor
+        }
+        shard3 : {
+            class : shard
+            state machine engine
+            executor
+        }
+    }
+    Storage Interface :{
+        height: 700
+        transfer queue :{
+            shape : queue
+        }
+        persistence service :{
+            shape : square
+        }
+    }
+    Shards -> Storage Interface
+    Consistent Hash Ring -> Execution Service
+    Execution Service -> Shards
+}
+
+user: {
+    shape: person
+    width: 50
+}
+
+storage :{
+    shape : cylinder
+}
+
+queue :{
+    shape : queue
+}
+
+cluster.Storage Interface.persistence service -> storage
+cluster.Storage Interface.transfer queue -> queue : transfer
+user -> cluster.Metadata Service : Http
+user -> cluster.Execution Service : Http
+Worker -> cluster.Consistent Hash Ring : grpc

@@ -1,4 +1,4 @@
-![alt orchy](https://github.com/Mohitkumar/orchy/blob/main/docs/orchy.jpg?raw=true)
+![alt orchy](https://github.com/Mohitkumar/orchy/blob/main/docs/orchy.png?raw=true)
 
 * Metadata Service is responsible for handling workflow and action definition CRUD operations. All opertions related to workflow and action definition are forwarded to persistence layer which stores the data to actual storage used.<br />
 * Execution Service is responsible for handling the workflow execution request. When it receive a workflow execution request it creates an instance of that workflow with a UUID. This workflow instance is stored on a partition of the storage layer. Workflow instances are distributed among the partitions.
