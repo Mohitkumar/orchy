@@ -60,7 +60,7 @@ Workflows are represented using json, above workflow is represented as below
 			"type":"user",
 			"name":"query-db",
 			"parameters":{
-                "userId" : "{$.input.userId}"
+                "userId" : "$.input.userId"
             },
 			"next":{"default":[2]}
 		},
@@ -75,7 +75,7 @@ Workflows are represented using json, above workflow is represented as below
 			"id":3,
 			"type":"system",
 			"name":"switch",
-			"expression":"{$.1.output.user.gender}",
+			"expression":"$.user.gender",
 			"next":{
 				"MALE": [4],
 				"FEMALE": [5]
@@ -86,8 +86,13 @@ Workflows are represented using json, above workflow is represented as below
 			"type":"user",
 			"name":"sendSms",
             "parameters" :{
+<<<<<<< HEAD
                 "phoneNumber" : "{$.1.output.user.phone}",
                 "message" : "Hi {$.input.sms.first.message} get discount {$.2.output.user.discount}%"
+=======
+                "phoneNumber" : "$.user.phone",
+                "message" : "$.input.sms.first.message"
+>>>>>>> parent of 19b8ff7 (string temple)
             },
 			"next":{
 				"default": [6]
@@ -98,9 +103,15 @@ Workflows are represented using json, above workflow is represented as below
 			"type":"user",
 			"name":"sendEmail",
             "parameters" :{
+<<<<<<< HEAD
                 "to" :"{$.1.output.user.email}",
                 "subject" : "{$.input.email.first.subject}",
                 "message" :"{$.input.email.first.message} get discount {$.2.output.user.discount}%"
+=======
+                "to" :"$.user.email",
+                "subject" : "$.input.email.first.subject",
+                "message" :"$.input.email.first.message"
+>>>>>>> parent of 19b8ff7 (string temple)
             },
 			"next":{
 				"default": [7]
@@ -132,8 +143,13 @@ Workflows are represented using json, above workflow is represented as below
 			"type":"user",
 			"name":"sendWahtsapp",
             "parameters" :{
+<<<<<<< HEAD
                "phoneNumber" : "{$.1.output.user.phone}",
                "message" : "{$.input.whatsapp.message} get discount {$.2.output.user.discount}%"
+=======
+               "phoneNumber" : "$.user.phone",
+               "message" : "$.input.whatsapp.message"
+>>>>>>> parent of 19b8ff7 (string temple)
             }
 		},
 		{
@@ -141,8 +157,13 @@ Workflows are represented using json, above workflow is represented as below
 			"type":"user",
 			"name":"sendSms",
             "parameters" :{
+<<<<<<< HEAD
                 "phoneNumber" : "{$.1.output.user.phone}",
                 "message" : "{$.input.sms.second.message} get discount {$.2.output.user.discount}% {$.1.output.user.address.country}"
+=======
+                "phoneNumber" : "$.user.phone",
+                "message" : "$.input.sms.second.message"
+>>>>>>> parent of 19b8ff7 (string temple)
             }
 		},
 		{
@@ -150,9 +171,15 @@ Workflows are represented using json, above workflow is represented as below
 			"type":"user",
 			"name":"sendEmail",
             "parameters" :{
+<<<<<<< HEAD
                 "to" :"{$.1.output.user.email}",
                 "subject" : "{$.input.email.second.subject}",
                 "message" :"{$.input.email.second.message} get discount {$.2.output.user.discount}% {$.1.output.user.address.country}"
+=======
+                "to" :"$.user.email",
+                "subject" : "$.input.email.second.subject",
+                "message" :"$.input.email.second.message"
+>>>>>>> parent of 19b8ff7 (string temple)
             }
 		}
 	]
@@ -208,10 +235,17 @@ curl --location --request POST 'http://localhost:8080/execution' \
     }
 }'
 ```
+<<<<<<< HEAD
 input provided to execute the workflow flows through each action any action can reference input using json-path expression enclosed within {} i.e. ```{$.input.userId}```.<br />
 Also output of previous action can be referenced in next action parameters. i.e ```{$.1.output.user}``` . This reference the parameter ```user``` from the output of action with id 1.
 ## Action/Task
 There could be two types of action in a workflow user defined action or system action.
+=======
+input provided to execute the workflow flows through each action any action can reference input using json-path expression i.e. ```$.input.userId```.<br />
+Also output of previous action can be referenced in next action parameters. i.e ```$.1.output.user``` . This reference the parameter ```user``` from the output of action with id 1.
+## Action(Task)
+There could be two types of actions in a workflow user defined action or system action.
+>>>>>>> parent of 19b8ff7 (string temple)
 
 ### System Action
 System actions are type of action which runs inside the server itself instead of worker. Currently supported system actions are- ```wait```,```delay```,```switch``` and ```javascript```.

@@ -1,8 +1,6 @@
 package util
 
 import (
-	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/mohitkumar/orchy/model"
@@ -24,23 +22,12 @@ func resolveParams(flowData map[string]any, params map[string]any, output map[st
 			output[k] = out
 			resolveParams(flowData, v.(map[string]any), out)
 		case string:
-			tokenMap := make(map[string]any)
-			re := regexp.MustCompile("{(.*?)}")
-			tokens := re.FindAllString(v.(string), -1)
-			for i := range tokens {
-				token := tokens[i]
-				tmatch := strings.ReplaceAll(token, "{", "")
-				tmatch = strings.ReplaceAll(tmatch, "}", "")
-				if strings.HasPrefix(tmatch, "$") {
-					value, _ := jsonpath.JsonPathLookup(flowData, tmatch)
-					tokenMap[token] = value
-				}
+			if strings.HasPrefix(v.(string), "$") {
+				value, _ := jsonpath.JsonPathLookup(flowData, v.(string))
+				output[k] = value
+			} else {
+				output[k] = v
 			}
-			newStr := v.(string)
-			for t, tv := range tokenMap {
-				newStr = strings.ReplaceAll(newStr, t, fmt.Sprintf("%v", tv))
-			}
-			output[k] = newStr
 		case []any:
 			l := v.([]any)
 			output[k] = resolveList(flowData, l)
@@ -59,23 +46,12 @@ func resolveList(flowData map[string]any, list []any) []any {
 			output = append(output, out)
 			resolveParams(flowData, v.(map[string]any), out)
 		case string:
-			tokenMap := make(map[string]any)
-			re := regexp.MustCompile("{(.*?)}")
-			tokens := re.FindAllString(v.(string), -1)
-			for i := range tokens {
-				token := tokens[i]
-				tmatch := strings.ReplaceAll(token, "{", "")
-				tmatch = strings.ReplaceAll(tmatch, "}", "")
-				if strings.HasPrefix(tmatch, "$") {
-					value, _ := jsonpath.JsonPathLookup(flowData, tmatch)
-					tokenMap[token] = value
-				}
+			if strings.HasPrefix(v.(string), "$") {
+				value, _ := jsonpath.JsonPathLookup(flowData, v.(string))
+				output = append(output, value)
+			} else {
+				output = append(output, v)
 			}
-			newStr := v.(string)
-			for t, tv := range tokenMap {
-				newStr = strings.ReplaceAll(newStr, t, fmt.Sprintf("%v", tv))
-			}
-			output = append(output, newStr)
 		case []any:
 			l := v.([]any)
 			outList := resolveList(flowData, l)

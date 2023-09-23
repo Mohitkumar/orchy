@@ -21,7 +21,7 @@ System actions are predefined actions which runs on server itself instead of wor
     "id":2,
     "type":"system",
     "name":"switch",
-    "expression":"{$.1.output.key1}",
+    "expression":"$.1.output.key1",
     "next":{
         "200": [3],
         "300": [4],
@@ -34,14 +34,14 @@ Switch action evalute the value of ```expression``` and that value is matched ag
 ### Javasctipt Action
 ```
 {
-    "id":2,
+    "id":6,
     "type":"system",
     "name":"javascript",
-    "expression":"$['user']=$['1'].output.user;if($['1'].output.user.age >= 20) {$['user']['discount']=20} else{$['user']['discount']=10};",
-    "next":{"default":[3]}
+    "expression":"if($['1'].output.key1 == '200') {$['newKey']='newValue'};",
+    "next":{"default":[7]}
 }
 ```
-Javascript action can run any javascript expression. Input parameters and output of the previous action can be accessed using \$ alias inside javascipt expression. In above example ```$['1'].output.user``` gets the user from the output of action id 1 and ```$['user']['discount']=20``` adds a property to user object ```discount``` with value ```20``` which will be accessible to next nodes using ```{$.2.output.user.discount}```
+Javascript action can run any javascript expression. Input parameters and output of the previous action can be accessed using \$ alias inside javascipt expression. In above example ```$['1'].output.key1``` gets the key1 from the output of action id 1 and ```$['newKey']='newValue'``` adds a new key ```newKey``` with value ```newValue```
 
 ### Wait Action
 ```
