@@ -75,7 +75,7 @@ Workflows are represented using json, above workflow is represented as below
 			"id":3,
 			"type":"system",
 			"name":"switch",
-			"expression":"$.user.gender",
+			"expression":"$.1.output.user.gender",
 			"next":{
 				"MALE": [4],
 				"FEMALE": [5]
@@ -86,7 +86,7 @@ Workflows are represented using json, above workflow is represented as below
 			"type":"user",
 			"name":"sendSms",
             "parameters" :{
-                "phoneNumber" : "$.user.phone",
+                "phoneNumber" : "$.1.output.user.phone",
                 "message" : "$.input.sms.first.message"
             },
 			"next":{
@@ -98,7 +98,8 @@ Workflows are represented using json, above workflow is represented as below
 			"type":"user",
 			"name":"sendEmail",
             "parameters" :{
-                "to" :"$.user.email",
+                "obj":"$.input.email",
+                "to" :"$.1.output.user.email",
                 "subject" : "$.input.email.first.subject",
                 "message" :"$.input.email.first.message"
             },
@@ -132,7 +133,7 @@ Workflows are represented using json, above workflow is represented as below
 			"type":"user",
 			"name":"sendWahtsapp",
             "parameters" :{
-               "phoneNumber" : "$.user.phone",
+               "phoneNumber" : "$.1.output.user.phone",
                "message" : "$.input.whatsapp.message"
             }
 		},
@@ -141,7 +142,7 @@ Workflows are represented using json, above workflow is represented as below
 			"type":"user",
 			"name":"sendSms",
             "parameters" :{
-                "phoneNumber" : "$.user.phone",
+                "phoneNumber" : "$.1.output.user.phone",
                 "message" : "$.input.sms.second.message"
             }
 		},
@@ -150,7 +151,7 @@ Workflows are represented using json, above workflow is represented as below
 			"type":"user",
 			"name":"sendEmail",
             "parameters" :{
-                "to" :"$.user.email",
+                "to" :"$.1.output.user.email",
                 "subject" : "$.input.email.second.subject",
                 "message" :"$.input.email.second.message"
             }
